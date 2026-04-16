@@ -1,6 +1,6 @@
 package com.dppsmart.dppsmart.Security;
 
-import com.dppsmart.dppsmart.Entities.User;
+import com.dppsmart.dppsmart.User.Entities.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

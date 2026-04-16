@@ -1,7 +1,7 @@
 package com.dppsmart.dppsmart.Security;
 
-import com.dppsmart.dppsmart.Entities.User;
-import com.dppsmart.dppsmart.Repositories.UserRepository;
+import com.dppsmart.dppsmart.User.Entities.User;
+import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

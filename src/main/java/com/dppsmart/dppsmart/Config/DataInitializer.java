@@ -1,8 +1,8 @@
 package com.dppsmart.dppsmart.Config;
 
-import com.dppsmart.dppsmart.Entities.Roles;
-import com.dppsmart.dppsmart.Entities.User;
-import com.dppsmart.dppsmart.Repositories.UserRepository;
+import com.dppsmart.dppsmart.User.Entities.Roles;
+import com.dppsmart.dppsmart.User.Entities.User;
+import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;

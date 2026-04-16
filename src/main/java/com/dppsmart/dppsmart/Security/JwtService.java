@@ -1,6 +1,6 @@
 package com.dppsmart.dppsmart.Security;
 
-import com.dppsmart.dppsmart.Entities.User;
+import com.dppsmart.dppsmart.User.Entities.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

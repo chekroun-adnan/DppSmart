@@ -1,7 +1,7 @@
 package com.dppsmart.dppsmart.Security;
 
-import com.dppsmart.dppsmart.Entities.Token;
-import com.dppsmart.dppsmart.Repositories.TokenRepository;
+import com.dppsmart.dppsmart.User.Entities.Token;
+import com.dppsmart.dppsmart.User.Repositories.TokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
