@@ -3,14 +3,11 @@ package com.dppsmart.dppsmart.Organization.DTO;
 import com.dppsmart.dppsmart.Organization.Entities.OrganizationType;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class  CreateOrganizationDto{
+public class UpdateOrganizationDto {
     private String id;
     private String name;
     private OrganizationType type;
     private String parentOrganizationId;
-    private String createdByUserId;
-    private List<String> subOrganizationNames;
+
 }
