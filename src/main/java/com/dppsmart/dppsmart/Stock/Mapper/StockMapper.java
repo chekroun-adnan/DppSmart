@@ -30,6 +30,8 @@ public class StockMapper {
         stockResponseDTO.setMaterialName(s.getMaterialName());
         stockResponseDTO.setMinimumThreshold(s.getMinimumThreshold());
         stockResponseDTO.setOrganizationId(s.getOrganizationId());
+        stockResponseDTO.setLastUpdatedBy(s.getLastUpdatedBy());
+        stockResponseDTO.setUpdatedAt(s.getUpdatedAt());
 
         return stockResponseDTO;
     }

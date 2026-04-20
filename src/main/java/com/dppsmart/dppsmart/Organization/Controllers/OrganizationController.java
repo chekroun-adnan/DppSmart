@@ -41,7 +41,10 @@ public class OrganizationController {
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<Organization> assignSubToMain(
             @RequestBody AssignSubToMain dto) {
-        return ResponseEntity.ok(organizationService.assignSubToMain(dto));
+
+        return ResponseEntity.ok(
+                organizationService.assignSubToMain(dto)
+        );
     }
 
 

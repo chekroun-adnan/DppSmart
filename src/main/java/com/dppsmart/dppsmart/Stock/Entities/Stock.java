@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Document(collation = "stock")
 @Data
 @NoArgsConstructor
@@ -19,4 +21,7 @@ public class Stock {
     private Integer minimumThreshold;
     private String unit;
     private String organizationId;
+    private String createdBy;
+    private String lastUpdatedBy;
+    private LocalDateTime updatedAt;
 }

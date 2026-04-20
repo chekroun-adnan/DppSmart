@@ -21,5 +21,4 @@ public class Organization {
     private OrganizationType organizationType;
     private String parentOrganizationId;
     private String createdByUserId;
-    private List<String> subOrganizationIds;
 }

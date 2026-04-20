@@ -4,7 +4,8 @@ import lombok.Data;
 
 @Data
 public class AssignSubToMain {
-    private String id;
-    private String name;
+    private String subOrganizationId;
+
     private String parentOrganizationId;
+
 }

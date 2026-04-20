@@ -12,5 +12,5 @@ public interface OrganizationRepository extends MongoRepository<Organization, St
 
     List <Organization> findByParentOrganizationId(String parentId);
 
-    Organization findByName(String name);
+    boolean existsByName(String name);
 }
