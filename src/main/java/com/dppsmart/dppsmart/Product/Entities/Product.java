@@ -7,9 +7,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
-@Document(collation = "products")
+@Document(collection = "products")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -25,4 +27,9 @@ public class Product {
     private String dppUrl;
     private String organizationId;
     private List<ProductionStep> productionSteps;
+    private Map<String, Object> additionalInfo;
+    private String createdBy;
+    private String updatedBy;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

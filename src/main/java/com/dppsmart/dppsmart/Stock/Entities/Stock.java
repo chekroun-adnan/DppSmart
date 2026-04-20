@@ -18,4 +18,5 @@ public class Stock {
     private Integer quantity;
     private Integer minimumThreshold;
     private String unit;
+    private String organizationId;
 }
