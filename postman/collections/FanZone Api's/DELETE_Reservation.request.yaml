@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8060/reservation/delete?reservationId=2
+method: DELETE
+queryParams:
+  reservationId: "2"
+order: 27000

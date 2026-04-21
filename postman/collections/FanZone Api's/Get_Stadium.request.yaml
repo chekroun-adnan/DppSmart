@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://localhost:8060/stadium/get?stadium_id=1
+method: GET
+queryParams:
+  stadium_id: "1"
+auth:
+  type: noauth
+order: 18000

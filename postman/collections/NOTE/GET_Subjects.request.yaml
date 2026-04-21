@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET_Subjects
+url: http://localhost:8070/subject/get?teacherUsername=wa hassan
+method: GET
+headers:
+  Authorization: ""
+queryParams:
+  teacherUsername: wa hassan
+order: 8000

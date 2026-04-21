@@ -1,0 +1,7 @@
+$kind: http-request
+name: Get Users
+url: http://localhost:8080/admin/all
+method: GET
+headers:
+  Authorization: "Bearer "
+order: 5000

@@ -38,15 +38,15 @@ public class AdminController {
 
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/delete/account")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?>deleteAnyAccount(@RequestParam String id){
         adminService.deleteAnyAccount(id);
         return ResponseEntity.ok("This account has been deleted");
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/update/password")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateUserPassword(
             @RequestParam String id,
             @RequestBody @Valid PasswordUpdateRequest request

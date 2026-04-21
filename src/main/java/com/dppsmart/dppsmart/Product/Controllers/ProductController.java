@@ -20,7 +20,7 @@ public class ProductController {
         this.productService = productService;
     }
 
-    @PostMapping
+    @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ProductResponseDto create(@RequestBody CreateProductDto dto) {
         return productService.createProduct(dto);

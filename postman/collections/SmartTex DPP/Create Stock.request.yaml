@@ -1,0 +1,17 @@
+$kind: http-request
+name: Create Stock
+url: http://localhost:8080/stock/create
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+      "materialName": "Cotton",
+      "quantity": 500,
+      "minimumThreshold": 100,
+      "unit": "meters",
+      "organizationId": "drJ0E-apMiRWb2pcPHCPs"
+    }
+order: 22000

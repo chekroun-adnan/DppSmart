@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET_Subjects
+url: http://localhost:8070/subject/get/all
+method: GET
+headers:
+  Authorization: ""
+order: 12000

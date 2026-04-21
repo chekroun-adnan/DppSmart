@@ -1,0 +1,17 @@
+$kind: http-request
+url: http://localhost:8070/parapheurDoc/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"dateEtat\": \"2025-08-02\",\r
+
+    \  \"parafeurDocumentEtat\": {\r
+
+    \    \"paraDoc_id\": 1\r
+
+    \  }\r
+
+    }\r\n"
+order: 11000

@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET_AllGroups
+url: http://localhost:8070/group/get/all
+method: GET
+headers:
+  Authorization: ""
+order: 14000

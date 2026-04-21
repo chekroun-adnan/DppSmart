@@ -1,0 +1,7 @@
+$kind: http-request
+url: http://localhost:8080/auth/login?email=adnanchekroun00@gmail.com&password=Password1@
+method: POST
+queryParams:
+  email: adnanchekroun00@gmail.com
+  password: Password1@
+order: 2000

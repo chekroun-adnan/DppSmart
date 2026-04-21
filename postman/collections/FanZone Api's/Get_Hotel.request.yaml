@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://localhost:8060/hotel/get?id=1
+method: GET
+queryParams:
+  id: "1"
+auth:
+  type: noauth
+order: 8000

@@ -1,0 +1,14 @@
+$kind: http-request
+name: Assign Organization
+url: http://localhost:8080/organization/assign-sub
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+      "id": "eSJ-kFGrFPBBsHXnjnBFz",
+      "parentOrganizationId": "PtS1th4VpyDJghwIffdCJ"
+    }
+order: 12000

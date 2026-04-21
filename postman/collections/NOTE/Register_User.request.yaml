@@ -1,0 +1,25 @@
+$kind: http-request
+url: http://localhost:8070/auth/register
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"Anas\",\r
+
+    \  \"username\": \"satsu\",\r
+
+    \  \"email\": \"anas@gmail.com\",\r
+
+    \  \"password\": \"123456789\",\r
+
+    \  \"role\": \"ADMIN\"\r
+
+    \  \r
+
+    }\r
+
+    \r\n"
+auth:
+  type: noauth
+order: 1000

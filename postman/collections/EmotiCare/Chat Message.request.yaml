@@ -1,0 +1,17 @@
+$kind: http-request
+name: Chat Message
+url: http://localhost:8084/chat/send
+method: POST
+headers:
+  Authorization: "Bearer "
+  Content-Type: application/json
+body:
+  type: json
+  content: "{\r
+
+    \    \"userId\" : \"691761886c635a88bc0b860c\",\r
+
+    \  \"message\": \"Hi, I'm feeling stressed today.\"\r
+
+    }"
+order: 16000

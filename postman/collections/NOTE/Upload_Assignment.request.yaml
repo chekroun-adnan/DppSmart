@@ -1,0 +1,23 @@
+$kind: http-request
+name: Upload_Assignment
+url: http://localhost:8070/assignments/upload
+method: POST
+headers:
+  Authorization: ""
+  Content-Type: multipart/form-data
+body:
+  type: formdata
+  content:
+    - type: text
+      key: title
+      value: Math Assignment
+    - type: text
+      key: description
+      value: Solve these problems for the upcoming exam
+    - type: text
+      key: teacherUsername
+      value: teacher1
+    - type: file
+      key: file
+      src: /C:/Users/adnan/Downloads/TP2 - AD.pdf
+order: 17000

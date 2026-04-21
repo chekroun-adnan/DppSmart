@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET_Assignments
+url: http://localhost:8070/assignments/get/all
+method: GET
+headers:
+  Authorization: ""
+order: 20000

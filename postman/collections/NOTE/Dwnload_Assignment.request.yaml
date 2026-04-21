@@ -1,0 +1,7 @@
+$kind: http-request
+name: Dwnload_Assignment
+url: http://localhost:8070/assignments/download/1
+method: GET
+headers:
+  Authorization: "Bearer "
+order: 18000

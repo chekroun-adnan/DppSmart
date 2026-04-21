@@ -1,0 +1,11 @@
+$kind: http-request
+name: Create_Mood
+url: http://localhost:8084/mood/create
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: urlencoded
+  content:
+    mood: happy
+order: 5000

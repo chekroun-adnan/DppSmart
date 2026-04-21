@@ -1,0 +1,14 @@
+$kind: http-request
+name: Create Main Organization
+url: http://localhost:8080/organization/create
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+        "name" : "TEST",
+        "type" : "MAIN"
+    }
+order: 10000

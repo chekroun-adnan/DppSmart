@@ -1,0 +1,9 @@
+$kind: http-request
+name: delete-Assignment
+url: http://localhost:8070/assignments/delete?id=1
+method: DELETE
+headers:
+  Authorization: "Bearer "
+queryParams:
+  id: "1"
+order: 21000

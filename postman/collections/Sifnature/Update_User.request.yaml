@@ -1,0 +1,27 @@
+$kind: http-request
+url: http://localhost:8070/user/update
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"user_id\": 1,\r
+
+    \  \"nom\": \"Adnan\",\r
+
+    \  \"prenom\": \"Chekroun\",\r
+
+    \  \"email\": \"adnan@gmail.com\",\r
+
+    \  \"adresse\": \"kech\",\r
+
+    \  \"code\": \"5678\",\r
+
+    \  \"pass\": \"123456789\",\r
+
+    \  \"telephone\": \"0700000000\",\r
+
+    \  \"date_naissance\": \"2000-05-10\"\r
+
+    }\r\n"
+order: 5000

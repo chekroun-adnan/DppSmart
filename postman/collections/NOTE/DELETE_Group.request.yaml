@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE_Group
+url: http://localhost:8070/group/delete?groupId=1
+method: DELETE
+headers:
+  Authorization: "Bearer "
+queryParams:
+  groupId: "1"
+order: 16000

@@ -1,0 +1,7 @@
+$kind: http-request
+name: New Request
+url: "http://localhost:8084/goals/delete "
+method: DELETE
+headers:
+  Authorization: ""
+order: 14000

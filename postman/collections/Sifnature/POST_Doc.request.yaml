@@ -1,0 +1,15 @@
+$kind: http-request
+url: http://localhost:8070/documents/upload
+method: POST
+body:
+  type: formdata
+  content:
+    - type: text
+      key: title
+      value: myDocumentss
+    - type: file
+      key: file
+      src: /C:/Users/adnan/Downloads/CV Professionnel Comptable Minimaliste Bleu.pdf
+auth:
+  type: noauth
+order: 1000

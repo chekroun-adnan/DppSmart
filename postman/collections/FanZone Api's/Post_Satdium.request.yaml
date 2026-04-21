@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8060/stadium/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"id\": 1,\r
+
+    \  \"name\": \"FanZone Arena\",\r
+
+    \  \"capacity\": 30000,\r
+
+    \  \"description\": \"Main stadium for major events\"\r
+
+    }"
+auth:
+  type: noauth
+order: 17000

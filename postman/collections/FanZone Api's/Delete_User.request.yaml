@@ -1,0 +1,9 @@
+$kind: http-request
+url: http://localhost:8060/user/delete?id=53
+method: DELETE
+queryParams:
+  id: "53"
+body:
+  type: json
+  content: "{\r\n    \"id\": 1\r\n}"
+order: 4000

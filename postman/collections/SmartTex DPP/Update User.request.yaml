@@ -1,0 +1,19 @@
+$kind: http-request
+name: Update User
+url: http://localhost:8080/user/update
+method: PUT
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+        "name": "adnan",
+        "lastName": "chekroun",
+        "email": "adnan11@gmail.com",
+        "password": "Password@",
+        "age": 25
+    }
+auth:
+  type: noauth
+order: 4000

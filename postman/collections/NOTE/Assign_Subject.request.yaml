@@ -1,0 +1,18 @@
+$kind: http-request
+name: Assign_Subject
+url: http://localhost:8070/subject/save
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: "{\r
+
+    \    \r
+
+    \    \"teacher\": \"mr.nadiri\",\r
+
+    \  \"name\": \"WINDOWS\"\r
+
+    }"
+order: 7000

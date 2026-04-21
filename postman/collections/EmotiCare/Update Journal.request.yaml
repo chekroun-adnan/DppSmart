@@ -1,0 +1,4 @@
+$kind: http-request
+url: http://localhost:8084/journal/update
+method: PUT
+order: 10000

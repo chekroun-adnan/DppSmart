@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8070/type/get?type_id=1
+method: GET
+queryParams:
+  type_id: "1"
+order: 9000

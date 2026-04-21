@@ -17,4 +17,5 @@ public class User {
     private Roles role;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String organizationId;
 }

@@ -1,0 +1,21 @@
+$kind: http-request
+url: http://localhost:8060/activity/update
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"id\": 52,\r
+
+    \    \"name\": \"eating\",\r
+
+    \    \"price\": 200.0,\r
+
+    \    \"availableSlots\": \"10\",\r
+
+    \    \"location\": \"Oisiria\"\r
+
+    }"
+auth:
+  type: noauth
+order: 15000

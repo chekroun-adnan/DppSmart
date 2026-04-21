@@ -75,4 +75,11 @@ public class OrganizationController {
         List<Organization> organizations = organizationService.getAllSubOrganizations();
         return ResponseEntity.status(HttpStatus.CREATED).body(organizations);
     }
+
+    @GetMapping("/subs/{mainId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Organization>> getSubsByMain(@PathVariable String mainId) {
+        List<Organization> subs = organizationService.getSubsByMain(mainId);
+        return ResponseEntity.ok(subs);
+    }
 }

@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET Refresh Token
+url: http://localhost:8080/auth/refresh
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "refreshToken": ""
+    }
+order: 6000

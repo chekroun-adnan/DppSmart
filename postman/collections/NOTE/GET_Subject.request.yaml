@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET_Subject
+url: http://localhost:8070/subject/get?subject_Id=11
+method: GET
+headers:
+  Authorization: "Bearer "
+queryParams:
+  subject_Id: "11"
+order: 11000

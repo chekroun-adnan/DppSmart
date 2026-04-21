@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE journal
+url: http://localhost:8084/journal/delete?entryId=692330dc493954ebf1d116b6
+method: DELETE
+headers:
+  Authorization: ""
+queryParams:
+  entryId: 692330dc493954ebf1d116b6
+order: 9000

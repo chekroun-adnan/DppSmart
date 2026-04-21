@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8060/ticket/get?ticketId=52
+method: GET
+queryParams:
+  ticketId: "52"
+order: 21000

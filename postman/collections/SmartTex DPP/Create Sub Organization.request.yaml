@@ -1,0 +1,15 @@
+$kind: http-request
+name: Create Sub Organization
+url: http://localhost:8080/organization/sub/create
+method: POST
+headers:
+  Authorization: ""
+body:
+  type: json
+  content: |-
+    {
+        "parentOrganizationId": "PtS1th4VpyDJghwIffdCJ",
+        "name" : "TEST1",
+        "type" : "SUB"
+    }
+order: 11000

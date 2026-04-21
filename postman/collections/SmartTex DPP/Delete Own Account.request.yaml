@@ -1,0 +1,33 @@
+$kind: http-request
+name: Delete Own Account
+url: http://localhost:8080/user/delete?email=adnan09@gmail.com
+method: DELETE
+headers:
+  Authorization: "Bearer "
+queryParams:
+  email: adnan09@gmail.com
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      if (!pm.environment.get("access_token")) {
+          pm.sendRequest({
+              url: "http://localhost:8080/auth/refresh",
+              method: "POST",
+              header: {
+                  "Content-Type": "application/json"
+              },
+              body: {
+                  mode: "raw",
+                  raw: JSON.stringify({
+                      refreshToken: pm.environment.get("refresh_token")
+                  })
+              }
+          }, function (err, res) {
+              const json = res.json();
+              pm.environment.set("access_token", json.accessToken);
+          });
+      }
+    language: text/javascript
+order: 3000

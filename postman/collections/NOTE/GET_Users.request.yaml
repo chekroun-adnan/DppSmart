@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET_Users
+url: http://localhost:8070/user/all
+method: GET
+headers:
+  Authorization: "Bearer "
+auth:
+  type: noauth
+order: 3000

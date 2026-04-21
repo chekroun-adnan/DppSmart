@@ -1,0 +1,9 @@
+$kind: http-request
+name: Admin deletes account
+url: http://localhost:8080/admin/delete/account?id=69dcf91870a27db9aa72e25e
+method: DELETE
+headers:
+  Authorization: "Bearer "
+queryParams:
+  id: 69dcf91870a27db9aa72e25e
+order: 8000

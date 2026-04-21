@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8060/user/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"nadiri\",\r
+
+    \  \"famillyName\": \"test\",\r
+
+    \  \"email\": \"nadiri@example.com\"\r
+
+    \  \r
+
+    }"
+auth:
+  type: noauth
+order: 1000

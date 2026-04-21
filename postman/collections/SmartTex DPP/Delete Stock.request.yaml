@@ -1,0 +1,9 @@
+$kind: http-request
+name: Delete Stock
+url: http://localhost:8080/stock/delete?id=7Y_Rwt24Tzk6KlgYJ_fsI
+method: DELETE
+headers:
+  Authorization: "Bearer "
+queryParams:
+  id: 7Y_Rwt24Tzk6KlgYJ_fsI
+order: 24000

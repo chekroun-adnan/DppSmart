@@ -1,0 +1,10 @@
+$kind: http-request
+name: Create Goal
+url: http://localhost:8084/goals/create
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: ""
+order: 12000

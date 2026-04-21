@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8060/user/get?id=102
+method: GET
+queryParams:
+  id: "102"
+body:
+  type: json
+  content: "{\r
+
+    \    \"name\": \"sherif\",\r
+
+    \  \"famillyName\": \"ElIdrissi\",\r
+
+    \  \"email\": \"sherif@example.com\"\r
+
+    }"
+auth:
+  type: noauth
+order: 2000

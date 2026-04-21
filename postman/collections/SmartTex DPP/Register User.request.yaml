@@ -1,0 +1,15 @@
+$kind: http-request
+url: http://localhost:8080/auth/register
+method: POST
+body:
+  type: json
+  content: |-
+    {
+        "id" : "1",
+        "firstName": "adnan",
+        "lastName": "chekroun",
+        "email": "adnan7@gmail.com",
+        "password": "1234",
+        "age": 25
+    }
+order: 1000

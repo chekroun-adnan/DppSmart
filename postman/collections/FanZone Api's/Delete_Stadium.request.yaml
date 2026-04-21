@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://localhost:8060/stadium/delete?stadium_id=1
+method: DELETE
+queryParams:
+  stadium_id: "1"
+auth:
+  type: noauth
+order: 19000

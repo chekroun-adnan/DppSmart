@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8070/user/get?user_id=1
+method: GET
+queryParams:
+  user_id: "1"
+order: 3000

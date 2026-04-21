@@ -1,0 +1,27 @@
+$kind: http-request
+url: http://localhost:8060/flight/update
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"id\": 52,\r
+
+    \    \"airline\": \"Air Maroc\",\r
+
+    \    \"departureCity\": \"Paris\",\r
+
+    \    \"arrivalCity\": \"New York\",\r
+
+    \    \"departureTime\": \"2025-05-10T15:45:00\",\r
+
+    \    \"arriveTime\": \"2025-05-10T19:30:00\",\r
+
+    \    \"price\": 450.5,\r
+
+    \    \"availableSeats\": 120\r
+
+    }"
+auth:
+  type: noauth
+order: 12000

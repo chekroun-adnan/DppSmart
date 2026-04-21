@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8060/ticket/delete?ticketId=102
+method: DELETE
+queryParams:
+  ticketId: "102"
+order: 22000

@@ -1,0 +1,25 @@
+$kind: http-request
+url: http://localhost:8070/user/save
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"nom\": \"Adnan\",\r
+
+    \  \"prenom\": \"Chekroun\",\r
+
+    \  \"email\": \"adnan@example.com\",\r
+
+    \  \"adresse\": \"Marrakech\",\r
+
+    \  \"code\": \"1234\",\r
+
+    \  \"pass\": \"password123\",\r
+
+    \  \"telephone\": \"0600000000\",\r
+
+    \  \"date_naissance\": \"2000-01-01\"\r
+
+    }\r\n"
+order: 2000

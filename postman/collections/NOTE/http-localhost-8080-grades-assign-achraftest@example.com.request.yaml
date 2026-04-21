@@ -1,0 +1,10 @@
+$kind: http-request
+name: http://localhost:8080/grades/assign//achraftest@example.com
+url: http://localhost:8080/grades/assign//achraftest@example.com
+method: POST
+body:
+  type: urlencoded
+  content:
+    mark: "85.5"
+    feedback: Good work on the assignment.
+order: 22000

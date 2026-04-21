@@ -1,0 +1,12 @@
+$kind: http-request
+name: Chat_API
+url: http://localhost:8060/api/chat
+method: POST
+headers:
+  Authorization: ""
+body:
+  type: json
+  content: "{\r\n    \"message\" : \"Hello\"\r\n}"
+auth:
+  type: noauth
+order: 28000

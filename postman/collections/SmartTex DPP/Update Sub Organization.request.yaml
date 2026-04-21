@@ -1,0 +1,15 @@
+$kind: http-request
+name: Update Sub Organization
+url: http://localhost:8080/organization/update/sub
+method: PUT
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+      "id": "X5opO1VKnhmEz71N6wyWn",
+      "name": "IT Updated",
+      "parentOrganizationId": "drJ0E-apMiRWb2pcPHCPs"
+    }
+order: 13000

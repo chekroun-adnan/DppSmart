@@ -1,0 +1,18 @@
+$kind: http-request
+name: Update Stock
+url: http://localhost:8080/stock/update
+method: PUT
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: |-
+    {
+        "id" : "7Y_Rwt24Tzk6KlgYJ_fsI",
+      "materialName": "Cottons",
+      "quantity": 500,
+      "minimumThreshold": 100,
+      "unit": "meters",
+      "organizationId": "drJ0E-apMiRWb2pcPHCPs"
+    }
+order: 23000

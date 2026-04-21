@@ -1,0 +1,6 @@
+$kind: http-request
+url: http://localhost:8060/reservation/get?reservationId=1
+method: GET
+queryParams:
+  reservationId: "1"
+order: 26000

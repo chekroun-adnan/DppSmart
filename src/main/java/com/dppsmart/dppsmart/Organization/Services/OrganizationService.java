@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -71,7 +72,16 @@ public class OrganizationService {
         sub.setParentOrganizationId(parent.getId());
         sub.setCreatedByUserId(user.getId());
 
-        return organizationRepository.save(sub);
+        Organization savedSub = organizationRepository.save(sub);
+
+        if (parent.getSubOrganizationIds() == null) {
+            parent.setSubOrganizationIds(new ArrayList<>());
+        }
+
+        parent.getSubOrganizationIds().add(savedSub.getId());
+        organizationRepository.save(parent);
+
+        return savedSub;
     }
 
     // ===================== ASSIGN SUB TO MAIN =====================

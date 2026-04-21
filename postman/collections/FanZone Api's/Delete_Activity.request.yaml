@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://localhost:8060/activity/delete?id=2
+method: DELETE
+queryParams:
+  id: "2"
+auth:
+  type: noauth
+order: 16000

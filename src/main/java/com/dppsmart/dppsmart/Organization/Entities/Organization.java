@@ -1,6 +1,7 @@
 package com.dppsmart.dppsmart.Organization.Entities;
 
 
+import com.dppsmart.dppsmart.Stock.Entities.Stock;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,4 +22,6 @@ public class Organization {
     private OrganizationType organizationType;
     private String parentOrganizationId;
     private String createdByUserId;
+    private List<Stock> stocks;
+    private List<String> subOrganizationIds;
 }

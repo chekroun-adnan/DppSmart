@@ -1,0 +1,13 @@
+$kind: http-request
+url: http://localhost:8070/type/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"libelle\": \"Confidentiel\",\r
+
+    \  \"description\": \"Documents confidentiels\"\r
+
+    }\r\n"
+order: 8000

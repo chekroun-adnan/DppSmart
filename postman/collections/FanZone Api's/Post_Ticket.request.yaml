@@ -1,0 +1,23 @@
+$kind: http-request
+url: http://localhost:8060/ticket/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"match\": \"Real sos vs bar\",\r
+
+    \  \"stadium\": {\r
+
+    \    \"stadium_id\": 2\r
+
+    \  },\r
+
+    \  \"date\": \"2025-05-20\",\r
+
+    \  \"price\": 150.0,\r
+
+    \  \"availableQuantity\": 200\r
+
+    }"
+order: 20000

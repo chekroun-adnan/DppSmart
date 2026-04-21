@@ -1,0 +1,21 @@
+# Use this workspace to collaborate
+workspace:
+  id: d6a2e22d-efb5-4010-9c93-5b7dfb07b4ef
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/SmartTex DPP: 37062347-777369a2-e373-431e-afc0-9bc37954d019
+    ../postman/collections/CyberEdu: 37062347-1ba7fcef-f915-4a3a-bdc9-7e55fe5b330c
+    ../postman/collections/FanZone Api's: 37062347-56dbac3d-9489-4a2b-8069-77b6486797e9
+    ../postman/collections/NOTE: 37062347-60c94d31-7bc7-4651-b3b9-fd6b5dcb59c2
+    ../postman/collections/EmotiCare: 37062347-6dc9c1c3-8d95-453f-a47c-d50fd56dd366
+    ../postman/collections/Test Sec: 37062347-8cafe7bb-7c84-4f91-a6db-b231cd88dc19
+    ../postman/collections/Sifnature: 37062347-c56c3c24-257c-4a32-bfdc-3733f8ec4b7c
+
+# All resources in the `postman/` folder are automatically registered in Local View.
+# Point to additional files outside the `postman/` folder to register them individually. Example:
+#localResources:
+#  collections:
+#    - ../tests/E2E Test Collection/

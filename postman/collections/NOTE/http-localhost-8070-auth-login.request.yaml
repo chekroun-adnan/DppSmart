@@ -1,0 +1,5 @@
+$kind: http-request
+name: http://localhost:8070/auth/login
+url: http://localhost:8070/auth/login
+method: GET
+order: 23000

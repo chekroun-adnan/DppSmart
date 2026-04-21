@@ -1,0 +1,18 @@
+$kind: http-request
+name: Admin Created a User
+url: http://localhost:8080/admin/create
+method: POST
+headers:
+  Authorization: ""
+body:
+  type: json
+  content: |-
+    {
+        "name": "adnan",
+        "lastName": "chekroun",
+        "email": "adnan31@gmail.com",
+        "password": "Password1@",
+        "role": "SUBADMIN"
+
+    }
+order: 7000

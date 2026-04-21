@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE_Subject
+url: http://localhost:8070/subject/delete?subject_Id=9
+method: DELETE
+headers:
+  Authorization: ""
+queryParams:
+  subject_Id: "9"
+order: 9000

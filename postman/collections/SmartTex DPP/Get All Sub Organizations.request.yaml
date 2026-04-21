@@ -1,0 +1,7 @@
+$kind: http-request
+name: Get All Sub Organizations
+url: http://localhost:8080/organization/sub/all
+method: GET
+headers:
+  Authorization: "Bearer "
+order: 15000

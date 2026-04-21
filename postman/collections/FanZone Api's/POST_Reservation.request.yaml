@@ -1,0 +1,21 @@
+$kind: http-request
+url: http://localhost:8060/reservation/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"user\": {\r
+
+    \    \"id\": 3\r
+
+    \  },\r
+
+    \  \"reservationType\": \"TICKET\",\r
+
+    \  \"reservationDate\": \"2025-04-12T15:30:00\",\r
+
+    \  \"status\": \"CONFIRMED\"\r
+
+    }"
+order: 24000

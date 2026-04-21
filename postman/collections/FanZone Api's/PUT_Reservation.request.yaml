@@ -1,0 +1,23 @@
+$kind: http-request
+url: http://localhost:8060/reservation/update
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"reservationId\" : 1,\r
+
+    \  \"user\": {\r
+
+    \    \"id\": 3\r
+
+    \  },\r
+
+    \  \"reservationType\": \"Hotel\",\r
+
+    \  \"reservationDate\": \"2025-04-12T15:30:00\",\r
+
+    \  \"status\": \"CONFIRMED\"\r
+
+    }"
+order: 25000

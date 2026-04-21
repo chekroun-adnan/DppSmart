@@ -1,0 +1,17 @@
+$kind: http-request
+url: http://localhost:8060/activity/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"name\": \"Hiking Trip\",\r
+
+    \  \"location\": \"Atlas Mountains\",\r
+
+    \  \"price\": 200.0,\r
+
+    \  \"availableSlots\": \"10\"\r
+
+    }"
+order: 13000

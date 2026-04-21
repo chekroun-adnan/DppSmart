@@ -1,0 +1,21 @@
+$kind: http-request
+url: http://localhost:8060/hotel/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"Royal Mansour\",\r
+
+    \  \"location\": \"Rue Abou Abbas El Sebti، 40000\",\r
+
+    \  \"pricePerNight\": 50000,\r
+
+    \  \"availableRooms\": 10,\r
+
+    \  \"description\": \"Un hôtel charmant au cœur de Marrakech avec piscine et spa.\"\r
+
+    }"
+auth:
+  type: noauth
+order: 5000

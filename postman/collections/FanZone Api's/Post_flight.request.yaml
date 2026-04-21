@@ -1,0 +1,25 @@
+$kind: http-request
+url: http://localhost:8060/flight/add
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \   \"airline\": \"Air France\",\r
+
+    \  \"departureCity\": \"Paris\",\r
+
+    \  \"arrivalCity\": \"New York\",\r
+
+    \  \"departureTime\": \"2025-05-10T15:45:00\",\r
+
+    \  \"arriveTime\": \"2025-05-10T19:30:00\",\r
+
+    \  \"price\": 450.5,\r
+
+    \  \"availableSeats\": 120\r
+
+    }"
+auth:
+  type: noauth
+order: 9000

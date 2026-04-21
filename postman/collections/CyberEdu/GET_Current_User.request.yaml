@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET_Current_User
+url: http://localhost:8070/api/auth/me
+method: GET
+headers:
+  Authorization: "Bearer "
+order: 3000

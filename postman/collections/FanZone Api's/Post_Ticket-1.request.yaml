@@ -1,0 +1,24 @@
+$kind: http-request
+name: Post_Ticket
+url: http://localhost:8060/ticket/update
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"ticketId\" : 152,\r
+
+    \  \"match\": \"Real sos vs bar\",\r
+
+    \  \"stadium\": {\r
+
+    \    \"stadium_id\": 52\r
+
+    \  },\r
+
+    \  \"price\" : 150.0,\r
+
+    \  \"date\" : \"2025-04-20\"\r
+
+    }"
+order: 23000

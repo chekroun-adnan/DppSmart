@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET_Group
+url: http://localhost:8070/group/get?groupId=1
+method: GET
+headers:
+  Authorization: ""
+queryParams:
+  groupId: "1"
+order: 15000

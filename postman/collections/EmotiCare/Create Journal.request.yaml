@@ -1,0 +1,14 @@
+$kind: http-request
+name: Create Journal
+url: http://localhost:8084/journal/create
+method: POST
+headers:
+  Authorization: "Bearer "
+body:
+  type: json
+  content: "{\r
+
+    \  \"content\": \"Today I felt really happy after my workout.\"\r
+
+    }"
+order: 8000

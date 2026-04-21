@@ -1,0 +1,20 @@
+$kind: http-request
+name: Update_Assignment
+url: http://localhost:8070/assignments/update/2
+method: PUT
+headers:
+  Authorization: "Bearer "
+  Content-Type: multipart/form-data
+body:
+  type: formdata
+  content:
+    - type: file
+      key: file
+      src: /C:/Users/adnan/Downloads/Azure.pdf
+    - type: text
+      key: title
+      value: Updated Assignment Titl
+    - type: text
+      key: Description
+      value: This is the updated description for the assignment
+order: 19000
