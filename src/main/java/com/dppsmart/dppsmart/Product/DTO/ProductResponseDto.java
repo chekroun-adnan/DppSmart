@@ -1,6 +1,6 @@
 package com.dppsmart.dppsmart.Product.DTO;
 
-import com.dppsmart.dppsmart.Product.Entities.ProductionStep;
+import com.dppsmart.dppsmart.Production.Entities.ProductionStep;
 import lombok.Data;
 
 import java.util.List;
@@ -24,4 +24,8 @@ public class ProductResponseDto {
 
     private Map<String, Object> additionalInfo;
 
+    // AI-enriched fields (computed server-side; not persisted)
+    private Integer aiScore; // 0..100
+    private List<String> aiMissingFields;
+    private String aiSummary;
 }

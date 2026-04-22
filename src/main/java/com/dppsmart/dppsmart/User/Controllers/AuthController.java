@@ -10,10 +10,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequestMapping("/auth")
@@ -36,5 +39,12 @@ public class AuthController {
     @PostMapping("/refresh")
     public AuthResponse refresh(@RequestBody RefreshRequest request) {
         return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        authService.logout(authorization);
+        return ResponseEntity.ok().build();
     }
 }

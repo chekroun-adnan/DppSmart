@@ -142,4 +142,18 @@ public class AuthService {
 
         tokenRepository.saveAll(tokens);
     }
+
+    public void logout(String bearerToken) {
+        if (bearerToken == null || !bearerToken.startsWith("Bearer ")) {
+            throw new RuntimeException("Missing Authorization header");
+        }
+
+        String tokenValue = bearerToken.substring(7);
+        Token token = tokenRepository.findByToken(tokenValue)
+                .orElseThrow(() -> new RuntimeException("Token not found"));
+
+        token.setRevoked(true);
+        token.setExpired(true);
+        tokenRepository.save(token);
+    }
 }

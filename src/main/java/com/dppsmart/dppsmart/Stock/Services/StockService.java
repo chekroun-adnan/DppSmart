@@ -2,6 +2,8 @@ package com.dppsmart.dppsmart.Stock.Services;
 
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
+import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Organization.Entities.Organization;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
@@ -42,18 +44,17 @@ public class StockService {
         String email = auth.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Organization organization = organizationRepository.findById(dto.getOrganizationId())
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                .orElseThrow(() -> new NotFoundException("Organization not found"));
 
-        if (user.getRole() != Roles.ADMIN && user.getRole() != Roles.SUBADMIN) {
-            throw new RuntimeException("You are not allowed to create stock");
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to create stock");
         }
 
-        if (user.getRole() == Roles.SUBADMIN &&
-                !user.getOrganizationId().equals(organization.getId())) {
-            throw new RuntimeException("SUB_ADMIN cannot assign stock to another organization");
+        if (!permissionService.canAccessOrganization(user, organization.getId())) {
+            throw new ForbiddenException("You are not allowed to use this organization");
         }
 
         Stock stock = stockMapper.toEntity(dto);
@@ -80,21 +81,20 @@ public class StockService {
         String email = auth.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User Not Found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Stock stock = stockRepository.findById(dto.getId())
-                .orElseThrow(() -> new RuntimeException("Stock Not Found"));
+                .orElseThrow(() -> new NotFoundException("Stock not found"));
 
         Organization organization = organizationRepository.findById(stock.getOrganizationId())
-                .orElseThrow(() -> new RuntimeException("Organization Not Found"));
+                .orElseThrow(() -> new NotFoundException("Organization not found"));
 
-        if (user.getRole() != Roles.ADMIN && user.getRole() != Roles.SUBADMIN) {
-            throw new RuntimeException("You are not allowed to update stock");
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to update stock");
         }
 
-        if (user.getRole() == Roles.SUBADMIN &&
-                !user.getOrganizationId().equals(stock.getOrganizationId())) {
-            throw new RuntimeException("SUB_ADMIN cannot update stock of another organization");
+        if (!permissionService.canAccessOrganization(user, stock.getOrganizationId())) {
+            throw new ForbiddenException("You are not allowed to update this stock");
         }
 
         Stock updatedStock = applyUpdates(stock, dto);
@@ -136,7 +136,7 @@ public class StockService {
             stock.setMinimumThreshold(dto.getMinimumThreshold());
         }
 
-        return stockRepository.save(stock);
+        return stock;
     }
     public void deleteStock(String stockId) {
 
@@ -144,21 +144,20 @@ public class StockService {
         String email = auth.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User Not Found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Stock stock = stockRepository.findById(stockId)
-                .orElseThrow(() -> new RuntimeException("Stock Not Found"));
+                .orElseThrow(() -> new NotFoundException("Stock not found"));
 
         Organization organization = organizationRepository.findById(stock.getOrganizationId())
-                .orElseThrow(() -> new RuntimeException("Organization Not Found"));
+                .orElseThrow(() -> new NotFoundException("Organization not found"));
 
-        if (user.getRole() != Roles.ADMIN && user.getRole() != Roles.SUBADMIN) {
-            throw new RuntimeException("You are not allowed to delete this stock");
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to delete stock");
         }
 
-        if (user.getRole() == Roles.SUBADMIN &&
-                !user.getOrganizationId().equals(stock.getOrganizationId())) {
-            throw new RuntimeException("SUB_ADMIN cannot delete stock from another organization");
+        if (!permissionService.canAccessOrganization(user, stock.getOrganizationId())) {
+            throw new ForbiddenException("You are not allowed to delete this stock");
         }
 
         stockRepository.delete(stock);
@@ -168,8 +167,6 @@ public class StockService {
             organizationRepository.save(organization);
         }
     }
-
-
 
 }
 

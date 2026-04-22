@@ -6,7 +6,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collation = "employees")
+import java.time.LocalDateTime;
+
+@Document(collection = "employees")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,4 +20,9 @@ public class Employees {
     private String role;
     private String department;
     private Double performanceScore;
+    private String organizationId;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String createdBy;
+    private String updatedBy;
 }

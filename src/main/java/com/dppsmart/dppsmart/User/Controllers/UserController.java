@@ -19,6 +19,12 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserDto> me(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(userService.getByEmail(userDetails.getUsername()));
+    }
+
     @PutMapping("/update")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateUser(

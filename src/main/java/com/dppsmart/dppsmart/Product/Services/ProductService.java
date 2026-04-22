@@ -8,6 +8,13 @@ import com.dppsmart.dppsmart.Product.DTO.ProductResponseDto;
 import com.dppsmart.dppsmart.Product.Entities.Product;
 import com.dppsmart.dppsmart.Product.Mapper.ProductMapper;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
+import com.dppsmart.dppsmart.Ai.Services.ProductAiScoringService;
+import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
+import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
+import com.dppsmart.dppsmart.Security.PermissionService;
+import com.dppsmart.dppsmart.User.Entities.Roles;
+import com.dppsmart.dppsmart.User.Entities.User;
+import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -29,15 +36,27 @@ public class ProductService {
     private QRCodeService qrCodeService;
     @Autowired
     private OrganizationRepository organizationRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PermissionService permissionService;
+    @Autowired
+    private ProductAiScoringService productAiScoringService;
 
     public ProductResponseDto createProduct(CreateProductDto dto) {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String currentUser = auth.getName();
+        User user = getCurrentUser();
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to create products");
+        }
 
         Organization organization = organizationRepository
                 .findById(dto.getOrganizationId())
-                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                .orElseThrow(() -> new NotFoundException("Organization not found"));
+
+        if (!permissionService.canAccessOrganization(user, organization.getId())) {
+            throw new ForbiddenException("You are not allowed to use this organization");
+        }
 
         Product product = productMapper.toEntity(dto);
 
@@ -46,8 +65,8 @@ public class ProductService {
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
 
-        product.setCreatedBy(currentUser);
-        product.setUpdatedBy(currentUser);
+        product.setCreatedBy(user.getEmail());
+        product.setUpdatedBy(user.getEmail());
 
         Product saved = productRepository.save(product);
 
@@ -59,40 +78,58 @@ public class ProductService {
 
         saved = productRepository.save(saved);
 
-        return productMapper.toDto(saved);
+        return enrichWithAi(productMapper.toDto(saved), saved);
     }
 
     public ProductResponseDto getProductById(String id) {
+        User user = getCurrentUser();
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new NotFoundException("Product not found"));
 
-        return productMapper.toDto(product);
+        if (!permissionService.canAccessOrganization(user, product.getOrganizationId())) {
+            throw new ForbiddenException("You are not allowed to access this product");
+        }
+
+        return enrichWithAi(productMapper.toDto(product), product);
     }
 
     public ProductResponseDto getDpp(String id) {
-        return getProductById(id);
+        // DPP is public read, but we still compute AI score locally (no external call)
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Product not found"));
+        return enrichWithAi(productMapper.toDto(product), product);
     }
 
     public ProductResponseDto updateProduct(CreateProductDto dto) {
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String currentUser = auth.getName();
+        User user = getCurrentUser();
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to update products");
+        }
 
         Product product = productRepository.findById(dto.getId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new NotFoundException("Product not found"));
+
+        if (!permissionService.canAccessOrganization(user, product.getOrganizationId())) {
+            throw new ForbiddenException("You are not allowed to update this product");
+        }
 
         product.setProductName(dto.getProductName());
-        product.setOrganizationId(dto.getOrganizationId());
         product.setCategory(dto.getCategory());
         product.setMaterial(dto.getMaterial());
         product.setCertification(dto.getCertification());
-        product.setOrganizationId(dto.getOrganizationId());
+        if (dto.getOrganizationId() != null && !dto.getOrganizationId().isBlank()) {
+            if (!permissionService.canAccessOrganization(user, dto.getOrganizationId())) {
+                throw new ForbiddenException("You are not allowed to move product to another organization");
+            }
+            product.setOrganizationId(dto.getOrganizationId());
+        }
         product.setProductionSteps(dto.getProductionSteps());
         product.setAdditionalInfo(dto.getAdditionalInfo());
 
         product.setUpdatedAt(LocalDateTime.now());
-        product.setUpdatedBy(currentUser);
+        product.setUpdatedBy(user.getEmail());
 
         String dppUrl = "http://localhost:8080/api/products/" + product.getId() + "/dpp";
         product.setDppUrl(dppUrl);
@@ -102,21 +139,46 @@ public class ProductService {
 
         Product updated = productRepository.save(product);
 
-        return productMapper.toDto(updated);
+        return enrichWithAi(productMapper.toDto(updated), updated);
     }
 
     public void deleteProduct(String id) {
+        User user = getCurrentUser();
+        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
+            throw new ForbiddenException("You are not allowed to delete products");
+        }
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new NotFoundException("Product not found"));
+
+        if (!permissionService.canAccessOrganization(user, product.getOrganizationId())) {
+            throw new ForbiddenException("You are not allowed to delete this product");
+        }
 
         productRepository.delete(product);
     }
 
     public List<ProductResponseDto> getAllProducts() {
+        User user = getCurrentUser();
         return productRepository.findAll()
                 .stream()
-                .map(productMapper::toDto)
+                .filter(p -> permissionService.canAccessOrganization(user, p.getOrganizationId()))
+                .map(p -> enrichWithAi(productMapper.toDto(p), p))
                 .toList();
+    }
+
+    private ProductResponseDto enrichWithAi(ProductResponseDto dto, Product product) {
+        var score = productAiScoringService.scoreProduct(product);
+        dto.setAiScore(score.getScore());
+        dto.setAiMissingFields(score.getMissingFields());
+        dto.setAiSummary(score.getSummary());
+        return dto;
+    }
+
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) throw new ForbiddenException("Unauthenticated");
+        return userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

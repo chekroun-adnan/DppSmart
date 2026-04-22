@@ -1,16 +1,13 @@
 package com.dppsmart.dppsmart.Organization.DTO;
 
 import com.dppsmart.dppsmart.Organization.Entities.OrganizationType;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class  CreateOrganizationDto{
-    private String id;
+public class CreateOrganizationDto {
+    @NotBlank(message = "name is required")
     private String name;
-    private OrganizationType type;
     private String parentOrganizationId;
-    private String createdByUserId;
-    private List<String> subOrganizationNames;
+    private OrganizationType type;
 }

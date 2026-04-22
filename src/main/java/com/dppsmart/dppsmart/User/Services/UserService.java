@@ -6,6 +6,7 @@ import com.dppsmart.dppsmart.User.DTO.UserDto;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Mapper.AuthMapper;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,11 +25,17 @@ public class UserService {
     @Autowired
     private AuthService authService;
 
+    public UserDto getByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        return AuthMapper.toDto(user);
+    }
+
     @PreAuthorize("isAuthenticated()")
     public UserDto updateOwnInfo(UpdateUserDto dto, String email) {
 
         User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (dto.getName() != null && !dto.getName().isEmpty()) {
             currentUser.setName(dto.getName());
@@ -49,7 +56,7 @@ public class UserService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         userRepository.delete(user);
     }

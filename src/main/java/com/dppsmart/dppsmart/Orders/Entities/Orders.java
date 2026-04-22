@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Document(collation = "orders")
+@Document(collection = "orders")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,7 +18,11 @@ public class Orders {
     private String id;
     private String orderReference;
     private String productId;
+    private String organizationId;
     private Integer quantity;
     private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String createdBy;
+    private String updatedBy;
 }

@@ -2,9 +2,9 @@ package com.dppsmart.dppsmart.User.Controllers;
 
 
 import com.dppsmart.dppsmart.User.DTO.AdminCreateUserDto;
+import com.dppsmart.dppsmart.User.DTO.AdminUpdateUserDto;
 import com.dppsmart.dppsmart.User.DTO.PasswordUpdateRequest;
 import com.dppsmart.dppsmart.User.DTO.UserDto;
-import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Services.AdminService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,16 +33,28 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/get/all")
     public ResponseEntity<?> getAllUsers(){
-            List<User> users = adminService.getAllUsers();
-            return ResponseEntity.status(HttpStatus.CREATED).body(users);
+            List<UserDto> users = adminService.getAllUsers();
+            return ResponseEntity.ok(users);
 
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/users/{id}")
+    public ResponseEntity<UserDto> getUserById(@PathVariable String id) {
+        return ResponseEntity.ok(adminService.getUserById(id));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/users/{id}")
+    public ResponseEntity<UserDto> updateUser(@PathVariable String id, @RequestBody @Valid AdminUpdateUserDto dto) {
+        return ResponseEntity.ok(adminService.updateUser(id, dto));
     }
 
     @DeleteMapping("/delete/account")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?>deleteAnyAccount(@RequestParam String id){
         adminService.deleteAnyAccount(id);
-        return ResponseEntity.ok("This account has been deleted");
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/update/password")
