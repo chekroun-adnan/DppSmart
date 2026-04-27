@@ -55,9 +55,35 @@ public class GroqService {
         this.permissionService = permissionService;
     }
 
+    private static final String CLIENT_CONTEXT_PREFIX = "[CLIENT_CONTEXT]";
+
+    private static final String CLIENT_SYSTEM_PROMPT = """
+            You are a helpful product assistant for customers of SmartTex DPP.
+            You ONLY help clients with:
+            - Understanding product information (materials, category, origin)
+            - Reading and interpreting Digital Product Passports (DPP)
+            - Understanding certifications and sustainability data
+            - Explaining what a Digital Product Passport is
+            - General questions about product quality and eco-labels
+            You must NEVER help with or discuss: creating products, managing employees, production management, stock management, orders management, analytics, organization settings, user management, AI scores, or any administrative tasks.
+            If asked about anything outside your scope, respond: "I can only help you with product information and Digital Product Passports. For other questions, please contact support."
+            Keep answers concise, friendly, and focused on the product the client is asking about.
+            """;
+
+    private static final String STAFF_SYSTEM_PROMPT = """
+            You are a helpful assistant for the DppSmart application.
+            You help users with Digital Product Passport (DPP) management: products, production steps, scans, stock, orders, organizations, and users.
+            If the question is unrelated to DppSmart, politely say you only help with DppSmart topics.
+            Keep answers short and actionable.
+            """;
+
     public String chat(AiChatRequestDto dto) {
         User user = getCurrentUser();
-        String userMessage = dto.getMessage() == null ? "" : dto.getMessage().trim();
+        String rawMessage = dto.getMessage() == null ? "" : dto.getMessage().trim();
+        boolean isClientContext = rawMessage.startsWith(CLIENT_CONTEXT_PREFIX);
+        String userMessage = isClientContext ? rawMessage.substring(CLIENT_CONTEXT_PREFIX.length()).trim() : rawMessage;
+        boolean isClient = user.getRole() != null && user.getRole().name().equals("CLIENT");
+        boolean useClientPrompt = isClient || isClientContext;
         String lower = userMessage.toLowerCase(Locale.ROOT);
 
         if (containsAny(lower, "list products", "show products", "available products")) {
@@ -130,12 +156,7 @@ public class GroqService {
 
         Map<String, String> systemMessage = Map.of(
                 "role", "system",
-                "content", """
-                    You are a helpful assistant for the DppSmart application.
-                    You help users with Digital Product Passport (DPP) management: products, production steps, scans, stock, orders, organizations, and users.
-                    If the question is unrelated to DppSmart, politely say you only help with DppSmart topics.
-                    Keep answers short and actionable.
-                    """
+                "content", useClientPrompt ? CLIENT_SYSTEM_PROMPT : STAFF_SYSTEM_PROMPT
         );
         Map<String, String> userMsg = Map.of("role", "user", "content", userMessage);
 
