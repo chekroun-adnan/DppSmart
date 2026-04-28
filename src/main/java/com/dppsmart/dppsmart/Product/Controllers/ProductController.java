@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -58,10 +59,28 @@ public class ProductController {
         return "Product deleted successfully";
     }
 
+    @PostMapping("/{id}/image")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ProductResponseDto uploadProductImage(@PathVariable String id, @RequestParam("file") MultipartFile file) {
+        return productService.uploadProductImage(id, file);
+    }
+
     @GetMapping("/get/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT','EMPLOYEE')")
     public ResponseEntity<?>getAllProducts(){
         List<ProductResponseDto> products = productService.getAllProducts();
-        return ResponseEntity.status(HttpStatus.CREATED).body(products);
+        return ResponseEntity.status(HttpStatus.OK).body(products);
+    }
+
+    @PostMapping("/import/csv")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<?> importProductsFromCsv(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("organizationId") String organizationId) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("File is empty");
+        }
+        List<ProductResponseDto> products = productService.importProductsFromCsv(file, organizationId);
+        return ResponseEntity.status(HttpStatus.OK).body(products);
     }
 }

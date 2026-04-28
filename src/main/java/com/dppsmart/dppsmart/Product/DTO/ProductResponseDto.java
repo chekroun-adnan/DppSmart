@@ -1,6 +1,6 @@
 package com.dppsmart.dppsmart.Product.DTO;
 
-import com.dppsmart.dppsmart.Production.Entities.ProductionStep;
+import com.dppsmart.dppsmart.Product.Entities.MaterialComposition;
 import lombok.Data;
 
 import java.util.List;
@@ -9,23 +9,33 @@ import java.util.Map;
 @Data
 public class ProductResponseDto {
 
+    // Passport metadata
     private String id;
-    private String productName;
-    private String category;
-    private String material;
-    private String certification;
+    private String passportId;
+    private String publicSlug;
+    private Integer version;
+    private String lastUpdated;
 
+    // Product identity
+    private String companyName;
+    private String productName;
+    private String variantName;
+    private String sku;
+
+    // Detailed fields
+    private List<MaterialComposition> materialsComposition;
+    private String endOfLifeInstructions;
+
+    // Dynamic extra fields
+    private Map<String, Object> extraFields;
+
+    // System
     private String qrUrl;
     private String dppUrl;
-
     private String organizationId;
 
-    private List<ProductionStep> productionSteps;
-
-    private Map<String, Object> additionalInfo;
-
-    // AI-enriched fields (computed server-side; not persisted)
-    private Integer aiScore; // 0..100
+    // AI
+    private Integer aiScore;
     private List<String> aiMissingFields;
     private String aiSummary;
 }
