@@ -17,6 +17,8 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class OrdersService {
     private final UserRepository userRepository;
     private final PermissionService permissionService;
 
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
         User user = getCurrentUser();
 
@@ -61,6 +64,7 @@ public class OrdersService {
         return OrdersMapper.toDto(ordersRepository.save(order));
     }
 
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto update(UpdateOrderDto dto) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
@@ -100,6 +104,7 @@ public class OrdersService {
         return OrdersMapper.toDto(ordersRepository.save(order));
     }
 
+    @Cacheable(value = "orders", key = "#id")
     public OrderResponseDto getById(String id) {
         User user = getCurrentUser();
         Orders order = ordersRepository.findById(id)
@@ -116,6 +121,7 @@ public class OrdersService {
         return OrdersMapper.toDto(order);
     }
 
+    @Cacheable(value = "allOrders")
     public List<OrderResponseDto> getAll() {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT) {
@@ -141,6 +147,7 @@ public class OrdersService {
                 .toList();
     }
 
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public void delete(String id) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
