@@ -17,6 +17,8 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class StockService {
     @Autowired
     private PermissionService permissionService;
 
+    @CacheEvict(value = {"stocks", "allStocks"}, allEntries = true)
     public Stock createStock(CreateStockDTO dto) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -75,6 +78,7 @@ public class StockService {
         return savedStock;
     }
 
+    @CacheEvict(value = {"stocks", "allStocks"}, allEntries = true)
     public Stock updateStock(UpdatedStockDTO dto) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -138,6 +142,18 @@ public class StockService {
 
         return stock;
     }
+    @Cacheable(value = "allStocks")
+    public List<Stock> getAll() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        return stockRepository.findAll().stream()
+                .filter(s -> user.getRole() == Roles.ADMIN || permissionService.canAccessOrganization(user, s.getOrganizationId()))
+                .toList();
+    }
+
+    @CacheEvict(value = {"stocks", "allStocks"}, allEntries = true)
     public void deleteStock(String stockId) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

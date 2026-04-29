@@ -3,7 +3,10 @@ package com.dppsmart.dppsmart.Stock.Controllers;
 
 import com.dppsmart.dppsmart.Stock.DTO.CreateStockDTO;
 import com.dppsmart.dppsmart.Stock.DTO.UpdatedStockDTO;
+import com.dppsmart.dppsmart.Stock.Entities.Stock;
 import com.dppsmart.dppsmart.Stock.Services.StockService;
+
+import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,12 @@ public class StockController {
 
     @Autowired
     private StockService stockService;
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<List<Stock>> getAll() {
+        return ResponseEntity.ok(stockService.getAll());
+    }
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
