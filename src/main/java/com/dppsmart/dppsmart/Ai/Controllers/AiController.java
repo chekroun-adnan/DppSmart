@@ -39,6 +39,12 @@ public class AiController {
         return ResponseEntity.ok(ApiResponse.ok("ok", new AiChatResponseDto(reply)));
     }
 
+    @PostMapping("/public/chat")
+    public ResponseEntity<ApiResponse<AiChatResponseDto>> publicChat(@RequestBody @Valid AiChatRequestDto dto) {
+        String reply = groqService.publicChat(dto.getMessage());
+        return ResponseEntity.ok(ApiResponse.ok("ok", new AiChatResponseDto(reply)));
+    }
+
     @GetMapping("/products/{productId}/score")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE','CLIENT')")
     public ResponseEntity<ApiResponse<ProductAiScoreDto>> productScore(@PathVariable String productId) {

@@ -581,9 +581,9 @@ public class AiAssistantService {
                 """.formatted(
                 p.getId(),
                 safe(p.getProductName()),
-                safe(p.getCategory()),
-                safe(p.getMaterial()),
-                safe(p.getCertification()),
+                safe(p.getCompanyName()),
+                safe(p.getSku()),
+                safe(p.getVariantName()),
                 score.getScore(),
                 score.getSummary(),
                 String.join(", ", score.getMissingFields()),

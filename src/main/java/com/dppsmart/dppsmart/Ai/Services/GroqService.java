@@ -55,6 +55,19 @@ public class GroqService {
         this.permissionService = permissionService;
     }
 
+    private static final String PUBLIC_SYSTEM_PROMPT = """
+            You are a friendly assistant on the SmartTex DPP landing page.
+            You help visitors learn about:
+            - SmartTex DPP: a Digital Product Passport platform for textile and fashion companies
+            - Atelier IKS: the company behind SmartTex DPP, a technology studio specializing in sustainable fashion tech
+            - What a Digital Product Passport (DPP) is and why it matters for sustainability and EU regulations
+            - How SmartTex DPP helps brands track materials, certifications, production steps, and eco-labels
+            - General questions about sustainability, traceability, and compliance in the fashion industry
+            You do NOT have access to any specific product data or user accounts.
+            If asked about something outside this scope, say: "I can help you learn about SmartTex DPP and Digital Product Passports. For specific account questions, please sign in or contact us."
+            Keep answers concise and welcoming.
+            """;
+
     private static final String CLIENT_CONTEXT_PREFIX = "[CLIENT_CONTEXT]";
 
     private static final String CLIENT_SYSTEM_PROMPT = """
@@ -136,9 +149,9 @@ public class GroqService {
                     throw new ForbiddenException("You are not allowed to access this product");
                 }
                 return "Product: " + safe(p.getProductName()) + "\n"
-                        + "- category: " + safe(p.getCategory()) + "\n"
-                        + "- material: " + safe(p.getMaterial()) + "\n"
-                        + "- certification: " + safe(p.getCertification());
+                        + "- SKU: " + safe(p.getSku()) + "\n"
+                        + "- Materials: " + safe(p.getMaterialsComposition() != null ? p.getMaterialsComposition().toString() : null) + "\n"
+                        + "- End of Life: " + safe(p.getEndOfLifeInstructions());
             }
         }
 
@@ -190,6 +203,41 @@ public class GroqService {
             throw new RuntimeException("Groq API returned invalid message format");
         }
 
+        Object content = msgMap.get("content");
+        return content == null ? "" : content.toString();
+    }
+
+    public String publicChat(String message) {
+        String userMessage = message == null ? "" : message.trim();
+        if (userMessage.isBlank()) return "How can I help you?";
+
+        if (apiKey == null || apiKey.isBlank()) {
+            return "I can answer questions about SmartTex DPP and Atelier IKS. The AI service is not fully configured yet — please contact us directly.";
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(apiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", model);
+        payload.put("messages", List.of(
+                Map.of("role", "system", "content", PUBLIC_SYSTEM_PROMPT),
+                Map.of("role", "user", "content", userMessage)
+        ));
+        payload.put("temperature", 0.3);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+        ResponseEntity<Map> response = restTemplate.exchange(apiUrl, HttpMethod.POST, entity, Map.class);
+
+        if (response.getStatusCode().isError() || response.getBody() == null) return "Sorry, I couldn't get a response. Please try again.";
+
+        Object choicesObj = response.getBody().get("choices");
+        if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) return "";
+        Object first = choices.get(0);
+        if (!(first instanceof Map<?, ?> firstMap)) return "";
+        Object msgObj = firstMap.get("message");
+        if (!(msgObj instanceof Map<?, ?> msgMap)) return "";
         Object content = msgMap.get("content");
         return content == null ? "" : content.toString();
     }

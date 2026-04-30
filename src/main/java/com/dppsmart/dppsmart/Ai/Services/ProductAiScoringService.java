@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class ProductAiScoringService {
@@ -15,22 +14,15 @@ public class ProductAiScoringService {
         List<String> missing = new ArrayList<>();
 
         if (isBlank(p.getProductName())) missing.add("productName");
-        if (isBlank(p.getCategory())) missing.add("category");
-        if (isBlank(p.getMaterial())) missing.add("material");
-        if (isBlank(p.getCertification())) missing.add("certification");
+        if (isBlank(p.getCompanyName())) missing.add("companyName");
+        if (isBlank(p.getSku())) missing.add("sku");
+        if (isBlank(p.getVariantName())) missing.add("variantName");
+        if (isBlank(p.getEndOfLifeInstructions())) missing.add("endOfLifeInstructions");
         if (isBlank(p.getOrganizationId())) missing.add("organizationId");
-        if (p.getProductionSteps() == null || p.getProductionSteps().isEmpty()) missing.add("productionSteps");
+        if (p.getMaterialsComposition() == null || p.getMaterialsComposition().isEmpty()) missing.add("materialsComposition");
+        if (p.getExtraFields() == null || p.getExtraFields().isEmpty()) missing.add("extraFields");
 
-        Map<String, Object> additional = p.getAdditionalInfo();
-        if (additional == null || additional.isEmpty()) {
-            missing.add("additionalInfo");
-        } else {
-            if (!additional.containsKey("origin")) missing.add("additionalInfo.origin");
-            if (!additional.containsKey("care")) missing.add("additionalInfo.care");
-            if (!additional.containsKey("composition")) missing.add("additionalInfo.composition");
-        }
-
-        int totalSignals = 10;
+        int totalSignals = 8;
         int present = Math.max(0, totalSignals - missing.size());
         int score = (int) Math.round((present * 100.0) / totalSignals);
 
@@ -46,4 +38,3 @@ public class ProductAiScoringService {
         return s == null || s.trim().isEmpty();
     }
 }
-
