@@ -29,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 
+import com.dppsmart.dppsmart.Product.Entities.MaterialComposition;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 
@@ -39,6 +40,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class ProductService {
@@ -329,37 +333,60 @@ public class ProductService {
         return createdProducts;
     }
 
+    private static final Pattern MATERIAL_PATTERN =
+            Pattern.compile("^material_(\\d+)_(name|percentage|recycled_content|recycled_percentage)$");
+
     private CreateProductDto mapRowToDto(String[] headers, String[] row, String organizationId) {
         CreateProductDto dto = new CreateProductDto();
         dto.setOrganizationId(organizationId);
 
+        Map<String, Object> extraFields = new HashMap<>();
+        TreeMap<Integer, MaterialComposition> materialsMap = new TreeMap<>();
+
         for (int i = 0; i < headers.length && i < row.length; i++) {
-            String header = headers[i].trim().toLowerCase();
+            String rawHeader = headers[i].trim();
+            String header = rawHeader.toLowerCase().replaceAll("\\s+", "_");
             String value = row[i] != null ? row[i].trim() : "";
 
             switch (header) {
-                case "productname":
-                case "product_name":
-                    dto.setProductName(value);
-                    break;
-                case "companyname":
-                case "company_name":
-                    dto.setCompanyName(value);
-                    break;
-                case "variantname":
-                case "variant_name":
-                    dto.setVariantName(value);
-                    break;
-                case "sku":
-                    dto.setSku(value);
-                    break;
-                case "endoflifeinstructions":
-                case "end_of_life_instructions":
-                    dto.setEndOfLifeInstructions(value);
-                    break;
-                default:
-                    break;
+                case "productname", "product_name" -> dto.setProductName(value);
+                case "companyname", "company_name" -> dto.setCompanyName(value);
+                case "variantname", "variant_name" -> dto.setVariantName(value);
+                case "sku" -> dto.setSku(value);
+                case "endoflifeinstructions", "end_of_life_instructions" -> dto.setEndOfLifeInstructions(value);
+                default -> {
+                    Matcher m = MATERIAL_PATTERN.matcher(header);
+                    if (m.matches()) {
+                        int idx = Integer.parseInt(m.group(1));
+                        String field = m.group(2);
+                        MaterialComposition mat = materialsMap.computeIfAbsent(idx, k -> new MaterialComposition());
+                        switch (field) {
+                            case "name" -> mat.setMaterialName(value);
+                            case "percentage" -> {
+                                try { mat.setPercentage(Double.parseDouble(value)); } catch (NumberFormatException ignored) {}
+                            }
+                            case "recycled_content" -> mat.setRecycledContent(
+                                    "true".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value) || "1".equals(value));
+                            case "recycled_percentage" -> {
+                                try { mat.setRecycledPercentage(Double.parseDouble(value)); } catch (NumberFormatException ignored) {}
+                            }
+                        }
+                    } else if (!value.isEmpty()) {
+                        extraFields.put(rawHeader, value);
+                    }
+                }
             }
+        }
+
+        List<MaterialComposition> materials = materialsMap.values().stream()
+                .filter(mat -> mat.getMaterialName() != null && !mat.getMaterialName().isBlank())
+                .toList();
+        if (!materials.isEmpty()) {
+            dto.setMaterialsComposition(materials);
+        }
+
+        if (!extraFields.isEmpty()) {
+            dto.setExtraFields(extraFields);
         }
 
         return dto;

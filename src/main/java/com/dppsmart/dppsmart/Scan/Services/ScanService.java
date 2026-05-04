@@ -44,7 +44,7 @@ public class ScanService {
 
     public void recordDppOpen(String productId, HttpServletRequest request) {
         Product product = productRepository.findById(productId).orElse(null);
-        if (product == null) return; // DPP endpoint will already return 404; avoid masking it.
+        if (product == null) return;
 
         ScanEvent event = baseEvent(productId, product.getOrganizationId(), request);
         scanEventRepository.save(event);
@@ -96,7 +96,6 @@ public class ScanService {
         if (request == null) return null;
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            // first IP in chain
             int comma = forwarded.indexOf(',');
             return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
         }

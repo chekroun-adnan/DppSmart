@@ -1,6 +1,7 @@
 package com.dppsmart.dppsmart.Config;
 
 import com.dppsmart.dppsmart.Security.JwtFilter;
+import com.dppsmart.dppsmart.Security.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,8 +14,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -33,6 +32,8 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final UserDetailsService userDetailsService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+
     @Value("${app.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
     private String allowedOriginPatternsProperty;
 
@@ -42,13 +43,16 @@ public class SecurityConfig {
         return http
                 .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // OAuth2 requires a session briefly to complete the handshake; JWT takes over after redirect
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/logout").authenticated()
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/*/dpp").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/scans").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/ai/public/chat").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/public/contact").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
@@ -62,6 +66,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .userDetailsService(userDetailsService)
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler)
+                )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -91,11 +98,6 @@ public class SecurityConfig {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 
     @Bean

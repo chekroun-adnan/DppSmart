@@ -18,6 +18,8 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class OrganizationService {
     private final UserRepository userRepository;
     private final PermissionService permissionService;
 
+    @CacheEvict(value = {"organizations", "allMainOrganizations", "allSubOrganizations", "userOrganizations"}, allEntries = true)
     public OrganizationResponseDto createMainOrganization(CreateOrganizationDto dto) {
         User user = getCurrentUser();
         if (!permissionService.isAdmin(user)) {
@@ -65,10 +68,6 @@ public class OrganizationService {
             throw new BadRequestException("Parent organization must be MAIN");
         }
 
-        if (user.getRole() == Roles.SUBADMIN && !permissionService.canAccessOrganization(user, parent.getId())) {
-            throw new ForbiddenException("SUBADMIN can only create sub-organizations under assigned main organizations");
-        }
-
         if (organizationRepository.existsByName(dto.getName())) {
             throw new BadRequestException("Organization name already exists");
         }
@@ -88,6 +87,16 @@ public class OrganizationService {
         if (!parent.getSubOrganizationIds().contains(savedSub.getId())) {
             parent.getSubOrganizationIds().add(savedSub.getId());
             organizationRepository.save(parent);
+        }
+
+        if (user.getRole() == Roles.SUBADMIN) {
+            if (user.getAssignedOrganizationIds() == null) {
+                user.setAssignedOrganizationIds(new ArrayList<>());
+            }
+            if (!user.getAssignedOrganizationIds().contains(savedSub.getId())) {
+                user.getAssignedOrganizationIds().add(savedSub.getId());
+                userRepository.save(user);
+            }
         }
 
         return OrganizationMapper.toDto(savedSub);
@@ -186,6 +195,7 @@ public class OrganizationService {
         return OrganizationMapper.toDto(organizationRepository.save(sub));
     }
 
+    @Cacheable(value = "allMainOrganizations")
     public List<OrganizationResponseDto> getAllMainOrganizations() {
         return organizationRepository.findByOrganizationType(OrganizationType.MAIN)
                 .stream()
@@ -214,6 +224,7 @@ public class OrganizationService {
                 .toList();
     }
 
+    @Cacheable(value = "organizations", key = "#id")
     public OrganizationResponseDto getById(String id) {
         User user = getCurrentUser();
         Organization org = organizationRepository.findById(id)
@@ -225,15 +236,35 @@ public class OrganizationService {
         return OrganizationMapper.toDto(org);
     }
 
+    @CacheEvict(value = {"organizations", "allMainOrganizations", "allSubOrganizations", "userOrganizations"}, allEntries = true)
     public void delete(String id) {
+        User user = getCurrentUser();
         Organization org = organizationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Organization not found"));
+
+        if (user.getRole() == Roles.SUBADMIN) {
+            if (org.getOrganizationType() == OrganizationType.MAIN) {
+                throw new ForbiddenException("SUBADMIN cannot delete main organizations");
+            }
+            if (!permissionService.canAccessOrganization(user, org.getId())) {
+                throw new ForbiddenException("SUBADMIN can only delete assigned sub-organizations");
+            }
+        }
 
         if (org.getOrganizationType() == OrganizationType.MAIN) {
             List<Organization> subs = organizationRepository.findByParentOrganizationId(org.getId());
             if (!subs.isEmpty()) {
                 throw new BadRequestException("Cannot delete MAIN organization with existing sub-organizations");
             }
+        }
+
+        if (org.getOrganizationType() == OrganizationType.SUB) {
+            userRepository.findAll().forEach(u -> {
+                if (u.getAssignedOrganizationIds() != null && u.getAssignedOrganizationIds().contains(org.getId())) {
+                    u.getAssignedOrganizationIds().remove(org.getId());
+                    userRepository.save(u);
+                }
+            });
         }
 
         organizationRepository.deleteById(org.getId());

@@ -1,9 +1,5 @@
 package com.dppsmart.dppsmart.Security;
 
-/**
- * High-level permissions used by RBAC checks.
- * Use with {@link PermissionService} helpers and method-level security.
- */
 public enum Permission {
     USERS_MANAGE,
     ORGANIZATIONS_MANAGE,

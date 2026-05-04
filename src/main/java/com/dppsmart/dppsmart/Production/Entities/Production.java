@@ -17,18 +17,11 @@ public class Production {
 
     @Id
     private String id;
-
     private String productId;
-
     private String organizationId;
-
     private ProductionStatus status;
-
     private int quantity;
-
     private List<ProductionStep> steps;
-
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 }

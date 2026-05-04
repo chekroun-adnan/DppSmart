@@ -3,6 +3,8 @@ package com.dppsmart.dppsmart.User.Services;
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
+import com.dppsmart.dppsmart.Employee.Entities.Employees;
+import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.User.DTO.AdminCreateUserDto;
 import com.dppsmart.dppsmart.User.DTO.AdminUpdateUserDto;
 import com.dppsmart.dppsmart.User.DTO.UserDto;
@@ -24,6 +26,8 @@ public class AdminService {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private EmployeesRepository employeesRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 
@@ -47,10 +51,26 @@ public class AdminService {
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setCreatedAt(LocalDateTime.now()); // FIXED
+        user.setCreatedAt(LocalDateTime.now());
         user.setRole(dto.getRole());
+        if (dto.getOrganizationId() != null && !dto.getOrganizationId().isBlank()) {
+            user.setOrganizationId(dto.getOrganizationId());
+        }
 
         User savedUser = userRepository.save(user);
+
+        if (savedUser.getRole() == Roles.EMPLOYEE && !employeesRepository.existsById(savedUser.getId())) {
+            Employees emp = new Employees();
+            emp.setId(savedUser.getId());
+            emp.setFullName(savedUser.getName());
+            emp.setRole("EMPLOYEE");
+            emp.setOrganizationId(savedUser.getOrganizationId());
+            emp.setCreatedAt(savedUser.getCreatedAt());
+            emp.setUpdatedAt(savedUser.getCreatedAt());
+            emp.setCreatedBy(admin.getEmail());
+            emp.setUpdatedBy(admin.getEmail());
+            employeesRepository.save(emp);
+        }
 
         return AuthMapper.toDto(savedUser);
     }

@@ -65,9 +65,23 @@ public class EmployeesService {
         }
 
         Employees employee = employeesRepository.findById(dto.getId())
-                .orElseThrow(() -> new NotFoundException("Employee not found"));
+                .orElseGet(() -> {
+                    User sourceUser = userRepository.findById(dto.getId())
+                            .filter(u -> u.getRole() == Roles.EMPLOYEE)
+                            .orElseThrow(() -> new NotFoundException("Employee not found"));
+                    Employees emp = new Employees();
+                    emp.setId(sourceUser.getId());
+                    emp.setFullName(sourceUser.getName());
+                    emp.setRole("EMPLOYEE");
+                    emp.setOrganizationId(sourceUser.getOrganizationId());
+                    emp.setCreatedAt(sourceUser.getCreatedAt());
+                    emp.setUpdatedAt(sourceUser.getCreatedAt());
+                    emp.setCreatedBy(sourceUser.getEmail());
+                    emp.setUpdatedBy(sourceUser.getEmail());
+                    return employeesRepository.save(emp);
+                });
 
-        if (!permissionService.canAccessOrganization(user, employee.getOrganizationId())) {
+        if (user.getRole() != Roles.ADMIN && !permissionService.canAccessOrganization(user, employee.getOrganizationId())) {
             throw new ForbiddenException("You are not allowed to update this employee");
         }
 
@@ -106,10 +120,36 @@ public class EmployeesService {
 
     public List<EmployeeResponseDto> getAll() {
         User user = getCurrentUser();
-        return employeesRepository.findAll().stream()
+
+        List<EmployeeResponseDto> fromRepo = employeesRepository.findAll().stream()
                 .filter(e -> permissionService.canAccessOrganization(user, e.getOrganizationId()))
                 .map(EmployeesMapper::toDto)
                 .toList();
+
+        java.util.Set<String> knownIds = fromRepo.stream()
+                .map(EmployeeResponseDto::getId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        boolean isAdmin = user.getRole() == Roles.ADMIN;
+
+        List<EmployeeResponseDto> fromUsers = userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Roles.EMPLOYEE && !knownIds.contains(u.getId()))
+                .filter(u -> isAdmin || u.getOrganizationId() == null || permissionService.canAccessOrganization(user, u.getOrganizationId()))
+                .map(u -> {
+                    EmployeeResponseDto dto = new EmployeeResponseDto();
+                    dto.setId(u.getId());
+                    dto.setFullName(u.getName());
+                    dto.setRole("EMPLOYEE");
+                    dto.setOrganizationId(u.getOrganizationId());
+                    dto.setCreatedAt(u.getCreatedAt());
+                    dto.setUpdatedAt(u.getUpdatedAt());
+                    return dto;
+                })
+                .toList();
+
+        List<EmployeeResponseDto> merged = new java.util.ArrayList<>(fromRepo);
+        merged.addAll(fromUsers);
+        return merged;
     }
 
     public List<EmployeeResponseDto> getByOrganization(String organizationId) {
@@ -129,14 +169,14 @@ public class EmployeesService {
             throw new ForbiddenException("You are not allowed to delete employees");
         }
 
-        Employees employee = employeesRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Employee not found"));
-
-        if (!permissionService.canAccessOrganization(user, employee.getOrganizationId())) {
+        Employees employee = employeesRepository.findById(id).orElse(null);
+        if (employee == null) {
+            if (!userRepository.existsById(id)) throw new NotFoundException("Employee not found");
+        } else if (user.getRole() != Roles.ADMIN && !permissionService.canAccessOrganization(user, employee.getOrganizationId())) {
             throw new ForbiddenException("You are not allowed to delete this employee");
         }
 
-        employeesRepository.deleteById(id);
+        if (employee != null) employeesRepository.deleteById(id);
     }
 
     private User getCurrentUser() {

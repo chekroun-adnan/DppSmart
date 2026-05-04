@@ -61,7 +61,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/main/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<List<OrganizationResponseDto>> getAllMainOrganizations(){
         return ResponseEntity.ok(organizationService.getAllMainOrganizations());
     }
@@ -85,7 +85,7 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<?> delete(@PathVariable String id) {
         organizationService.delete(id);
         return ResponseEntity.noContent().build();

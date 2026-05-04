@@ -23,7 +23,7 @@ public class Task {
     private List<String> assignedEmployeeIds;
     private TaskStatus status;
     private TaskPriority priority;
-    private Integer progress; // 0-100
+    private Integer progress;
     private LocalDateTime dueDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

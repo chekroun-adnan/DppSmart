@@ -14,6 +14,7 @@ public class AdminCreateUserDto {
 
     private String password;
     private Roles role;
+    private String organizationId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

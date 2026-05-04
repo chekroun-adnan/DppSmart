@@ -1,0 +1,27 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: dppsmart-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: DppSmart
+    ports:
+      - "27017:27017"
+
+  app:
+    build: .
+    container_name: dppsmart-app
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/DppSmart
+    ports:
+      - "8080:8080"
+
+volumes:
+  mongo_data:

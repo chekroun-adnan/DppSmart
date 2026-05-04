@@ -1,6 +1,5 @@
 package com.dppsmart.dppsmart.Product.DTO;
 
-import com.dppsmart.dppsmart.Production.Entities.ProductionStep;
 import com.dppsmart.dppsmart.Product.Entities.MaterialComposition;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

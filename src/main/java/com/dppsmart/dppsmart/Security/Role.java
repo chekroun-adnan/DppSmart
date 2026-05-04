@@ -2,10 +2,6 @@ package com.dppsmart.dppsmart.Security;
 
 import com.dppsmart.dppsmart.User.Entities.Roles;
 
-/**
- * Canonical role naming used by RBAC rules.
- * Kept separate from {@link Roles} to avoid breaking existing persistence/DTOs.
- */
 public enum Role {
     ADMIN,
     SUB_ADMIN,
