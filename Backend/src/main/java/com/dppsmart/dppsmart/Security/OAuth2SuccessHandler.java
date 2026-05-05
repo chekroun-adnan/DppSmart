@@ -58,7 +58,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             userRepository.save(user);
         }
 
-        // Revoke existing tokens then issue new ones — same logic as AuthService but without the circular dep
         List<Token> existing = tokenRepository.findByUserIdAndRevokedFalseAndExpiredFalse(user.getId());
         existing.forEach(t -> { t.setRevoked(true); t.setExpired(true); });
         tokenRepository.saveAll(existing);

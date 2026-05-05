@@ -13,7 +13,6 @@ public class MaterialSheetItemDto {
     private Double quantity;
     private String unit;
     private String notes;
-    // populated on response
     private String materialName;
     private String materialReference;
 }

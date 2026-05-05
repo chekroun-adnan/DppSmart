@@ -20,7 +20,6 @@ public class NotificationService {
         this.n8nConfig = n8nConfig;
     }
 
-    // 🔹 Generic sender (reusable 🔥)
     @Async
     public void sendEvent(String url, Map<String, Object> payload) {
         try {
@@ -30,7 +29,6 @@ public class NotificationService {
         }
     }
 
-    // 🔹 USER REGISTERED
     @Async
     public void sendUserRegistered(User user) {
 
@@ -43,7 +41,6 @@ public class NotificationService {
         sendEvent(n8nConfig.getUserWebhook(), payload);
     }
 
-    // 🔹 LOGIN ALERT
     @Async
     public void sendLoginAlert(User user, String ip, String userAgent) {
 

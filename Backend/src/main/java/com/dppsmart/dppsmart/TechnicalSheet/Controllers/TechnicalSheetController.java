@@ -61,7 +61,6 @@ public class TechnicalSheetController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── Material Items ───────────────────────────────────────────────────────
 
     @PutMapping("/{id}/material-items")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
@@ -76,7 +75,6 @@ public class TechnicalSheetController {
         return ResponseEntity.ok(service.getMaterialItems(id));
     }
 
-    // ─── Operation Items ──────────────────────────────────────────────────────
 
     @PutMapping("/{id}/operation-items")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")

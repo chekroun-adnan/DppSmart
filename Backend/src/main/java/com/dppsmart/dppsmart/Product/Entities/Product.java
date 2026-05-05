@@ -34,5 +34,4 @@ private String companyName;
     private String updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private TechnicalSheet technicalSheet;
 }

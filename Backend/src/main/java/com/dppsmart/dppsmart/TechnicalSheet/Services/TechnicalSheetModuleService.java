@@ -105,12 +105,6 @@ public class TechnicalSheetModuleService {
         sheetRepository.deleteById(id);
     }
 
-    // ─── Material Sheet Items ─────────────────────────────────────────────────
-
-    /**
-     * Replace all material items for a sheet (save = full replace strategy).
-     * Deletes existing items then inserts the new list.
-     */
     @Transactional
     public List<MaterialSheetItemDto> saveMaterialItems(String sheetId, List<MaterialSheetItemDto> dtos) {
         User user = getCurrentUser();
@@ -155,11 +149,6 @@ public class TechnicalSheetModuleService {
                 .toList();
     }
 
-    // ─── Operation Sheet Items ────────────────────────────────────────────────
-
-    /**
-     * Replace all operation items for a sheet (full replace strategy).
-     */
     @Transactional
     public List<OperationSheetItemDto> saveOperationItems(String sheetId, List<OperationSheetItemDto> dtos) {
         User user = getCurrentUser();
@@ -211,7 +200,6 @@ public class TechnicalSheetModuleService {
                 .toList();
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private TechnicalSheet findSheet(String id) {
         return sheetRepository.findById(id)

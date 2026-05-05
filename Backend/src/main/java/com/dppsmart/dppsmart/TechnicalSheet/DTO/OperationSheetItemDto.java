@@ -15,7 +15,6 @@ public class OperationSheetItemDto {
     private Integer stepOrder;
     private Double durationEstimate;
     private String notes;
-    // populated on response
     private String operationName;
     private String userName;
 }
