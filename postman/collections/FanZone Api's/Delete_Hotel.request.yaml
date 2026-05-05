@@ -1,6 +1,0 @@
-$kind: http-request
-url: http://localhost:8060/hotel/delete
-method: DELETE
-auth:
-  type: noauth
-order: 7000
