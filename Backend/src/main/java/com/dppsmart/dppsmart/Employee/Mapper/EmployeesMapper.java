@@ -8,9 +8,8 @@ public class EmployeesMapper {
         EmployeeResponseDto dto = new EmployeeResponseDto();
         dto.setId(employee.getId());
         dto.setFullName(employee.getFullName());
+        dto.setEmail(employee.getEmail());
         dto.setRole(employee.getRole());
-        dto.setDepartment(employee.getDepartment());
-        dto.setPerformanceScore(employee.getPerformanceScore());
         dto.setOrganizationId(employee.getOrganizationId());
         dto.setCreatedAt(employee.getCreatedAt());
         dto.setUpdatedAt(employee.getUpdatedAt());

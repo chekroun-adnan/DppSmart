@@ -8,6 +8,7 @@ import com.dppsmart.dppsmart.TechnicalSheet.DTO.*;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.*;
 import com.dppsmart.dppsmart.TechnicalSheet.Mapper.TechnicalSheetModuleMapper;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.*;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class TechnicalSheetModuleService {
     private final OperationRepository operationRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final AuditService auditService;
 
     public TechnicalSheetResponseDto createSheet(CreateTechnicalSheetDto dto) {
         User user = getCurrentUser();
@@ -49,7 +51,9 @@ public class TechnicalSheetModuleService {
         sheet.setUpdatedBy(user.getEmail());
         sheet.setCreatedAt(LocalDateTime.now());
         sheet.setUpdatedAt(LocalDateTime.now());
-        return TechnicalSheetModuleMapper.toDto(sheetRepository.save(sheet));
+        TechnicalSheet saved = sheetRepository.save(sheet);
+        auditService.log("TechnicalSheet", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Technical sheet created: " + saved.getName());
+        return TechnicalSheetModuleMapper.toDto(saved);
     }
 
     public TechnicalSheetResponseDto updateSheet(String id, UpdateTechnicalSheetDto dto) {
@@ -61,7 +65,9 @@ public class TechnicalSheetModuleService {
         if (dto.getDescription() != null) sheet.setDescription(dto.getDescription());
         sheet.setUpdatedBy(user.getEmail());
         sheet.setUpdatedAt(LocalDateTime.now());
-        return TechnicalSheetModuleMapper.toDto(sheetRepository.save(sheet));
+        TechnicalSheet saved = sheetRepository.save(sheet);
+        auditService.log("TechnicalSheet", saved.getId(), "UPDATE", saved.getOrganizationId(), null, "Technical sheet updated: " + saved.getName());
+        return TechnicalSheetModuleMapper.toDto(saved);
     }
 
     public TechnicalSheetResponseDto getSheet(String id) {
@@ -100,9 +106,12 @@ public class TechnicalSheetModuleService {
         User user = getCurrentUser();
         TechnicalSheet sheet = findSheet(id);
         checkAccess(user, sheet.getOrganizationId());
+        String orgId = sheet.getOrganizationId();
+        String name = sheet.getName();
         materialItemRepository.deleteByTechnicalSheetId(id);
         operationItemRepository.deleteByTechnicalSheetId(id);
         sheetRepository.deleteById(id);
+        auditService.log("TechnicalSheet", id, "DELETE", orgId, null, "Technical sheet deleted: " + name);
     }
 
     @Transactional

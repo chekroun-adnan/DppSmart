@@ -46,6 +46,10 @@ public class AdminService {
             throw new BadRequestException("User already exists");
         }
 
+        if (dto.getPassword() == null || dto.getPassword().length() < 6) {
+            throw new BadRequestException("Password must be at least 6 characters");
+        }
+
         User user = new User();
         user.setId(NanoIdUtils.randomNanoId());
         user.setName(dto.getName());
@@ -56,6 +60,9 @@ public class AdminService {
         if (dto.getOrganizationId() != null && !dto.getOrganizationId().isBlank()) {
             user.setOrganizationId(dto.getOrganizationId());
         }
+        if (dto.getAssignedOrganizationIds() != null && !dto.getAssignedOrganizationIds().isEmpty()) {
+            user.setAssignedOrganizationIds(dto.getAssignedOrganizationIds());
+        }
 
         User savedUser = userRepository.save(user);
 
@@ -63,6 +70,7 @@ public class AdminService {
             Employees emp = new Employees();
             emp.setId(savedUser.getId());
             emp.setFullName(savedUser.getName());
+            emp.setEmail(savedUser.getEmail());
             emp.setRole("EMPLOYEE");
             emp.setOrganizationId(savedUser.getOrganizationId());
             emp.setCreatedAt(savedUser.getCreatedAt());

@@ -24,9 +24,9 @@ public class AdminController {
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> createUse(@RequestBody @Valid AdminCreateUserDto adminCreateUserDto){
-        adminService.adminCreateUser(adminCreateUserDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body("User Created Successfully");
+    public ResponseEntity<UserDto> createUser(@RequestBody @Valid AdminCreateUserDto adminCreateUserDto){
+        UserDto created = adminService.adminCreateUser(adminCreateUserDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
 

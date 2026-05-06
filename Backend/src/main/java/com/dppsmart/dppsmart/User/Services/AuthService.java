@@ -54,7 +54,9 @@ public class AuthService {
                 refreshToken,
                 user.getId(),
                 user.getEmail(),
-                user.getRole()
+                user.getRole(),
+                user.getOrganizationId(),
+                user.getAssignedOrganizationIds()
         );
     }
 
@@ -87,7 +89,9 @@ public class AuthService {
                 refreshToken,
                 user.getId(),
                 user.getEmail(),
-                user.getRole()
+                user.getRole(),
+                user.getOrganizationId(),
+                user.getAssignedOrganizationIds()
         );
     }
 
@@ -113,7 +117,9 @@ public class AuthService {
                 refreshToken,
                 user.getId(),
                 user.getEmail(),
-                user.getRole()
+                user.getRole(),
+                user.getOrganizationId(),
+                user.getAssignedOrganizationIds()
         );
     }
 

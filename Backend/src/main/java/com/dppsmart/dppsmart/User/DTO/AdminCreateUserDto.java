@@ -4,6 +4,7 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class AdminCreateUserDto {
@@ -15,6 +16,7 @@ public class AdminCreateUserDto {
     private String password;
     private Roles role;
     private String organizationId;
+    private List<String> assignedOrganizationIds;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

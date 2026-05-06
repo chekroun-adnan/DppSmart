@@ -14,6 +14,7 @@ import com.dppsmart.dppsmart.Task.Entities.Task;
 import com.dppsmart.dppsmart.Task.Entities.TaskStatus;
 import com.dppsmart.dppsmart.Task.Mapper.TaskMapper;
 import com.dppsmart.dppsmart.Task.Repositories.TaskRepository;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -35,6 +36,7 @@ public class TaskService {
     private final EmployeesRepository employeesRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final AuditService auditService;
 
     public TaskResponseDto create(CreateTaskDto dto) {
         User user = getCurrentUser();
@@ -61,7 +63,10 @@ public class TaskService {
         task.setCreatedBy(user.getEmail());
         task.setUpdatedBy(user.getEmail());
 
-        return TaskMapper.toDto(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+        auditService.log("Task", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Task created: " + saved.getTitle());
+
+        return TaskMapper.toDto(saved);
     }
 
     public TaskResponseDto update(UpdateTaskDto dto) {
@@ -90,7 +95,10 @@ public class TaskService {
         task.setUpdatedAt(LocalDateTime.now());
         task.setUpdatedBy(user.getEmail());
 
-        return TaskMapper.toDto(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+        auditService.log("Task", saved.getId(), "UPDATE", saved.getOrganizationId(), null, "Task updated: " + saved.getTitle());
+
+        return TaskMapper.toDto(saved);
     }
 
     public TaskResponseDto updateStatus(String id, UpdateTaskStatusDto dto) {
@@ -119,7 +127,10 @@ public class TaskService {
         task.setUpdatedAt(LocalDateTime.now());
         task.setUpdatedBy(user.getEmail());
 
-        return TaskMapper.toDto(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+        auditService.log("Task", saved.getId(), "STATUS_CHANGE", saved.getOrganizationId(), null, "Task status changed to " + saved.getStatus() + ": " + saved.getTitle());
+
+        return TaskMapper.toDto(saved);
     }
 
     public TaskResponseDto getById(String id) {
@@ -170,7 +181,10 @@ public class TaskService {
         if (!permissionService.canAccessOrganization(user, task.getOrganizationId())) {
             throw new ForbiddenException("You are not allowed to delete this task");
         }
+        String orgId = task.getOrganizationId();
+        String title = task.getTitle();
         taskRepository.deleteById(id);
+        auditService.log("Task", id, "DELETE", orgId, null, "Task deleted: " + title);
     }
 
     private User getCurrentUser() {

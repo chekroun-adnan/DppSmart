@@ -1,6 +1,7 @@
 package com.dppsmart.dppsmart.Employee.Services;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Employee.DTO.CreateEmployeeDto;
@@ -10,6 +11,7 @@ import com.dppsmart.dppsmart.Employee.Entities.Employees;
 import com.dppsmart.dppsmart.Employee.Mapper.EmployeesMapper;
 import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
@@ -17,6 +19,7 @@ import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,6 +32,8 @@ public class EmployeesService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     public EmployeeResponseDto create(CreateEmployeeDto dto) {
         User user = getCurrentUser();
@@ -42,20 +47,37 @@ public class EmployeesService {
         if (!permissionService.canAccessOrganization(user, dto.getOrganizationId())) {
             throw new ForbiddenException("You are not allowed to use this organization");
         }
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new BadRequestException("Email already exists");
+        }
+
+        String employeeId = NanoIdUtils.randomNanoId();
+
+        User empUser = new User();
+        empUser.setId(employeeId);
+        empUser.setName(dto.getFullName());
+        empUser.setEmail(dto.getEmail());
+        empUser.setPassword(passwordEncoder.encode(dto.getPassword()));
+        empUser.setRole(Roles.EMPLOYEE);
+        empUser.setOrganizationId(dto.getOrganizationId());
+        empUser.setCreatedAt(LocalDateTime.now());
+        userRepository.save(empUser);
 
         Employees employee = new Employees();
-        employee.setId(NanoIdUtils.randomNanoId());
+        employee.setId(employeeId);
         employee.setFullName(dto.getFullName());
-        employee.setRole(dto.getRole());
-        employee.setDepartment(dto.getDepartment());
-        employee.setPerformanceScore(dto.getPerformanceScore());
+        employee.setEmail(dto.getEmail());
+        employee.setRole(dto.getRole() != null && !dto.getRole().isBlank() ? dto.getRole() : "EMPLOYEE");
         employee.setOrganizationId(dto.getOrganizationId());
         employee.setCreatedAt(LocalDateTime.now());
         employee.setUpdatedAt(LocalDateTime.now());
         employee.setCreatedBy(user.getEmail());
         employee.setUpdatedBy(user.getEmail());
 
-        return EmployeesMapper.toDto(employeesRepository.save(employee));
+        Employees saved = employeesRepository.save(employee);
+        auditService.log("Employee", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Employee created: " + saved.getFullName());
+
+        return EmployeesMapper.toDto(saved);
     }
 
     public EmployeeResponseDto update(UpdateEmployeeDto dto) {
@@ -96,14 +118,22 @@ public class EmployeesService {
         }
 
         if (dto.getFullName() != null && !dto.getFullName().isBlank()) employee.setFullName(dto.getFullName());
+        if (dto.getEmail() != null && !dto.getEmail().isBlank()) employee.setEmail(dto.getEmail());
         if (dto.getRole() != null && !dto.getRole().isBlank()) employee.setRole(dto.getRole());
-        if (dto.getDepartment() != null && !dto.getDepartment().isBlank()) employee.setDepartment(dto.getDepartment());
-        if (dto.getPerformanceScore() != null) employee.setPerformanceScore(dto.getPerformanceScore());
 
         employee.setUpdatedAt(LocalDateTime.now());
         employee.setUpdatedBy(user.getEmail());
 
-        return EmployeesMapper.toDto(employeesRepository.save(employee));
+        userRepository.findById(employee.getId()).ifPresent(empUser -> {
+            if (dto.getFullName() != null && !dto.getFullName().isBlank()) empUser.setName(dto.getFullName());
+            if (dto.getEmail() != null && !dto.getEmail().isBlank()) empUser.setEmail(dto.getEmail());
+            userRepository.save(empUser);
+        });
+
+        Employees saved = employeesRepository.save(employee);
+        auditService.log("Employee", saved.getId(), "UPDATE", saved.getOrganizationId(), null, "Employee updated: " + saved.getFullName());
+
+        return EmployeesMapper.toDto(saved);
     }
 
     public EmployeeResponseDto getById(String id) {
@@ -139,6 +169,7 @@ public class EmployeesService {
                     EmployeeResponseDto dto = new EmployeeResponseDto();
                     dto.setId(u.getId());
                     dto.setFullName(u.getName());
+                    dto.setEmail(u.getEmail());
                     dto.setRole("EMPLOYEE");
                     dto.setOrganizationId(u.getOrganizationId());
                     dto.setCreatedAt(u.getCreatedAt());
@@ -176,7 +207,13 @@ public class EmployeesService {
             throw new ForbiddenException("You are not allowed to delete this employee");
         }
 
+        String orgId = employee != null ? employee.getOrganizationId() : null;
+        String fullName = employee != null ? employee.getFullName() : id;
         if (employee != null) employeesRepository.deleteById(id);
+        userRepository.findById(id).ifPresent(u -> {
+            if (u.getRole() == Roles.EMPLOYEE) userRepository.delete(u);
+        });
+        auditService.log("Employee", id, "DELETE", orgId, null, "Employee deleted: " + fullName);
     }
 
     private User getCurrentUser() {

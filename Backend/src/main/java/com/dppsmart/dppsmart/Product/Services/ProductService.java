@@ -30,6 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 
 import com.dppsmart.dppsmart.Product.Entities.MaterialComposition;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 
@@ -61,6 +62,8 @@ public class ProductService {
     private PermissionService permissionService;
     @Autowired
     private ProductAiScoringService productAiScoringService;
+    @Autowired
+    private AuditService auditService;
     private final Cloudinary cloudinary;
 
     @Value("${app.frontend.base-url:http://localhost:3000}")
@@ -120,6 +123,8 @@ public class ProductService {
         saved.setQrUrl(qr);
 
         saved = productRepository.save(saved);
+
+        auditService.log("Product", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Product created: " + saved.getProductName());
 
         return enrichWithAi(productMapper.toDto(saved), saved);
     }
@@ -187,6 +192,8 @@ public class ProductService {
 
         Product updated = productRepository.save(product);
 
+        auditService.log("Product", updated.getId(), "UPDATE", updated.getOrganizationId(), null, "Product updated: " + updated.getProductName());
+
         return enrichWithAi(productMapper.toDto(updated), updated);
     }
 
@@ -204,7 +211,11 @@ public class ProductService {
             throw new ForbiddenException("You are not allowed to delete this product");
         }
 
+        String orgId = product.getOrganizationId();
+        String productName = product.getProductName();
         productRepository.delete(product);
+
+        auditService.log("Product", id, "DELETE", orgId, null, "Product deleted: " + productName);
     }
 
     @CacheEvict(value = {"products", "allProducts"}, allEntries = true)

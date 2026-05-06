@@ -13,6 +13,7 @@ import com.dppsmart.dppsmart.Stock.DTO.UpdatedStockDTO;
 import com.dppsmart.dppsmart.Stock.Entities.Stock;
 import com.dppsmart.dppsmart.Stock.Mapper.StockMapper;
 import com.dppsmart.dppsmart.Stock.Repositories.StockRepository;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -39,6 +40,8 @@ public class StockService {
     private UserRepository userRepository;
     @Autowired
     private PermissionService permissionService;
+    @Autowired
+    private AuditService auditService;
 
     @CacheEvict(value = {"stocks", "allStocks"}, allEntries = true)
     public Stock createStock(CreateStockDTO dto) {
@@ -66,6 +69,7 @@ public class StockService {
         stock.setCreatedBy(email);
 
         Stock savedStock = stockRepository.save(stock);
+        auditService.log("Stock", savedStock.getId(), "CREATE", savedStock.getOrganizationId(), null, "Stock created: " + savedStock.getMaterialName());
 
         if (organization.getStocks() == null) {
             organization.setStocks(new ArrayList<>());
@@ -117,6 +121,8 @@ public class StockService {
 
         organization.setStocks(stocks);
         organizationRepository.save(organization);
+
+        auditService.log("Stock", savedStock.getId(), "UPDATE", savedStock.getOrganizationId(), null, "Stock updated: " + savedStock.getMaterialName());
 
         return savedStock;
     }
@@ -178,10 +184,13 @@ public class StockService {
 
         stockRepository.delete(stock);
 
+        String materialName = stock.getMaterialName();
+        String orgId = stock.getOrganizationId();
         if (organization.getStocks() != null) {
             organization.getStocks().removeIf(s -> s.getId().equals(stockId));
             organizationRepository.save(organization);
         }
+        auditService.log("Stock", stockId, "DELETE", orgId, null, "Stock deleted: " + materialName);
     }
 
 }

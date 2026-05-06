@@ -5,7 +5,6 @@ import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
-import com.dppsmart.dppsmart.Organization.Entities.Organization;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Product.Entities.Product;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
@@ -19,7 +18,6 @@ import com.dppsmart.dppsmart.Security.Permission;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.Stock.Entities.Stock;
 import com.dppsmart.dppsmart.Stock.Repositories.StockRepository;
-import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import org.springframework.stereotype.Service;
@@ -154,10 +152,6 @@ public class AiAssistantService {
             return anomalyAlertsGlobal();
         }
 
-        if (containsAny(lower, "employees", "ranking", "performance")) {
-            return employeeRankingGlobal();
-        }
-
         if (containsAny(lower, "explain product", "product summary", "product dpp", "dpp coach")) {
             String productId = extractId(lower, "product");
             if (productId == null) return "Please specify: 'explain product <productId>'";
@@ -223,17 +217,6 @@ public class AiAssistantService {
                 topIp == null ? "(none)" : (topIp.getKey() + " (" + topIp.getValue() + ")"),
                 topUa == null ? "(none)" : ("(" + topUa.getValue() + ") " + abbreviate(topUa.getKey(), 80))
         ).trim();
-    }
-
-    private String employeeRankingGlobal() {
-        var top = employeesRepository.findAll().stream()
-                .filter(e -> e.getPerformanceScore() != null)
-                .sorted((a, b) -> Double.compare(b.getPerformanceScore(), a.getPerformanceScore()))
-                .limit(10)
-                .map(e -> "- " + e.getFullName() + " (" + e.getOrganizationId() + "): " + e.getPerformanceScore())
-                .toList();
-        if (top.isEmpty()) return "No employee performance scores found yet.";
-        return "Top employee performance (global):\n" + String.join("\n", top);
     }
 
     private String weeklyDigestGlobal() {
@@ -321,9 +304,7 @@ public class AiAssistantService {
             return orgOrdersInsights(scopeOrgIds);
         }
 
-        if (containsAny(lower, "employees", "workload", "balance")) {
-            return orgEmployeeInsights(scopeOrgIds);
-        }
+
 
         if (containsAny(lower, "explain product", "product summary", "dpp coach")) {
             String productId = extractId(lower, "product");
@@ -400,19 +381,7 @@ public class AiAssistantService {
         return "Order demand (last 7 days): " + recent.size() + " orders. Status distribution: " + byStatus;
     }
 
-    private String orgEmployeeInsights(List<String> orgIds) {
-        var emps = orgIds.stream()
-                .flatMap(id -> employeesRepository.findByOrganizationId(id).stream())
-                .toList();
-        if (emps.isEmpty()) return "No employees found in your organization scope.";
 
-        double avg = emps.stream()
-                .map(e -> e.getPerformanceScore() == null ? 0.0 : e.getPerformanceScore())
-                .mapToDouble(Double::doubleValue)
-                .average()
-                .orElse(0.0);
-        return "Employee workload balancing: " + emps.size() + " employees. Avg performanceScore=" + Math.round(avg * 10.0) / 10.0 + ". Suggestion: support low performers and redistribute workload if needed.";
-    }
 
     private String weeklyDigestOrg(List<String> orgIds) {
         LocalDateTime since = LocalDateTime.now().minusDays(7);

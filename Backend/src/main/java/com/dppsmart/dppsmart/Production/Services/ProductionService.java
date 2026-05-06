@@ -13,6 +13,7 @@ import com.dppsmart.dppsmart.Production.Entities.ProductionStatus;
 import com.dppsmart.dppsmart.Production.Entities.ProductionStep;
 import com.dppsmart.dppsmart.Production.Mapper.ProductionMapper;
 import com.dppsmart.dppsmart.Production.Repositories.ProductionRepository;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
@@ -39,6 +40,8 @@ public class ProductionService {
     private OrganizationRepository organizationRepository;
     @Autowired
     private PermissionService permissionService;
+    @Autowired
+    private AuditService auditService;
 
     public ProductionResponseDto create(CreateProductionDto dto) {
 
@@ -69,7 +72,10 @@ public class ProductionService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return productionMapper.toDto(productionRepository.save(production));
+        Production saved = productionRepository.save(production);
+        auditService.log("Production", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Production created for product " + saved.getProductId());
+
+        return productionMapper.toDto(saved);
     }
 
 
@@ -112,7 +118,10 @@ public class ProductionService {
         }
         production.setStatus(dto.getStatus());
 
-        return productionMapper.toDto(productionRepository.save(production));
+        Production saved = productionRepository.save(production);
+        auditService.log("Production", saved.getId(), "STATUS_CHANGE", saved.getOrganizationId(), null, "Production status changed to " + saved.getStatus());
+
+        return productionMapper.toDto(saved);
     }
 
     public ProductionResponseDto startStep(String productionId, int stepIndex) {
@@ -170,7 +179,9 @@ public class ProductionService {
         if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) {
             throw new ForbiddenException("You are not allowed to delete this production");
         }
+        String orgId = production.getOrganizationId();
         productionRepository.deleteById(id);
+        auditService.log("Production", id, "DELETE", orgId, null, "Production deleted");
     }
 
     private Production getProduction(String id) {

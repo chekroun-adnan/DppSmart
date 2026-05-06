@@ -12,6 +12,7 @@ import com.dppsmart.dppsmart.Orders.Mapper.OrdersMapper;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
+import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
@@ -34,6 +35,7 @@ public class OrdersService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final AuditService auditService;
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
@@ -61,7 +63,10 @@ public class OrdersService {
         order.setCreatedBy(user.getEmail());
         order.setUpdatedBy(user.getEmail());
 
-        return OrdersMapper.toDto(ordersRepository.save(order));
+        Orders saved = ordersRepository.save(order);
+        auditService.log("Order", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Order created: " + saved.getOrderReference());
+
+        return OrdersMapper.toDto(saved);
     }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
@@ -101,7 +106,10 @@ public class OrdersService {
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(user.getEmail());
 
-        return OrdersMapper.toDto(ordersRepository.save(order));
+        Orders saved = ordersRepository.save(order);
+        auditService.log("Order", saved.getId(), "UPDATE", saved.getOrganizationId(), null, "Order updated: " + saved.getOrderReference());
+
+        return OrdersMapper.toDto(saved);
     }
 
     @Cacheable(value = "orders", key = "#id")
@@ -161,7 +169,10 @@ public class OrdersService {
             throw new ForbiddenException("You are not allowed to delete this order");
         }
 
+        String orgId = order.getOrganizationId();
+        String ref = order.getOrderReference();
         ordersRepository.deleteById(id);
+        auditService.log("Order", id, "DELETE", orgId, null, "Order deleted: " + ref);
     }
 
     private String generateOrderReference() {

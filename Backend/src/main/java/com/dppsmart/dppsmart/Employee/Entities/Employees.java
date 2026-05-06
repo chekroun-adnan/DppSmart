@@ -17,9 +17,8 @@ public class Employees {
     @Id
     private String id;
     private String fullName;
+    private String email;
     private String role;
-    private String department;
-    private Double performanceScore;
     private String organizationId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
