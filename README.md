@@ -405,7 +405,7 @@ Every service method filters by `organizationId` at the repository layer. A Spri
 
 - **Algorithm:** HS256 (HMAC SHA-256)
 - **Access token expiry:** 15 minutes
-- **Refresh token expiry:** 7 days
+- **Refresh token expiry:** 1 day
 - **Token claims:** `sub` (email), `userId`, `role`, `iat`, `exp`
 - **Token storage:** MongoDB `tokens` collection — every token is tracked and revocable
 - **Logout:** Sets `revoked=true` and `expired=true` on all active tokens for the user
@@ -541,8 +541,8 @@ A `ChatbotWidget` component floats on all authenticated pages (bottom-right). It
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/smarttex-dpp.git
-cd smarttex-dpp
+git clone https://github.com/chekroun-adnan/DppSmart.git
+cd DppSmart
 
 # Copy and fill in environment variables
 cp .env.example .env
