@@ -78,7 +78,7 @@ function ChatbotWidget() {
   return (
     <div className="fixed bottom-5 right-5 z-[70]">
       {isOpen ? (
-        <section className="mb-3 w-[20rem] rounded-2xl border border-slate-200 bg-white shadow-2xl sm:w-[23rem]">
+        <section className="mb-3 w-[20rem] rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 shadow-2xl sm:w-[23rem]">
           <header className="flex items-center justify-between rounded-t-2xl bg-slate-900 px-4 py-3 text-white">
             <div>
               <p className="text-sm font-semibold">AI Assistant</p>
@@ -100,15 +100,15 @@ function ChatbotWidget() {
                 key={message.id}
                 className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
                   message.role === "user"
-                    ? "ml-auto bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-700"
+                    ? "ml-auto bg-slate-900 dark:bg-slate-700 text-white"
+                    : "bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-200"
                 }`}
               >
                 {message.text}
               </div>
             ))}
             {loading && (
-              <div className="max-w-[90%] rounded-2xl px-3 py-2 text-sm bg-slate-100 text-slate-400 flex items-center gap-2">
+              <div className="max-w-[90%] rounded-2xl px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 flex items-center gap-2">
                 <div className="flex gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
@@ -119,7 +119,7 @@ function ChatbotWidget() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-slate-200 px-3 py-3">
+          <div className="border-t border-slate-200 dark:border-white/[0.06] px-3 py-3">
             <div className="mb-2 flex flex-wrap gap-2">
               {suggestedPrompts.map((prompt) => (
                 <button
@@ -127,7 +127,7 @@ function ChatbotWidget() {
                   type="button"
                   onClick={() => sendMessage(prompt)}
                   disabled={loading}
-                  className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                  className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-3 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
                 >
                   {prompt}
                 </button>
@@ -141,7 +141,7 @@ function ChatbotWidget() {
                   if (event.key === "Enter" && canSend) sendMessage(input);
                 }}
                 placeholder="Ask something..."
-                className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10"
+                className="h-10 flex-1 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-700/50 dark:text-slate-100 px-3 text-sm outline-none focus:border-brand-500 dark:focus:bg-slate-700 focus:ring-2 focus:ring-brand-500/10"
               />
               <button
                 type="button"

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import "./i18n";
 import { RTL_LANGUAGES } from "./i18n";
+import { ThemeProvider } from "./context/ThemeContext";
 import AboutSection from "./components/AboutSection";
 import ContactSection from "./components/ContactSection";
 import DigitalTransformationSection from "./components/DigitalTransformationSection";
@@ -30,10 +31,13 @@ import TechnicalSheetsPage from "./pages/TechnicalSheetsPage";
 import OAuth2CallbackPage from "./pages/OAuth2CallbackPage";
 import QualityControlPage from "./pages/QualityControlPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import AuditLogPage from "./pages/AuditLogPage";
 import ClientSupportPage from "./pages/ClientSupportPage";
 import ClientNotificationsPage from "./pages/ClientNotificationsPage";
+import SupplyChainPage from "./pages/SupplyChainPage";
 import { isAuthenticated } from "./services/authService";
 import ChatbotWidget from "./components/ChatbotWidget";
+import { NotificationProvider } from "./context/NotificationContext";
 
 function PublicRoute({ children }) {
   return isAuthenticated() ? <Navigate to="/dashboard" replace /> : children;
@@ -85,6 +89,8 @@ function RtlProvider({ children }) {
 
 function App() {
   return (
+    <ThemeProvider>
+    <NotificationProvider>
     <BrowserRouter>
       <RtlProvider>
       <Routes>
@@ -118,8 +124,10 @@ function App() {
         <Route path="/passport/:productId" element={<PassportPage />} />
         <Route path="/tasks" element={<PrivateRoute><TasksPage /></PrivateRoute>} />
         <Route path="/technical-sheets" element={<PrivateRoute><TechnicalSheetsPage /></PrivateRoute>} />
+        <Route path="/supply-chain" element={<PrivateRoute><SupplyChainPage /></PrivateRoute>} />
         <Route path="/quality-control" element={<PrivateRoute><QualityControlPage /></PrivateRoute>} />
         <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+        <Route path="/audit-log" element={<PrivateRoute><AuditLogPage /></PrivateRoute>} />
         <Route path="/support" element={<PrivateRoute><ClientSupportPage /></PrivateRoute>} />
         <Route path="/notifications" element={<PrivateRoute><ClientNotificationsPage /></PrivateRoute>} />
         <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
@@ -127,6 +135,8 @@ function App() {
       <ChatbotWidget />
       </RtlProvider>
     </BrowserRouter>
+    </NotificationProvider>
+    </ThemeProvider>
   );
 }
 

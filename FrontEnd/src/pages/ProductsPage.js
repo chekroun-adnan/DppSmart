@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
+import AuditHistoryModal from "../components/AuditHistoryModal";
 import {
   createProduct,
+  createTechnicalSheet,
   deleteProduct,
   getAvailableProducts,
   getDashboardData,
   importProductsFromCsv,
   updateProduct,
   uploadProductImage,
-  createTechnicalSheet,
 } from "../services/authService";
+
+const SELECT = "mt-1 h-11 w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-3 pr-10 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 cursor-pointer bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.75rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.75rem_center]";
 
 const emptyProductDraft = {
   id: "",
@@ -43,6 +46,10 @@ function readMaterialsComposition(product) {
 
 function readProductImageUrl(product) {
   if (typeof product?.imageUrl === "string" && product.imageUrl.trim()) return product.imageUrl;
+  const extra = product?.extraFields || {};
+  if (typeof extra?.imageUrl === "string" && extra.imageUrl.trim()) {
+    return extra.imageUrl;
+  }
   const additional = product?.additionalInfo || {};
   if (typeof additional?.imageUrl === "string" && additional.imageUrl.trim()) {
     return additional.imageUrl;
@@ -79,12 +86,9 @@ function getProductStatus(product) {
   const missingCount = Array.isArray(product.aiMissingFields) ? product.aiMissingFields.length : 0;
 
   if (score !== null && score >= 80 && missingCount <= 2) {
-    return { label: "Eco-certified", tone: "bg-emerald-100 text-emerald-700" };
+    return { label: "Eco-certified", tone: "status-emerald" };
   }
-  if (score !== null && score < 40) {
-    return { label: "Non-compliant", tone: "bg-rose-100 text-rose-700" };
-  }
-  return { label: "In review", tone: "bg-slate-100 text-slate-700" };
+  return { label: "In review", tone: "status-slate" };
 }
 
 
@@ -127,6 +131,7 @@ function ProductsPage() {
   const [sheetModalProduct, setSheetModalProduct] = useState(null);
   const [sheetDraft, setSheetDraft] = useState({ name: "", type: "MATERIAL_SHEET", description: "" });
   const [creatingSheet, setCreatingSheet] = useState(false);
+  const [historyId, setHistoryId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -415,10 +420,22 @@ function ProductsPage() {
     }
   };
 
-  const handleUploadImage = (productId, file) => {
+  const handleUploadImage = async (productId, file) => {
     if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    setUploadedImages((current) => ({ ...current, [productId]: objectUrl }));
+    try {
+      const withImage = await uploadProductImage(productId, file);
+      const imageUrl = readProductImageUrl(withImage);
+      if (imageUrl) {
+        setUploadedImages((current) => ({ ...current, [productId]: imageUrl }));
+        setProducts((current) =>
+          current.map((p) =>
+            p.id === productId ? { ...p, ...withImage, id: productId } : p
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Failed to upload image:", err);
+    }
   };
 
   if (role === "CLIENT") {
@@ -428,12 +445,12 @@ function ProductsPage() {
           <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Digital Product Passports</p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Products</h1>
-              <p className="mt-1 text-sm text-slate-500">Browse products and access their full Digital Product Passport.</p>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Products</h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Browse products and access their full Digital Product Passport.</p>
             </div>
             <div className="relative max-w-xs w-full">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder="Search products..." />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/50 dark:text-slate-100 pl-9 pr-3 text-sm outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder="Search products..." />
             </div>
           </section>
 
@@ -469,32 +486,24 @@ function ProductsPage() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filteredProducts.map((product) => {
                 const imgUrl = uploadedImages[product.id] || readProductImageUrl(product);
-                const status = getProductStatus(product);
                 const hasDpp = Boolean(product.dppUrl || product.qrUrl);
                 return (
-                  <div key={product.id} className="glass-card overflow-hidden flex flex-col group hover:shadow-xl transition-all hover:-translate-y-0.5">
-                    {/* Product image */}
-                    <div className="relative h-52 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden flex-shrink-0">
-                      {imgUrl ? (
-                        <img
-                          src={imgUrl}
-                          alt={product.productName}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                    <button key={product.id} onClick={() => navigate(`/passport/${product.id}`)} className="glass-card overflow-hidden flex flex-col group hover:shadow-xl transition-all hover:-translate-y-0.5 text-left cursor-pointer">
+                      <div className="relative w-full h-[230px] bg-slate-100 overflow-hidden flex-shrink-0 rounded-t-2xl">
+                        {imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={product.productName}
+                            className="w-full h-full object-cover object-center block group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }}
+                          />
+                        ) : null}
+                        <div className={imgUrl ? "hidden absolute inset-0 flex-col items-center justify-center gap-2" : "w-full h-full flex flex-col items-center justify-center gap-2"}>
                           <svg className="w-14 h-14 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                           <span className="text-xs text-slate-400">No image</span>
                         </div>
-                      )}
-                      {/* Status badge */}
-                      <div className="absolute top-3 left-3">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ${status.tone}`}>{status.label}</span>
-                      </div>
-                      {/* DPP badge */}
                       {hasDpp && (
                         <div className="absolute top-3 right-3">
                           <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-brand-600 text-white shadow">DPP</span>
@@ -502,7 +511,6 @@ function ProductsPage() {
                       )}
                     </div>
 
-                    {/* Product info */}
                     <div className="p-5 flex flex-col flex-1">
                       <h3 className="font-bold text-slate-900 text-base leading-snug group-hover:text-brand-600 transition-colors truncate">
                         {product.productName || "Unnamed product"}
@@ -528,41 +536,8 @@ function ProductsPage() {
                           </div>
                         )}
                       </div>
-
-                      {typeof product.aiScore === "number" && (
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Score</span>
-                            <span className={`text-xs font-bold ${product.aiScore >= 80 ? "text-emerald-600" : product.aiScore >= 50 ? "text-amber-600" : "text-rose-500"}`}>{product.aiScore}/100</span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${product.aiScore >= 80 ? "bg-emerald-500" : product.aiScore >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
-                              style={{ width: `${product.aiScore}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="mt-4 flex gap-2 flex-wrap">
-                        <Link
-                          to={`/passport/${product.id}`}
-                          className="flex-1 text-center py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition-colors shadow-sm"
-                        >
-                          View Product Info
-                        </Link>
-                        {hasDpp && (
-                          <Link
-                            to={`/passport/${product.id}`}
-                            className="flex-1 text-center py-2 px-3 rounded-xl border border-brand-200 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold transition-colors"
-                          >
-                            View DPP
-                          </Link>
-                        )}
-                      </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -578,8 +553,8 @@ function ProductsPage() {
             <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Inventory Management</p>
-                <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-slate-900">Product Catalog</h1>
-                <p className="mt-2 text-sm text-slate-500">Manage and track your Digital Product Passports across the organization.</p>
+                <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Product Catalog</h1>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Manage and track your Digital Product Passports across the organization.</p>
               </div>
               {canManage && (
                 <div className="flex items-center gap-3">
@@ -624,9 +599,9 @@ function ProductsPage() {
                 <article key={stat.label} className="glass-card p-6 flex items-center justify-between group">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 group-hover:text-brand-600 transition-colors">{stat.label}</p>
-                    <p className="mt-2 text-3xl font-extrabold text-slate-900">{stat.value}</p>
+                    <p className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-slate-100">{stat.value}</p>
                   </div>
-                  <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-all">
+                  <div className="h-12 w-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover:bg-brand-50 group-hover:text-brand-600 transition-all">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
                     </svg>
@@ -636,12 +611,12 @@ function ProductsPage() {
             </section>
 
             <section className="glass-card overflow-hidden border-slate-200">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4">
+              <div className="p-6 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4 flex-1">
-                  <h3 className="text-lg font-bold text-slate-900 flex-none">Archive Entries</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex-none">Archive Entries</h3>
                   <div className="relative max-w-xs flex-1">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder="Search products..." />
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/50 dark:text-slate-100 pl-9 pr-3 text-sm outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder="Search products..." />
                   </div>
                 </div>
                 <label className="inline-flex items-center gap-3 cursor-pointer group">
@@ -652,22 +627,22 @@ function ProductsPage() {
                       onChange={(event) => setOnlyMissingFields(event.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                    <div className="w-10 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
                   </div>
-                  <span className="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Only missing fields</span>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">Only missing fields</span>
                 </label>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">
+                    <tr className="text-[10px] uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 dark:border-white/[0.06]">
                       <th className="px-6 py-5 font-bold">Product Details</th>
                       <th className="px-6 py-5 font-bold">Visuals</th>
                       <th className="px-6 py-5 font-bold">DPP Assets</th>
                       {canManage && <th className="px-6 py-5 font-bold text-right">Actions</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/[0.05]">
                     {loading ? (
                       <tr>
                         <td colSpan={4} className="px-6 py-12 text-center">
@@ -686,16 +661,16 @@ function ProductsPage() {
                     ) : (
                       filteredProducts.map((product) => {
                         return (
-                          <tr key={product.id} className="group hover:bg-slate-50/50 transition-colors">
+                          <tr key={product.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
                             <td className="px-6 py-5">
                               <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 transition-colors">
                                   {product.productName || "Unnamed product"}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-400 font-mono">{product.id || "No ID"}</p>
+                                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 font-mono">{product.id || "No ID"}</p>
                                 <div className="mt-2 flex items-center gap-2">
                                   {product.variantName && (
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded">
                                       {product.variantName}
                                     </span>
                                   )}
@@ -787,20 +762,32 @@ function ProductsPage() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStartEdit(product)}
-                                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-brand-600 hover:border-brand-200 hover:shadow-sm transition-all"
-                                  >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setPendingDeleteProduct(product)}
-                                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"
-                                  >
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(product)}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-brand-600 hover:border-brand-200 hover:shadow-sm transition-all"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  {role === "ADMIN" && (
+                    <button
+                      type="button"
+                      onClick={() => setHistoryId(product.id)}
+                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 hover:shadow-sm transition-all"
+                      title="View History"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteProduct(product)}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:shadow-sm transition-all"
+                  >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
@@ -818,54 +805,56 @@ function ProductsPage() {
             </section>
       </div>
 
-      {editingProductId ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-semibold text-slate-900">Update Product</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Edit the product information below. Changes are saved to the database.
+      <AuditHistoryModal entityType="Product" entityId={historyId} onClose={() => setHistoryId(null)} />
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">New Product</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Fill in the product information to create a new entry.
             </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm text-slate-700">
+              <label className="text-sm text-slate-700 dark:text-slate-300">
                 Product Name
                 <input
-                  value={editDraft.productName}
+                  value={createDraft.productName}
                   onChange={(event) =>
-                    setEditDraft((current) => ({ ...current, productName: event.target.value }))
+                    setCreateDraft((current) => ({ ...current, productName: event.target.value }))
                   }
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
                 />
               </label>
-              <label className="text-sm text-slate-700">
+              <label className="text-sm text-slate-700 dark:text-slate-300">
                 Variant Name
                 <input
-                  value={editDraft.variantName}
+                  value={createDraft.variantName}
                   onChange={(event) =>
-                    setEditDraft((current) => ({ ...current, variantName: event.target.value }))
+                    setCreateDraft((current) => ({ ...current, variantName: event.target.value }))
                   }
                   placeholder="e.g. Size S, Blue"
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
                 />
               </label>
-              <label className="text-sm text-slate-700">
+              <label className="text-sm text-slate-700 dark:text-slate-300">
                 SKU
                 <input
-                  value={editDraft.sku}
+                  value={createDraft.sku}
                   onChange={(event) =>
-                    setEditDraft((current) => ({ ...current, sku: event.target.value }))
+                    setCreateDraft((current) => ({ ...current, sku: event.target.value }))
                   }
                   placeholder="e.g. PRD-001-BLU"
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
                 />
               </label>
-              <label className="text-sm text-slate-700">
+              <label className="text-sm text-slate-700 dark:text-slate-300">
                 Organization
                 <select
-                  value={editDraft.organizationId}
+                  value={createDraft.organizationId}
                   onChange={(event) =>
-                    setEditDraft((current) => ({ ...current, organizationId: event.target.value }))
+                    setCreateDraft((current) => ({ ...current, organizationId: event.target.value }))
                   }
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  className={SELECT}
                 >
                   <option value="">Select organization</option>
                   {organizationOptions.map((org) => (
@@ -875,249 +864,7 @@ function ProductsPage() {
                   ))}
                 </select>
               </label>
-              <label className="sm:col-span-2 text-sm text-slate-700">
-                Materials Composition
-                <div className="mt-2 space-y-2">
-                  {editMaterialEntries.map((entry, index) => (
-                    <div key={`edit-mat-${index}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_0.5fr_0.5fr_0.5fr_auto]">
-                      <input
-                        value={entry.materialName}
-                        onChange={(event) =>
-                          setEditMaterialEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, materialName: event.target.value } : item
-                            )
-                          )
-                        }
-                        placeholder="Material name"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
-                      />
-                      <input
-                        value={entry.percentage}
-                        onChange={(event) =>
-                          setEditMaterialEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, percentage: event.target.value } : item
-                            )
-                          )
-                        }
-                        placeholder="%"
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
-                      />
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={entry.recycledContent}
-                          onChange={(event) =>
-                            setEditMaterialEntries((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, recycledContent: event.target.checked } : item
-                              )
-                            )
-                          }
-                          className="w-4 h-4 rounded border-slate-300"
-                        />
-                        <span className="text-xs text-slate-600">Recycled</span>
-                      </div>
-                      <input
-                        value={entry.recycledPercentage}
-                        onChange={(event) =>
-                          setEditMaterialEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, recycledPercentage: event.target.value } : item
-                            )
-                          )
-                        }
-                        placeholder="Recycled %"
-                        disabled={!entry.recycledContent}
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100 disabled:text-slate-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditMaterialEntries((current) =>
-                            current.length === 1
-                              ? [{ materialName: "", percentage: "", recycledContent: false, recycledPercentage: "" }]
-                              : current.filter((_, itemIndex) => itemIndex !== index)
-                          )
-                        }
-                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEditMaterialEntries((current) => [...current, { materialName: "", percentage: "", recycledContent: false, recycledPercentage: "" }])
-                  }
-                  className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-                >
-                  + Add material
-                </button>
-              </label>
-              <label className="sm:col-span-2 text-sm text-slate-700">
-                End of Life Instructions
-                <textarea
-                  value={editEndOfLifeInstructions}
-                  onChange={(event) => setEditEndOfLifeInstructions(event.target.value)}
-                  placeholder="How to recycle or dispose of this product..."
-                  rows={3}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-              </label>
-              <div className="sm:col-span-2">
-                <p className="text-sm text-slate-700">Extra Fields</p>
-                <div className="mt-2 space-y-2">
-                  {editSupplementEntries.map((entry, index) => (
-                    <div key={`edit-supp-${index}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                      <input
-                        value={entry.key}
-                        onChange={(event) =>
-                          setEditSupplementEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, key: event.target.value } : item
-                            )
-                          )
-                        }
-                        placeholder="Field name"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
-                      />
-                      <input
-                        value={entry.value}
-                        onChange={(event) =>
-                          setEditSupplementEntries((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, value: event.target.value } : item
-                            )
-                          )
-                        }
-                        placeholder="Field value"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditSupplementEntries((current) =>
-                            current.length === 1
-                              ? [{ key: "", value: "" }]
-                              : current.filter((_, itemIndex) => itemIndex !== index)
-                          )
-                        }
-                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEditSupplementEntries((current) => [...current, { key: "", value: "" }])
-                  }
-                  className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-                >
-                  + Add extra field
-                </button>
-              </div>
-              <label className="text-sm text-slate-700 sm:col-span-2">
-                Upload Product Image
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => setSelectedImageFile(event.target.files?.[0] || null)}
-                  className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
-
-            {actionError ? <p className="mt-4 text-sm font-medium text-rose-600">{actionError}</p> : null}
-
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingProductId("");
-                  setSelectedImageFile(null);
-                  setActionError("");
-                }}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveEdit(editingProductId)}
-                disabled={savingEdit}
-                className="rounded-full bg-gradient-to-r from-slate-900 to-flax-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
-              >
-                {savingEdit ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isCreateModalOpen ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-semibold text-slate-900">Create Product</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Add a new product with core and supplemental information. Data is saved to the database.
-            </p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm text-slate-700">
-                Product ID (optional)
-                <input
-                  value={createDraft.id}
-                  onChange={(event) =>
-                    setCreateDraft((current) => ({ ...current, id: event.target.value }))
-                  }
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                Product Name
-                <input
-                  value={createDraft.productName}
-                  onChange={(event) =>
-                    setCreateDraft((current) => ({ ...current, productName: event.target.value }))
-                  }
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                Variant Name
-                <input
-                  value={createDraft.variantName}
-                  onChange={(event) =>
-                    setCreateDraft((current) => ({ ...current, variantName: event.target.value }))
-                  }
-                  placeholder="e.g. Size S, Blue"
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                SKU
-                <input
-                  value={createDraft.sku}
-                  onChange={(event) =>
-                    setCreateDraft((current) => ({ ...current, sku: event.target.value }))
-                  }
-                  placeholder="e.g. PRD-001-BLU"
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
-                />
-              </label>
-              <label className="sm:col-span-2 text-sm text-slate-700">
+              <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
                 Materials Composition
                 <div className="mt-2 space-y-2">
                   {createMaterialEntries.map((entry, index) => (
@@ -1132,7 +879,7 @@ function ProductsPage() {
                           )
                         }
                         placeholder="Material name"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
                       />
                       <input
                         value={entry.percentage}
@@ -1147,7 +894,7 @@ function ProductsPage() {
                         type="number"
                         min="0"
                         max="100"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
                       />
                       <div className="flex items-center gap-2">
                         <input
@@ -1162,7 +909,7 @@ function ProductsPage() {
                           }
                           className="w-4 h-4 rounded border-slate-300"
                         />
-                        <span className="text-xs text-slate-600">Recycled</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Recycled</span>
                       </div>
                       <input
                         value={entry.recycledPercentage}
@@ -1178,7 +925,7 @@ function ProductsPage() {
                         type="number"
                         min="0"
                         max="100"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm disabled:bg-slate-100 disabled:text-slate-400"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 disabled:bg-slate-100 dark:disabled:bg-slate-600 disabled:text-slate-400"
                       />
                       <button
                         type="button"
@@ -1189,7 +936,7 @@ function ProductsPage() {
                               : current.filter((_, itemIndex) => itemIndex !== index)
                           )
                         }
-                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+                        className="rounded-xl bg-slate-100 dark:bg-slate-600 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
                       >
                         X
                       </button>
@@ -1201,40 +948,23 @@ function ProductsPage() {
                   onClick={() =>
                     setCreateMaterialEntries((current) => [...current, { materialName: "", percentage: "", recycledContent: false, recycledPercentage: "" }])
                   }
-                  className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                  className="mt-2 rounded-full bg-slate-100 dark:bg-slate-600 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200"
                 >
                   + Add material
                 </button>
               </label>
-              <label className="sm:col-span-2 text-sm text-slate-700">
+              <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
                 End of Life Instructions
                 <textarea
                   value={createEndOfLifeInstructions}
                   onChange={(event) => setCreateEndOfLifeInstructions(event.target.value)}
                   placeholder="How to recycle or dispose of this product..."
                   rows={3}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500"
                 />
               </label>
-              <label className="text-sm text-slate-700">
-                Organization
-                <select
-                  value={createDraft.organizationId}
-                  onChange={(event) =>
-                    setCreateDraft((current) => ({ ...current, organizationId: event.target.value }))
-                  }
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
-                >
-                  <option value="">Select organization</option>
-                  {organizationOptions.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <div className="sm:col-span-2">
-                <p className="text-sm text-slate-700">Extra Fields</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">Extra Fields</p>
                 <div className="mt-2 space-y-2">
                   {createSupplementEntries.map((entry, index) => (
                     <div key={`create-supp-${index}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -1248,7 +978,7 @@ function ProductsPage() {
                           )
                         }
                         placeholder="Field name"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
                       />
                       <input
                         value={entry.value}
@@ -1260,7 +990,7 @@ function ProductsPage() {
                           )
                         }
                         placeholder="Field value"
-                        className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
                       />
                       <button
                         type="button"
@@ -1271,7 +1001,7 @@ function ProductsPage() {
                               : current.filter((_, itemIndex) => itemIndex !== index)
                           )
                         }
-                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+                        className="rounded-xl bg-slate-100 dark:bg-slate-600 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
                       >
                         Remove
                       </button>
@@ -1283,18 +1013,18 @@ function ProductsPage() {
                   onClick={() =>
                     setCreateSupplementEntries((current) => [...current, { key: "", value: "" }])
                   }
-                  className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                  className="mt-2 rounded-full bg-slate-100 dark:bg-slate-600 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200"
                 >
                   + Add extra field
                 </button>
               </div>
-              <label className="text-sm text-slate-700 sm:col-span-2">
+              <label className="text-sm text-slate-700 dark:text-slate-300 sm:col-span-2">
                 Upload Product Image
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(event) => setCreateImageFile(event.target.files?.[0] || null)}
-                  className="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
                 />
               </label>
             </div>
@@ -1306,7 +1036,7 @@ function ProductsPage() {
                   setIsCreateModalOpen(false);
                   setActionError("");
                 }}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full bg-slate-100 dark:bg-slate-600 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 Cancel
               </button>
@@ -1314,9 +1044,255 @@ function ProductsPage() {
                 type="button"
                 onClick={handleCreateProduct}
                 disabled={creatingProduct}
-                className="rounded-full bg-gradient-to-r from-slate-900 to-flax-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                className="rounded-full bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
               >
                 {creatingProduct ? "Creating..." : "Create Product"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingProductId ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Update Product</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Edit the product information below. Changes are saved to the database.
+            </p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm text-slate-700 dark:text-slate-300">
+                Product Name
+                <input
+                  value={editDraft.productName}
+                  onChange={(event) =>
+                    setEditDraft((current) => ({ ...current, productName: event.target.value }))
+                  }
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+                />
+              </label>
+              <label className="text-sm text-slate-700 dark:text-slate-300">
+                Variant Name
+                <input
+                  value={editDraft.variantName}
+                  onChange={(event) =>
+                    setEditDraft((current) => ({ ...current, variantName: event.target.value }))
+                  }
+                  placeholder="e.g. Size S, Blue"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+                />
+              </label>
+              <label className="text-sm text-slate-700 dark:text-slate-300">
+                SKU
+                <input
+                  value={editDraft.sku}
+                  onChange={(event) =>
+                    setEditDraft((current) => ({ ...current, sku: event.target.value }))
+                  }
+                  placeholder="e.g. PRD-001-BLU"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+                />
+              </label>
+              <label className="text-sm text-slate-700 dark:text-slate-300">
+                Organization
+                <select
+                  value={editDraft.organizationId}
+                  onChange={(event) =>
+                    setEditDraft((current) => ({ ...current, organizationId: event.target.value }))
+                  }
+                  className={SELECT}
+                >
+                  <option value="">Select organization</option>
+                  {organizationOptions.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
+                Materials Composition
+                <div className="mt-2 space-y-2">
+                  {editMaterialEntries.map((entry, index) => (
+                    <div key={`edit-mat-${index}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_0.5fr_0.5fr_0.5fr_auto]">
+                      <input
+                        value={entry.materialName}
+                        onChange={(event) =>
+                          setEditMaterialEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, materialName: event.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="Material name"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                      />
+                      <input
+                        value={entry.percentage}
+                        onChange={(event) =>
+                          setEditMaterialEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, percentage: event.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="%"
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={entry.recycledContent}
+                          onChange={(event) =>
+                            setEditMaterialEntries((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, recycledContent: event.target.checked } : item
+                              )
+                            )
+                          }
+                          className="w-4 h-4 rounded border-slate-300"
+                        />
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Recycled</span>
+                      </div>
+                      <input
+                        value={entry.recycledPercentage}
+                        onChange={(event) =>
+                          setEditMaterialEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, recycledPercentage: event.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="Recycled %"
+                        disabled={!entry.recycledContent}
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 disabled:bg-slate-100 dark:disabled:bg-slate-600 disabled:text-slate-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditMaterialEntries((current) =>
+                            current.length === 1
+                              ? [{ materialName: "", percentage: "", recycledContent: false, recycledPercentage: "" }]
+                              : current.filter((_, itemIndex) => itemIndex !== index)
+                          )
+                        }
+                        className="rounded-xl bg-slate-100 dark:bg-slate-600 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                      >
+                        X
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditMaterialEntries((current) => [...current, { materialName: "", percentage: "", recycledContent: false, recycledPercentage: "" }])
+                  }
+                  className="mt-2 rounded-full bg-slate-100 dark:bg-slate-600 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  + Add material
+                </button>
+              </label>
+              <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
+                End of Life Instructions
+                <textarea
+                  value={editEndOfLifeInstructions}
+                  onChange={(event) => setEditEndOfLifeInstructions(event.target.value)}
+                  placeholder="How to recycle or dispose of this product..."
+                  rows={3}
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500"
+                />
+              </label>
+              <div className="sm:col-span-2">
+                <p className="text-sm text-slate-700 dark:text-slate-300">Extra Fields</p>
+                <div className="mt-2 space-y-2">
+                  {editSupplementEntries.map((entry, index) => (
+                    <div key={`edit-supp-${index}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        value={entry.key}
+                        onChange={(event) =>
+                          setEditSupplementEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, key: event.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="Field name"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                      />
+                      <input
+                        value={entry.value}
+                        onChange={(event) =>
+                          setEditSupplementEntries((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, value: event.target.value } : item
+                            )
+                          )
+                        }
+                        placeholder="Field value"
+                        className="h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditSupplementEntries((current) =>
+                            current.length === 1
+                              ? [{ key: "", value: "" }]
+                              : current.filter((_, itemIndex) => itemIndex !== index)
+                          )
+                        }
+                        className="rounded-xl bg-slate-100 dark:bg-slate-600 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditSupplementEntries((current) => [...current, { key: "", value: "" }])
+                  }
+                  className="mt-2 rounded-full bg-slate-100 dark:bg-slate-600 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  + Add extra field
+                </button>
+              </div>
+              <label className="text-sm text-slate-700 dark:text-slate-300 sm:col-span-2">
+                Upload Product Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setSelectedImageFile(event.target.files?.[0] || null)}
+                  className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                />
+              </label>
+            </div>
+            {actionError ? <p className="mt-4 text-sm font-medium text-rose-600">{actionError}</p> : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProductId("");
+                  setActionError("");
+                }}
+                className="rounded-full bg-slate-100 dark:bg-slate-600 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveEdit(editingProductId)}
+                disabled={savingEdit}
+                className="rounded-full bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -1324,12 +1300,12 @@ function ProductsPage() {
       ) : null}
 
       {pendingDeleteProduct ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10">
-            <h2 className="text-xl font-semibold text-slate-900">Delete Product</h2>
-            <p className="mt-2 text-sm text-slate-600">
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06]">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Delete Product</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Are you sure you want to delete{" "}
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
                 {pendingDeleteProduct.productName || pendingDeleteProduct.id}
               </span>
               ? This action cannot be undone.
@@ -1344,7 +1320,7 @@ function ProductsPage() {
                   setPendingDeleteProduct(null);
                   setActionError("");
                 }}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full bg-slate-100 dark:bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 No, Cancel
               </button>
@@ -1362,8 +1338,8 @@ function ProductsPage() {
       ) : null}
       {/* QR Code Modal */}
       {qrModal && (
-        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 px-4 animate-fade-in" onClick={() => setQrModal(null)}>
-          <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 dark:bg-black/80 px-4 animate-fade-in" onClick={() => setQrModal(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-7 pt-7 pb-5">
               <div className="flex items-start justify-between">
                 <div>
@@ -1377,15 +1353,15 @@ function ProductsPage() {
               </div>
             </div>
             <div className="p-7">
-              <div className="flex items-center justify-center bg-slate-50 rounded-2xl p-6 ring-1 ring-slate-100">
+              <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6 ring-1 ring-slate-100 dark:ring-white/[0.06]">
                 <img src={qrModal.qrUrl} alt="QR Code" className="w-44 h-44 object-contain" />
               </div>
-              <p className="mt-4 text-center text-xs text-slate-400">Scan this code to access the product passport</p>
+              <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">Scan this code to access the product passport</p>
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
                   onClick={() => navigator.clipboard?.writeText(qrModal.qrUrl)}
-                  className="flex-1 h-10 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Copy URL
                 </button>
@@ -1409,8 +1385,8 @@ function ProductsPage() {
         const dppImg = uploadedImages[dppModal.id] || readProductImageUrl(dppModal);
         const suppEntries = Object.entries(dppModal.additionalInfo || dppModal.supplementalInfo || {}).filter(([k]) => k !== "imageUrl");
         return (
-        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 px-4 py-6 animate-fade-in" onClick={() => setDppModal(null)}>
-          <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 dark:bg-black/80 px-4 py-6 animate-fade-in" onClick={() => setDppModal(null)}>
+          <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
 
             {/* Gradient header with product image */}
             <div className="relative bg-gradient-to-br from-brand-600 via-brand-700 to-slate-800 px-8 pt-8 pb-7 shrink-0">
@@ -1472,8 +1448,8 @@ function ProductsPage() {
                     { label: "Product ID", value: dppModal.id },
                   ].map(({ label, value }) => value ? (
                     <div key={label}>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 break-all">{value}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100 break-all">{value}</p>
                     </div>
                   ) : null)}
                 </div>
@@ -1484,9 +1460,9 @@ function ProductsPage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Materials</p>
                     <div className="grid grid-cols-2 gap-3">
                       {dppModal.materialsComposition.map((m, idx) => (
-                        <div key={idx} className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                          <p className="text-sm font-semibold text-slate-800">{m.materialName}</p>
-                          <p className="text-xs text-slate-500">{m.percentage}%</p>
+                        <div key={idx} className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{m.materialName}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{m.percentage}%</p>
                         </div>
                       ))}
                     </div>
@@ -1499,9 +1475,9 @@ function ProductsPage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Extra Fields</p>
                     <div className="grid grid-cols-2 gap-3">
                       {suppEntries.map(([k, v]) => (
-                        <div key={k} className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{k}</p>
-                          <p className="text-sm font-semibold text-slate-800 mt-0.5 break-words">{String(v)}</p>
+                        <div key={k} className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">{k}</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5 break-words">{String(v)}</p>
                         </div>
                       ))}
                     </div>
@@ -1510,9 +1486,9 @@ function ProductsPage() {
 
                 {/* Passport URL */}
                 {dppModal.dppUrl && (
-                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Passport URL</p>
-                    <p className="text-xs font-mono text-slate-600 break-all">{dppModal.dppUrl}</p>
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/[0.06] p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Passport URL</p>
+                    <p className="text-xs font-mono text-slate-600 dark:text-slate-300 break-all">{dppModal.dppUrl}</p>
                   </div>
                 )}
 
@@ -1522,7 +1498,7 @@ function ProductsPage() {
                     <button
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(dppModal.dppUrl)}
-                      className="flex-1 h-11 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                      className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       Copy URL
                     </button>
@@ -1539,7 +1515,7 @@ function ProductsPage() {
                     <button
                       type="button"
                       onClick={() => { setDppModal(null); setQrModal(dppModal); }}
-                      className="h-11 w-11 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-200 transition-colors"
+                      className="h-11 w-11 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-700/50 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-brand-600 hover:border-brand-200 transition-colors"
                       title="View QR Code"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
@@ -1553,12 +1529,12 @@ function ProductsPage() {
         );
       })()}
       {isCsvModalOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10">
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06]">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">Import Products</h2>
-                <p className="mt-1 text-sm text-slate-500">Upload a CSV file to create multiple products at once.</p>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Import Products</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Upload a CSV file to create multiple products at once.</p>
               </div>
               <button
                 type="button"
@@ -1572,12 +1548,12 @@ function ProductsPage() {
             </div>
 
             <div className="mt-5 space-y-4">
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Organization
                 <select
                   value={csvOrgId}
                   onChange={(e) => setCsvOrgId(e.target.value)}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                  className={SELECT}
                 >
                   <option value="">Select organization</option>
                   {organizationOptions.map((org) => (
@@ -1598,8 +1574,8 @@ function ProductsPage() {
                 </div>
               </label>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600 space-y-1.5">
-                <p className="font-semibold text-slate-700 mb-2">Expected columns</p>
+              <div className="rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-900/50 p-4 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+                <p className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Expected columns</p>
                 <p><span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">productName</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">companyName</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">variantName</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">sku</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">endOfLifeInstructions</span></p>
                 <p><span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">material_1_name</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">material_1_percentage</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">material_1_recycled_content</span> · <span className="font-mono bg-white rounded px-1 py-0.5 border border-slate-200">material_1_recycled_percentage</span></p>
                 <p className="text-slate-400 italic">Any other column is stored as an extra field (e.g. countryOfOrigin, certification).</p>
@@ -1638,7 +1614,7 @@ function ProductsPage() {
               <button
                 type="button"
                 onClick={() => setIsCsvModalOpen(false)}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full bg-slate-100 dark:bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 {csvResult ? "Close" : "Cancel"}
               </button>
@@ -1658,13 +1634,13 @@ function ProductsPage() {
       )}
 
       {sheetModalProduct && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10">
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06]">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">Create Technical Sheet</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  For product: <span className="font-semibold text-slate-700">{sheetModalProduct.productName || sheetModalProduct.id}</span>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Create Technical Sheet</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  For product: <span className="font-semibold text-slate-700 dark:text-slate-200">{sheetModalProduct.productName || sheetModalProduct.id}</span>
                 </p>
               </div>
               <button
@@ -1680,7 +1656,7 @@ function ProductsPage() {
 
             <div className="mt-5 space-y-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Sheet Type</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Sheet Type</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { type: "MATERIAL_SHEET", label: "Material Sheet", desc: "Bill of materials & components", icon: "M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" },
@@ -1692,43 +1668,43 @@ function ProductsPage() {
                       onClick={() => setSheetDraft((p) => ({ ...p, type: opt.type }))}
                       className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all ${
                         sheetDraft.type === opt.type
-                          ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500/20"
-                          : "border-slate-200 bg-white hover:border-slate-300"
+                          ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-1 ring-brand-500/20"
+                          : "border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-700/50 hover:border-slate-300"
                       }`}
                     >
                       <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-                        sheetDraft.type === opt.type ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-400"
+                        sheetDraft.type === opt.type ? "bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300" : "bg-slate-100 dark:bg-slate-700/50 text-slate-400"
                       }`}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={opt.icon} />
                         </svg>
                       </div>
                       <div>
-                        <p className={`text-sm font-semibold ${sheetDraft.type === opt.type ? "text-brand-900" : "text-slate-700"}`}>{opt.label}</p>
-                        <p className="text-xs text-slate-500">{opt.desc}</p>
+                        <p className={`text-sm font-semibold ${sheetDraft.type === opt.type ? "text-brand-900 dark:text-brand-200" : "text-slate-700 dark:text-slate-200"}`}>{opt.label}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{opt.desc}</p>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Sheet Name
                 <input
                   value={sheetDraft.name}
                   onChange={(e) => setSheetDraft((p) => ({ ...p, name: e.target.value }))}
-                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                  className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-700/50 dark:text-slate-100 px-3 text-sm focus:border-brand-500 dark:focus:bg-slate-700 focus:ring-4 focus:ring-brand-500/10 outline-none"
                   placeholder="e.g. Lake Sunset — Material Sheet"
                 />
               </label>
 
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Description (optional)
                 <textarea
                   value={sheetDraft.description}
                   onChange={(e) => setSheetDraft((p) => ({ ...p, description: e.target.value }))}
                   rows={2}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none resize-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-700/50 dark:text-slate-100 px-3 py-2 text-sm focus:border-brand-500 dark:focus:bg-slate-700 focus:ring-4 focus:ring-brand-500/10 outline-none resize-none"
                   placeholder="Brief description of this sheet..."
                 />
               </label>
@@ -1740,7 +1716,7 @@ function ProductsPage() {
               <button
                 type="button"
                 onClick={() => { setSheetModalProduct(null); setActionError(""); }}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                className="rounded-full bg-slate-100 dark:bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
               >
                 Cancel
               </button>

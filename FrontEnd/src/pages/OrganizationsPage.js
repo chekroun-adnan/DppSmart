@@ -11,16 +11,14 @@ import {
   updateSubOrganization,
 } from "../services/authService";
 
-const INPUT  = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10";
-const SELECT = `${INPUT} cursor-pointer`;
+const INPUT  = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-4 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10";
+const SELECT = "h-11 w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-4 pr-10 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 cursor-pointer bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.75rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.75rem_center]";
 
 export default function OrganizationsPage() {
-  // ── Role (inside component so it's always fresh) ────────────────────────
   const currentRole = (localStorage.getItem("userRole") || "").toUpperCase();
   const isAdmin    = currentRole === "ADMIN";
   const isSubAdmin = currentRole === "SUBADMIN";
 
-  // ── State ────────────────────────────────────────────────────────────────
   const [mainOrgs,  setMainOrgs]  = useState([]);
   const [subOrgs,   setSubOrgs]   = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -47,13 +45,11 @@ export default function OrganizationsPage() {
         setMainOrgs(Array.isArray(mainData) ? mainData : []);
         setSubOrgs(Array.isArray(subData)  ? subData  : []);
       } else {
-        // Subadmin: load main orgs (for parent picker) + their own sub orgs
         const [mainData, myData] = await Promise.all([
           getMainOrganizations(),
           getMyOrganizations(),
         ]);
         setMainOrgs(Array.isArray(mainData) ? mainData : []);
-        // myOrgs can include both main and sub — filter to sub only for display
         const mySubOrgs = (Array.isArray(myData) ? myData : []).filter(
           (o) => (o.type || "").toUpperCase() !== "MAIN"
         );
@@ -66,7 +62,6 @@ export default function OrganizationsPage() {
     }
   }
 
-  // ── CREATE ───────────────────────────────────────────────────────────────
   const handleCreateMain = async () => {
     if (!draft.name.trim()) { setActionError("Name is required."); return; }
     setSaving(true); setActionError("");
@@ -96,7 +91,6 @@ export default function OrganizationsPage() {
     finally { setSaving(false); }
   };
 
-  // ── EDIT ─────────────────────────────────────────────────────────────────
   const openEdit = (org) => {
     setEditingOrg(org);
     setDraft({ name: org.name || "", parentOrganizationId: org.parentOrganizationId || "" });
@@ -123,7 +117,6 @@ export default function OrganizationsPage() {
     finally { setSaving(false); }
   };
 
-  // ── DELETE ───────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     setSaving(true); setActionError("");
     try {
@@ -141,13 +134,10 @@ export default function OrganizationsPage() {
     setModal(type);
   };
 
-  // ── Derived display lists ────────────────────────────────────────────────
-  // Admin sees all main + all sub; subadmin sees all main (read-only) + their subs
   const displayedMain = mainOrgs;
   const displayedSub  = subOrgs;
   const totalCount    = displayedMain.length + displayedSub.length;
 
-  // ── OrgCard (defined outside component so it won't remount on re-render) ─
   const subsCountOf = (orgId) => displayedSub.filter((s) => s.parentOrganizationId === orgId).length;
   const parentNameOf = (parentId) => mainOrgs.find((m) => m.id === parentId)?.name;
 
@@ -159,8 +149,8 @@ export default function OrganizationsPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Hierarchy</p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Organizations</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Organizations</h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {isAdmin
                 ? "Manage your full organizational structure."
                 : "Your sub-organizations and the main organizations they belong to."}
@@ -181,7 +171,7 @@ export default function OrganizationsPage() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl w-fit">
+        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl w-fit">
           {[
             { key: "ALL",  label: "All",  count: totalCount },
             { key: "MAIN", label: "Main", count: displayedMain.length },
@@ -193,13 +183,15 @@ export default function OrganizationsPage() {
               onClick={() => setFilter(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 filter === tab.key
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               {tab.label}
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                filter === tab.key ? "bg-brand-100 text-brand-700" : "bg-slate-200 text-slate-500"
+                filter === tab.key
+                  ? "bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300"
+                  : "bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-300"
               }`}>
                 {tab.count}
               </span>
@@ -211,23 +203,23 @@ export default function OrganizationsPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-            <p className="text-sm text-slate-500">Loading organizations…</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Loading organizations…</p>
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div>
+          <div className="rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-6 text-sm text-red-700 dark:text-red-400">{error}</div>
         ) : totalCount === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm font-semibold text-slate-500">No organizations found.</p>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No organizations found.</p>
           </div>
         ) : (
           <>
             {(filter === "ALL" || filter === "MAIN") && displayedMain.length > 0 && (
               <section>
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-bold text-slate-900">Main Organizations</h2>
-                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">{displayedMain.length}</span>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Main Organizations</h2>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-full">{displayedMain.length}</span>
                   {isSubAdmin && (
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">View only</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/[0.08] px-2.5 py-1 rounded-full">View only</span>
                   )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -251,8 +243,8 @@ export default function OrganizationsPage() {
             {(filter === "ALL" || filter === "SUB") && displayedSub.length > 0 && (
               <section>
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-bold text-slate-900">Sub-Organizations</h2>
-                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">{displayedSub.length}</span>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Sub-Organizations</h2>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-full">{displayedSub.length}</span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {displayedSub.map((org) => (
@@ -301,7 +293,7 @@ export default function OrganizationsPage() {
               {mainOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
             {mainOrgs.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">No main organizations available. Create one first.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">No main organizations available. Create one first.</p>
             )}
           </Field>
           {actionError && <p className="text-sm text-rose-600">{actionError}</p>}
@@ -337,8 +329,8 @@ export default function OrganizationsPage() {
       {/* ── DELETE MODAL ──────────────────────────────────────────────────── */}
       {modal === "delete" && pendingDelete && (
         <ModalShell title="Delete Organization" onClose={() => setModal(null)}>
-          <p className="text-sm text-slate-600">
-            Delete <span className="font-bold text-slate-900">{pendingDelete.name}</span>? All linked data may be affected. This cannot be undone.
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Delete <span className="font-bold text-slate-900 dark:text-slate-100">{pendingDelete.name}</span>? All linked data may be affected. This cannot be undone.
           </p>
           {actionError && <p className="text-sm text-rose-600">{actionError}</p>}
           <ModalActions
@@ -354,15 +346,13 @@ export default function OrganizationsPage() {
   );
 }
 
-// ─── Pure presentational sub-components (defined outside to avoid remounting) ──
-
 function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, onEdit, onDelete }) {
   return (
-    <article className="group rounded-2xl bg-white p-5 ring-1 ring-slate-900/8 transition-all hover:-translate-y-0.5 hover:shadow-soft-xl">
+    <article className="group rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-white/[0.07] shadow-sm p-5 transition-all hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-[0_4px_12px_rgba(0,0,0,0.4)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`h-11 w-11 flex-none rounded-xl flex items-center justify-center shadow-sm ${
-            isMainType ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"
+            isMainType ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
           }`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -370,7 +360,7 @@ function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, o
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900 truncate">{org.name}</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{org.name}</p>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
               {isMainType
                 ? `${subsCount} sub-org${subsCount !== 1 ? "s" : ""}`
@@ -383,7 +373,7 @@ function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, o
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             {canEdit && (
               <button type="button" onClick={() => onEdit(org)} title="Edit"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-all">
+                className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-all">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -392,7 +382,7 @@ function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, o
             )}
             {canDelete && (
               <button type="button" onClick={() => onDelete(org)} title="Delete"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all">
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -405,11 +395,11 @@ function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, o
 
       <div className="mt-3 flex items-center justify-between">
         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
-          isMainType ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-500"
+          isMainType ? "bg-brand-100 dark:bg-brand-500/15 text-brand-700 dark:text-brand-300" : "bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400"
         }`}>
           {isMainType ? "Main" : "Sub"}
         </span>
-        <span className="text-[10px] font-mono text-slate-300 truncate max-w-[100px]">{org.id?.slice(-8)}</span>
+        <span className="text-[10px] font-mono text-slate-300 dark:text-slate-600 truncate max-w-[100px]">{org.id?.slice(-8)}</span>
       </div>
     </article>
   );
@@ -417,10 +407,10 @@ function OrgCard({ org, isMainType, subsCount, parentName, canEdit, canDelete, o
 
 function ModalShell({ title, subtitle, children }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl ring-1 ring-slate-900/10">
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500 mt-0.5 mb-4">{subtitle}</p>}
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in">
+      <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.08]">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+        {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 mb-4">{subtitle}</p>}
         <div className="mt-5 space-y-4">{children}</div>
       </div>
     </div>

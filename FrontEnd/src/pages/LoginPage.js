@@ -7,7 +7,7 @@ import { loginUser, storeAuthSession } from "../services/authService";
 
 function FormLabel({ children }) {
   return (
-    <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block">
+    <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-2 block">
       {children}
     </label>
   );
@@ -18,7 +18,7 @@ function Input({ name, type = "text", placeholder, value, onChange }) {
     <input
       name={name}
       type={type}
-      className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+      className="h-12 w-full rounded-2xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-5 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
       placeholder={placeholder}
       value={value}
       onChange={onChange}
@@ -114,7 +114,7 @@ function LoginPage() {
       </div>
       <a
         href={`${process.env.REACT_APP_API_URL || "http://localhost:8080"}/oauth2/authorization/google`}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -131,9 +131,9 @@ function LoginPage() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
-        {t("auth.networkStatus")}: <span className="font-semibold text-emerald-700">{t("auth.stable")}</span>{" "}
-        • {t("auth.dppSyncRate")}: <span className="font-semibold text-slate-900">99.9%</span>
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700/40 px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+        {t("auth.networkStatus")}: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{t("auth.stable")}</span>{" "}
+        • {t("auth.dppSyncRate")}: <span className="font-semibold text-slate-900 dark:text-white">99.9%</span>
       </div>
 
       <p className="text-center text-xs text-slate-500">

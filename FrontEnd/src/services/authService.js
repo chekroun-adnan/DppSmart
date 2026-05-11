@@ -68,8 +68,6 @@ async function refreshAccessToken() {
   return refreshPromise;
 }
 
-let tokenExpiryTime = null;
-
 function getTokenExpiryFromJwt(token) {
   try {
     const parts = token.split('.');
@@ -177,6 +175,13 @@ export function storeAuthSession(authResponse) {
   localStorage.setItem("userId", authResponse.userId || "");
   localStorage.setItem("userEmail", authResponse.email || "");
   localStorage.setItem("userRole", authResponse.role || "");
+  localStorage.setItem("organizationId", authResponse.organizationId || "");
+  localStorage.setItem("assignedOrganizationIds", JSON.stringify(authResponse.assignedOrganizationIds || []));
+  if (authResponse.organizationId) {
+    localStorage.setItem("orgId", authResponse.organizationId);
+  } else if (authResponse.assignedOrganizationIds?.length > 0) {
+    localStorage.setItem("orgId", authResponse.assignedOrganizationIds[0]);
+  }
 }
 
 export function clearAuthSession() {
@@ -185,6 +190,9 @@ export function clearAuthSession() {
   localStorage.removeItem("userId");
   localStorage.removeItem("userEmail");
   localStorage.removeItem("userRole");
+  localStorage.removeItem("organizationId");
+  localStorage.removeItem("assignedOrganizationIds");
+  localStorage.removeItem("orgId");
 }
 
 export function isAuthenticated() {
@@ -427,23 +435,69 @@ export async function deleteTask(id) {
   return authJsonRequest(`/api/tasks/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete task.");
 }
 
-// =================== STOCK ===================
+// =================== MATERIAL STOCK ===================
 
-export async function getStocks() {
-  const data = await authorizedRequest("/stock/all", { method: "GET" }, "Failed to load stock.");
+export async function getMaterialStocks() {
+  const data = await authorizedRequest("/api/material-stock", { method: "GET" }, "Failed to load material stock.");
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 }
 
-export async function createStock(payload) {
-  return authJsonRequest("/stock/create", "POST", payload, "Failed to create stock item.");
+export async function getMaterialStockById(id) {
+  return authorizedRequest(`/api/material-stock/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load material stock.");
 }
 
-export async function updateStock(payload) {
-  return authJsonRequest("/stock/update", "PUT", payload, "Failed to update stock item.");
+export async function createMaterialStock(payload) {
+  return authJsonRequest("/api/material-stock", "POST", payload, "Failed to create material stock item.");
 }
 
-export async function deleteStock(id) {
-  return authorizedRequest(`/stock/delete?id=${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete stock item.");
+export async function updateMaterialStock(payload) {
+  return authJsonRequest("/api/material-stock", "PUT", payload, "Failed to update material stock item.");
+}
+
+export async function deleteMaterialStock(id) {
+  return authorizedRequest(`/api/material-stock/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete material stock item.");
+}
+
+export async function adjustMaterialQuantity(id, adjustment) {
+  return authJsonRequest("/api/material-stock/adjust", "PUT", { id, adjustment }, "Failed to adjust material quantity.");
+}
+
+export async function getLowStockMaterials(organizationId) {
+  const url = organizationId ? `/api/material-stock/low-stock?organizationId=${encodeURIComponent(organizationId)}` : "/api/material-stock/low-stock";
+  const data = await authorizedRequest(url, { method: "GET" }, "Failed to load low stock materials.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+// =================== PRODUCT STOCK ===================
+
+export async function getProductStocks() {
+  const data = await authorizedRequest("/api/product-stock", { method: "GET" }, "Failed to load product stock.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getProductStockById(id) {
+  return authorizedRequest(`/api/product-stock/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load product stock.");
+}
+
+export async function createProductStock(payload) {
+  return authJsonRequest("/api/product-stock", "POST", payload, "Failed to create product stock item.");
+}
+
+export async function updateProductStock(payload) {
+  return authJsonRequest("/api/product-stock", "PUT", payload, "Failed to update product stock item.");
+}
+
+export async function deleteProductStock(id) {
+  return authorizedRequest(`/api/product-stock/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete product stock item.");
+}
+
+export async function adjustProductQuantity(id, adjustment) {
+  return authJsonRequest("/api/product-stock/adjust", "PUT", { id, adjustment }, "Failed to adjust product quantity.");
+}
+
+export async function addProductFromProduction(productName, productId, quantity, unit, organizationId) {
+  const url = `/api/product-stock/from-production?productName=${encodeURIComponent(productName)}&productId=${encodeURIComponent(productId)}&quantity=${quantity}&unit=${encodeURIComponent(unit)}&organizationId=${encodeURIComponent(organizationId)}`;
+  return authJsonRequest(url, "POST", null, "Failed to add product from production.");
 }
 
 // =================== SCANS ===================
@@ -564,30 +618,6 @@ export async function saveOperationItems(sheetId, items) {
   return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(sheetId)}/operation-items`, "PUT", items, "Failed to save operation items.");
 }
 
-// ─── Materials library ───────────────────────────────────────────────────────
-
-export async function getTsMaterials() {
-  const data = await authorizedRequest("/api/ts-materials", { method: "GET" }, "Failed to load materials.");
-  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-}
-
-export async function getTsMaterialsByOrg(orgId) {
-  const data = await authorizedRequest(`/api/ts-materials/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load materials.");
-  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-}
-
-export async function createTsMaterial(payload) {
-  return authJsonRequest("/api/ts-materials", "POST", payload, "Failed to create material.");
-}
-
-export async function updateTsMaterial(id, payload) {
-  return authJsonRequest(`/api/ts-materials/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update material.");
-}
-
-export async function deleteTsMaterial(id) {
-  return authorizedRequest(`/api/ts-materials/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete material.");
-}
-
 // ─── Operations library ──────────────────────────────────────────────────────
 
 export async function getTsOperations() {
@@ -610,6 +640,150 @@ export async function updateTsOperation(id, payload) {
 
 export async function deleteTsOperation(id) {
   return authorizedRequest(`/api/ts-operations/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete operation.");
+}
+
+// =================== AUDIT ===================
+
+export async function getAuditLogs(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.entityType) qs.set("entityType", params.entityType);
+  if (params.organizationId) qs.set("organizationId", params.organizationId);
+  if (params.userEmail) qs.set("userEmail", params.userEmail);
+  if (params.action) qs.set("action", params.action);
+  if (params.startDate) qs.set("startDate", params.startDate);
+  if (params.endDate) qs.set("endDate", params.endDate);
+  if (params.page !== undefined) qs.set("page", params.page);
+  if (params.size !== undefined) qs.set("size", params.size);
+  const query = qs.toString() ? `?${qs.toString()}` : "";
+  const data = await authorizedRequest(`/api/audit${query}`, { method: "GET" }, "Failed to load audit logs.");
+  return data;
+}
+
+export async function getEntityAuditLogs(entityType, entityId, page = 0, size = 20) {
+  const data = await authorizedRequest(
+    `/api/audit/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}?page=${page}&size=${size}`,
+    { method: "GET" },
+    "Failed to load entity audit logs."
+  );
+  return data;
+}
+
+// =================== SUPPLY CHAIN ===================
+
+export async function getSuppliers() {
+  const data = await authorizedRequest("/api/suppliers", { method: "GET" }, "Failed to load suppliers.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getSuppliersByOrg(orgId) {
+  const data = await authorizedRequest(`/api/suppliers/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load suppliers.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getSupplierById(id) {
+  return authorizedRequest(`/api/suppliers/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load supplier.");
+}
+
+export async function createSupplier(payload) {
+  return authJsonRequest("/api/suppliers", "POST", payload, "Failed to create supplier.");
+}
+
+export async function updateSupplier(payload) {
+  return authJsonRequest("/api/suppliers", "PUT", payload, "Failed to update supplier.");
+}
+
+export async function deleteSupplier(id) {
+  return authorizedRequest(`/api/suppliers/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete supplier.");
+}
+
+export async function getMaterialOrders() {
+  const data = await authorizedRequest("/api/material-orders", { method: "GET" }, "Failed to load material orders.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getMaterialOrdersByOrg(orgId) {
+  const data = await authorizedRequest(`/api/material-orders/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load material orders.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getMaterialOrdersByStatus(orgId, status) {
+  const data = await authorizedRequest(`/api/material-orders/organization/${encodeURIComponent(orgId)}/status/${encodeURIComponent(status)}`, { method: "GET" }, "Failed to load material orders.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getMaterialOrderById(id) {
+  return authorizedRequest(`/api/material-orders/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load material order.");
+}
+
+export async function createMaterialOrder(payload) {
+  return authJsonRequest("/api/material-orders", "POST", payload, "Failed to create material order.");
+}
+
+export async function updateMaterialOrder(id, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update material order.");
+}
+
+export async function deleteMaterialOrder(id) {
+  return authorizedRequest(`/api/material-orders/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete material order.");
+}
+
+export async function updateTracking(orderId, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/tracking`, "POST", payload, "Failed to update tracking.");
+}
+
+export async function getTrackingHistory(orderId) {
+  const data = await authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/tracking`, { method: "GET" }, "Failed to load tracking.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function validateReception(orderId, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/reception`, "POST", payload, "Failed to validate reception.");
+}
+
+export async function getReceptions(orderId) {
+  const data = await authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/receptions`, { method: "GET" }, "Failed to load receptions.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function processReturn(orderId, itemId, returnQuantity, rejectionReason, notes) {
+  const params = new URLSearchParams({ itemId, returnQuantity: String(returnQuantity), rejectionReason });
+  if (notes) params.append("notes", notes);
+  return authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/return?${params}`, { method: "POST" }, "Failed to process return.");
+}
+
+// =================== NOTIFICATIONS ===================
+
+export async function getMyNotifications(userId) {
+  const userIdToUse = userId || localStorage.getItem("userId");
+  if (!userIdToUse) return [];
+  const data = await authorizedRequest(`/api/notifications?userId=${encodeURIComponent(userIdToUse)}`, { method: "GET" }, "Failed to load notifications.");
+  return unwrapList(data);
+}
+
+export async function getUnreadNotifications(userId) {
+  const userIdToUse = userId || localStorage.getItem("userId");
+  if (!userIdToUse) return [];
+  const data = await authorizedRequest(`/api/notifications/unread?userId=${encodeURIComponent(userIdToUse)}`, { method: "GET" }, "Failed to load unread notifications.");
+  return unwrapList(data);
+}
+
+export async function getUnreadNotificationCount(userId) {
+  const userIdToUse = userId || localStorage.getItem("userId");
+  if (!userIdToUse) return { count: 0 };
+  const data = await authorizedRequest(`/api/notifications/unread/count?userId=${encodeURIComponent(userIdToUse)}`, { method: "GET" }, "Failed to load unread count.");
+  return data;
+}
+
+export async function markNotificationRead(id) {
+  return authJsonRequest(`/api/notifications/${encodeURIComponent(id)}/read`, "PUT", {}, "Failed to mark notification as read.");
+}
+
+export async function markAllNotificationsRead() {
+  return authJsonRequest("/api/notifications/read-all", "PUT", {}, "Failed to mark all as read.");
+}
+
+export async function deleteNotification(id) {
+  return authorizedRequest(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete notification.");
 }
 
 // =================== PUBLIC / CONTACT ===================

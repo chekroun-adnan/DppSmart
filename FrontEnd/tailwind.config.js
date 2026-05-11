@@ -1,9 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: ["./public/index.html", "./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       colors: {
+        dark: {
+          bg: "#0B1120",
+          surface: "#111827",
+          sidebar: "#0F172A",
+          card: "#1E293B",
+          border: "rgba(255,255,255,0.08)",
+        },
         brand: {
           50: "#f5f7ff",
           100: "#ebf0ff",
@@ -11,30 +19,29 @@ module.exports = {
           300: "#b3c7ff",
           400: "#80a1ff",
           500: "#4d7aff",
-          600: "#1a53ff",
-          700: "#003de6",
-          800: "#0030b3",
-          900: "#002380",
+          600: "#2563EB",
+          700: "#1d4ed8",
+          800: "#1e40af",
+          900: "#1e3a8a",
           950: "#00154d",
         },
         slate: {
           950: "#020617",
         },
-        flax: {
-          50: "#fffbeb",
-          100: "#fef3c7",
-          200: "#fde68a",
-          300: "#fcd34d",
-          400: "#fbbf24",
-          500: "#f59e0b",
-          600: "#d97706",
-          700: "#b45309",
-          800: "#92400e",
-          900: "#78350f",
-          950: "#451a03",
-        },
         ink: {
           950: "#0d1117",
+        },
+        success: {
+          DEFAULT: "#22C55E",
+          50: "#f0fdf4",
+          500: "#22C55E",
+          600: "#16a34a",
+        },
+        warning: {
+          DEFAULT: "#F59E0B",
+          50: "#fffbeb",
+          500: "#F59E0B",
+          600: "#d97706",
         },
       },
       fontFamily: {
@@ -46,6 +53,13 @@ module.exports = {
         "premium-hover": "0 30px 60px -12px rgba(0, 0, 0, 0.25)",
         "glass": "inset 0 1px 1px 0 rgba(255, 255, 255, 0.05)",
         "soft-xl": "0 20px 40px -8px rgba(0, 0, 0, 0.10), 0 8px 16px -4px rgba(0, 0, 0, 0.06)",
+        "dark-card": "0 1px 3px 0 rgba(0,0,0,0.3), 0 1px 2px -1px rgba(0,0,0,0.3)",
+        "dark-card-hover": "0 4px 12px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.4)",
+        "dark-elevated": "0 8px 24px rgba(0,0,0,0.5), 0 2px 8px -4px rgba(0,0,0,0.5)",
+      },
+      transitionDuration: {
+        "250": "250ms",
+        "350": "350ms",
       },
       animation: {
         "fade-in": "fade-in 0.6s ease-out forwards",

@@ -4,40 +4,27 @@ import DashboardLayout from "../components/DashboardLayout";
 import {
   getTechnicalSheets, createTechnicalSheet, updateTechnicalSheet, deleteTechnicalSheet,
   getMaterialItems, saveMaterialItems, getOperationItems, saveOperationItems,
-  getTsMaterials, createTsMaterial, updateTsMaterial, deleteTsMaterial,
+  getMaterialStocks, createMaterialStock, updateMaterialStock, deleteMaterialStock,
   getTsOperations, createTsOperation, updateTsOperation, deleteTsOperation,
   getAvailableProducts,
   getMyOrganizations,
   getMainOrganizations,
   getSubOrganizations,
 } from "../services/authService";
+import AuditHistoryModal from "../components/AuditHistoryModal";
 
 const ROLE = () => (localStorage.getItem("userRole") || "").toUpperCase();
 const canEdit = () => ["ADMIN", "SUBADMIN"].includes(ROLE());
 
 function Badge({ type }) {
   const styles = {
-    MATERIAL_SHEET: "bg-emerald-100 text-emerald-700",
-    OPERATION_SHEET: "bg-blue-100 text-blue-700",
+    MATERIAL_SHEET: "status-emerald",
+    OPERATION_SHEET: "status-blue",
   };
   const labels = { MATERIAL_SHEET: "Material Sheet", OPERATION_SHEET: "Operation Sheet" };
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[type] || "bg-slate-100 text-slate-600"}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[type] || "status-slate"}`}>
       {labels[type] || type}
-    </span>
-  );
-}
-
-function StatusBadge({ status }) {
-  const styles = {
-    "Draft": "bg-slate-100 text-slate-700",
-    "Approved": "bg-emerald-100 text-emerald-700",
-    "Published": "bg-blue-100 text-blue-700",
-  };
-  const label = status || "Draft";
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[label] || styles.Draft}`}>
-      {label}
     </span>
   );
 }
@@ -58,7 +45,7 @@ function Input({ value, onChange, placeholder, type = "text", ...rest }) {
       value={value ?? ""}
       onChange={onChange}
       placeholder={placeholder}
-      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
+      className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/60 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 focus:bg-white dark:focus:bg-slate-800/80 focus:ring-4 focus:ring-brand-500/10"
       {...rest}
     />
   );
@@ -69,7 +56,7 @@ function Select({ value, onChange, children, ...rest }) {
     <select
       value={value ?? ""}
       onChange={onChange}
-      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+      className="h-10 w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-3 pr-10 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 cursor-pointer bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.75rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.75rem_center]"
       {...rest}
     >
       {children}
@@ -79,11 +66,11 @@ function Select({ value, onChange, children, ...rest }) {
 
 function Modal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -137,15 +124,13 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
 
   const infoTableTop = orgY + 10;
   const productIdVal = product ? (product.id || "—") : "—";
-  autoTable(doc, {
+    autoTable(doc, {
     startY: infoTableTop,
     head: [],
     body: [
       ["Product ID", productIdVal],
       ["Product Name", productName],
       ["Product Description", productDesc || "—"],
-      ["Version", `v${sheet?.version || 1}`],
-      ["Status", sheet?.status || "Draft"],
     ],
     theme: "grid",
     headStyles: { fillColor: [255, 255, 255] },
@@ -319,11 +304,14 @@ export default function TechnicalSheetsPage() {
   const [activeSheet, setActiveSheet] = useState(null);
   const [pdfPreview, setPdfPreview] = useState(null);
   const [logoBase64, setLogoBase64] = useState(null);
+  const [auditTrail, setAuditTrail] = useState({});
+  const [auditModalSheet, setAuditModalSheet] = useState(null);
+  const [historyId, setHistoryId] = useState(null);
 
-  const [sheetDraft, setSheetDraft] = useState({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: "", productId: "", status: "Draft", version: 1 });
+  const [sheetDraft, setSheetDraft] = useState({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: "", productId: "" });
   const [matItems, setMatItems] = useState([]);
   const [opItems, setOpItems] = useState([]);
-  const [newMaterial, setNewMaterial] = useState({ name: "", referenceCode: "", unit: "", organizationId: "", percentage: "" });
+  const [newMaterial, setNewMaterial] = useState({ name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: "" });
   const [newOperation, setNewOperation] = useState({ name: "", description: "", defaultDuration: "", organizationId: "" });
   const [saving, setSaving] = useState(false);
 
@@ -337,6 +325,18 @@ export default function TechnicalSheetsPage() {
   const [sortDirection, setSortDirection] = useState("desc");
 
   const orgId = localStorage.getItem("orgId") || "";
+
+  useEffect(() => {
+    if (orgId || ROLE() === "ADMIN") return;
+    getMyOrganizations()
+      .then((data) => {
+        const orgs = Array.isArray(data) ? data : [];
+        if (orgs.length > 0) {
+          localStorage.setItem("orgId", orgs[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -370,7 +370,7 @@ export default function TechnicalSheetsPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedSheets, sheets]);
+  }, [selectedSheets, sheets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -378,7 +378,7 @@ export default function TechnicalSheetsPage() {
     try {
       const [s, m, o, p, orgsData] = await Promise.all([
         getTechnicalSheets(),
-        getTsMaterials(),
+        getMaterialStocks(),
         getTsOperations(),
         getAvailableProducts().catch(() => []),
         ROLE() === "ADMIN"
@@ -399,7 +399,7 @@ export default function TechnicalSheetsPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadAuditTrail(); }, [load]);
 
   function getProductName(productId) {
     if (!productId) return null;
@@ -410,6 +410,38 @@ export default function TechnicalSheetsPage() {
   function getOrgName(orgIdVal) {
     const o = orgs.find(o => o.id === orgIdVal);
     return o || null;
+  }
+
+  function logAuditEntry(sheetId, action, details) {
+    const userEmail = localStorage.getItem("userEmail") || "Unknown";
+    const entry = {
+      id: `${sheetId}_${Date.now()}`,
+      sheetId,
+      action,
+      details,
+      user: userEmail,
+      timestamp: new Date().toISOString(),
+    };
+    setAuditTrail(prev => ({
+      ...prev,
+      [sheetId]: [...(prev[sheetId] || []), entry],
+    }));
+    try {
+      const stored = JSON.parse(localStorage.getItem("sheetAuditTrail") || "{}");
+      stored[sheetId] = [...(stored[sheetId] || []), entry];
+      localStorage.setItem("sheetAuditTrail", JSON.stringify(stored));
+    } catch (e) {
+      console.error("Failed to persist audit trail", e);
+    }
+  }
+
+  function loadAuditTrail() {
+    try {
+      const stored = JSON.parse(localStorage.getItem("sheetAuditTrail") || "{}");
+      setAuditTrail(stored);
+    } catch (e) {
+      console.error("Failed to load audit trail", e);
+    }
   }
 
   function handleSort(field) {
@@ -423,7 +455,7 @@ export default function TechnicalSheetsPage() {
 
   function openCreate() {
     setError("");
-    setSheetDraft({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: orgId, productId: "", status: "Draft", version: 1 });
+    setSheetDraft({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: orgId, productId: "" });
     setMatItems([]);
     setOpItems([]);
     setModal("create");
@@ -432,7 +464,7 @@ export default function TechnicalSheetsPage() {
   function openEdit(sheet) {
     setError("");
     setActiveSheet(sheet);
-    setSheetDraft({ name: sheet.name, type: sheet.type, description: sheet.description || "", organizationId: sheet.organizationId, productId: sheet.productId || "", status: sheet.status || "Draft", version: sheet.version || 1 });
+    setSheetDraft({ name: sheet.name, type: sheet.type, description: sheet.description || "", organizationId: sheet.organizationId, productId: sheet.productId || "" });
     setModal("edit");
   }
 
@@ -484,13 +516,20 @@ export default function TechnicalSheetsPage() {
     setSaving(true);
     try {
       if (modal === "create") {
-        const created = await createTechnicalSheet({ ...sheetDraft, version: 1 });
+        const created = await createTechnicalSheet(sheetDraft);
         const sheetId = created?.id || created?.data?.id;
         if (sheetId) {
+          logAuditEntry(sheetId, "CREATED", {
+            name: sheetDraft.name,
+            type: sheetDraft.type,
+            productId: sheetDraft.productId || null,
+            organizationId: sheetDraft.organizationId,
+          });
           if (sheetDraft.type === "MATERIAL_SHEET" && matItems.length > 0) {
             await saveMaterialItems(sheetId, matItems.map(r => ({
               materialId: r.materialId, quantity: parseFloat(r.quantity) || 0, unit: r.unit, notes: r.notes, percentage: parseFloat(r.percentage) || 0,
             })));
+            logAuditEntry(sheetId, "MATERIALS_ADDED", { count: matItems.length });
           } else if (sheetDraft.type === "OPERATION_SHEET" && opItems.length > 0) {
             await saveOperationItems(sheetId, opItems.map(r => ({
               operationId: r.operationId, userId: r.userId,
@@ -498,11 +537,18 @@ export default function TechnicalSheetsPage() {
               durationEstimate: parseFloat(r.durationEstimate) || null,
               notes: r.notes,
             })));
+            logAuditEntry(sheetId, "OPERATIONS_ADDED", { count: opItems.length });
           }
         }
       } else {
-        const updatedVersion = (activeSheet.version || 1) + 1;
-        await updateTechnicalSheet(activeSheet.id, { ...sheetDraft, version: updatedVersion });
+        const oldSheet = sheets.find(s => s.id === activeSheet.id);
+        const changes = [];
+        if (oldSheet.name !== sheetDraft.name) changes.push({ field: "Name", from: oldSheet.name, to: sheetDraft.name });
+        if ((oldSheet.description || "") !== sheetDraft.description) changes.push({ field: "Description", from: oldSheet.description || "", to: sheetDraft.description });
+        await updateTechnicalSheet(activeSheet.id, sheetDraft);
+        if (changes.length > 0) {
+          logAuditEntry(activeSheet.id, "UPDATED", { changes });
+        }
       }
       setModal(null);
       setSelectedSheets([]);
@@ -514,50 +560,10 @@ export default function TechnicalSheetsPage() {
   async function handleDelete() {
     setSaving(true);
     try {
+      logAuditEntry(activeSheet.id, "DELETED", { name: activeSheet.name, type: activeSheet.type });
       await deleteTechnicalSheet(activeSheet.id);
       setModal(null);
       setSelectedSheets(p => p.filter(id => id !== activeSheet.id));
-      load();
-    } catch (e) { setError(e.message); }
-    finally { setSaving(false); }
-  }
-
-  async function handleDuplicateSheet(sheet) {
-    setSaving(true);
-    setError("");
-    try {
-      const newSheetData = {
-        name: `${sheet.name} (Copy)`,
-        type: sheet.type,
-        description: sheet.description || "",
-        organizationId: sheet.organizationId,
-        productId: sheet.productId || "",
-        status: "Draft",
-        version: 1,
-      };
-      const created = await createTechnicalSheet(newSheetData);
-      const newSheetId = created?.id || created?.data?.id;
-      if (newSheetId) {
-        if (sheet.type === "MATERIAL_SHEET") {
-          const items = await getMaterialItems(sheet.id).catch(() => []);
-          if (items.length > 0) {
-            await saveMaterialItems(newSheetId, items.map(r => ({
-              materialId: r.materialId, quantity: parseFloat(r.quantity) || 0, unit: r.unit, notes: r.notes, percentage: parseFloat(r.percentage) || 0,
-            })));
-          }
-        } else {
-          const items = await getOperationItems(sheet.id).catch(() => []);
-          if (items.length > 0) {
-            await saveOperationItems(newSheetId, items.map(r => ({
-              operationId: r.operationId, userId: r.userId,
-              stepOrder: parseInt(r.stepOrder) || 1,
-              durationEstimate: parseFloat(r.durationEstimate) || null,
-              notes: r.notes,
-            })));
-          }
-        }
-      }
-      setModal(null);
       load();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -610,14 +616,12 @@ export default function TechnicalSheetsPage() {
   }
 
   function handleExportCsv() {
-    const headers = ["Name", "Type", "Product", "Description", "Status", "Version", "Created By", "Created At"];
+    const headers = ["Name", "Type", "Product", "Description", "Created By", "Created At"];
     const rows = sortedSheets.map(sheet => [
       sheet.name,
       sheet.type === "MATERIAL_SHEET" ? "Material Sheet" : "Operation Sheet",
       getProductName(sheet.productId) || "—",
       sheet.description || "—",
-      sheet.status || "Draft",
-      sheet.version || 1,
       sheet.createdBy || "—",
       sheet.createdAt ? new Date(sheet.createdAt).toLocaleDateString() : "—",
     ]);
@@ -657,9 +661,11 @@ export default function TechnicalSheetsPage() {
     }
     setSaving(true);
     try {
+      const oldItems = await getMaterialItems(activeSheet.id).catch(() => []);
       await saveMaterialItems(activeSheet.id, matItems.map(r => ({
         materialId: r.materialId, quantity: parseFloat(r.quantity) || 0, unit: r.unit, notes: r.notes, percentage: parseFloat(r.percentage) || 0,
       })));
+      logAuditEntry(activeSheet.id, "MATERIALS_UPDATED", { count: matItems.length, changes: matItems.length !== oldItems.length ? "Items modified" : "Items updated" });
       setModal(null);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -680,12 +686,14 @@ export default function TechnicalSheetsPage() {
   async function handleSaveOpItems() {
     setSaving(true);
     try {
+      const oldItems = await getOperationItems(activeSheet.id).catch(() => []);
       await saveOperationItems(activeSheet.id, opItems.map(r => ({
         operationId: r.operationId, userId: r.userId,
         stepOrder: parseInt(r.stepOrder) || 1,
         durationEstimate: parseFloat(r.durationEstimate) || null,
         notes: r.notes,
       })));
+      logAuditEntry(activeSheet.id, "OPERATIONS_UPDATED", { count: opItems.length, changes: opItems.length !== oldItems.length ? "Steps modified" : "Steps updated" });
       setModal(null);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -695,9 +703,16 @@ export default function TechnicalSheetsPage() {
     if (!newMaterial.name.trim() || !newMaterial.unit.trim() || !newMaterial.organizationId.trim()) return;
     setSaving(true);
     try {
-      const created = await createTsMaterial({ ...newMaterial, percentage: parseFloat(newMaterial.percentage) || 0 });
+      const created = await createMaterialStock({
+        name: newMaterial.name,
+        referenceCode: newMaterial.referenceCode,
+        quantity: parseInt(newMaterial.quantity) || 0,
+        minimumThreshold: parseInt(newMaterial.minimumThreshold) || 0,
+        unit: newMaterial.unit,
+        organizationId: newMaterial.organizationId,
+      });
       setMaterials(p => [...p, created]);
-      setNewMaterial({ name: "", referenceCode: "", unit: "", organizationId: orgId, percentage: "" });
+      setNewMaterial({ name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: "" });
       setModal(activeSheet ? "material-items" : "create");
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -722,11 +737,13 @@ export default function TechnicalSheetsPage() {
     if (!editMaterial?.name?.trim() || !editMaterial?.unit?.trim()) return;
     setSaving(true);
     try {
-      const updated = await updateTsMaterial(editMaterial.id, {
+      const updated = await updateMaterialStock(editMaterial.id, {
+        id: editMaterial.id,
         name: editMaterial.name,
         referenceCode: editMaterial.referenceCode,
         unit: editMaterial.unit,
-        percentage: parseFloat(editMaterial.percentage) || 0,
+        quantity: parseInt(editMaterial.quantity) || 0,
+        minimumThreshold: parseInt(editMaterial.minimumThreshold) || 0,
       });
       setMaterials(p => p.map(m => m.id === updated.id ? updated : m));
       setEditMaterial(null);
@@ -737,7 +754,7 @@ export default function TechnicalSheetsPage() {
   async function handleDeleteMaterial(id) {
     setSaving(true);
     try {
-      await deleteTsMaterial(id);
+      await deleteMaterialStock(id);
       setMaterials(p => p.filter(m => m.id !== id));
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -769,7 +786,7 @@ export default function TechnicalSheetsPage() {
 
   function openNewMaterial() {
     const contextOrgId = activeSheet?.organizationId || sheetDraft.organizationId || orgId;
-    setNewMaterial({ name: "", referenceCode: "", unit: "", organizationId: contextOrgId, percentage: "" });
+    setNewMaterial({ name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: contextOrgId });
     setModal("new-material");
   }
 
@@ -794,10 +811,6 @@ export default function TechnicalSheetsPage() {
       const dateA = new Date(a.createdAt || 0);
       const dateB = new Date(b.createdAt || 0);
       return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-    } else if (sortField === "status") {
-      const statusA = a.status || "Draft";
-      const statusB = b.status || "Draft";
-      return sortDirection === "asc" ? statusA.localeCompare(statusB) : statusB.localeCompare(statusA);
     }
     return 0;
   });
@@ -808,8 +821,8 @@ export default function TechnicalSheetsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">{t("technicalSheets.title")}</h1>
-            <p className="text-sm text-slate-500">{t("technicalSheets.subtitle")}</p>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t("technicalSheets.title")}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t("technicalSheets.subtitle")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedSheets.length > 0 && (
@@ -843,11 +856,11 @@ export default function TechnicalSheetsPage() {
         <div className="flex flex-wrap gap-3">
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder={t("common.search")}
-            className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 w-56" />
+            className="h-9 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/50 dark:text-slate-100 px-3 text-sm outline-none focus:border-brand-500 dark:focus:bg-slate-800 focus:ring-2 focus:ring-brand-500/10 w-56" />
 
           {["ALL", "MATERIAL_SHEET", "OPERATION_SHEET"].map(f => (
             <button key={f} onClick={() => setFilterType(f)}
-              className={`h-9 rounded-xl px-4 text-sm font-semibold transition-colors ${filterType === f ? "bg-brand-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+              className={`h-9 rounded-xl px-4 text-sm font-semibold transition-colors ${filterType === f ? "bg-brand-600 text-white" : "border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
               {f === "ALL" ? "All" : f === "MATERIAL_SHEET" ? t("technicalSheets.materialSheet") : t("technicalSheets.operationSheet")}
             </button>
           ))}
@@ -865,17 +878,17 @@ export default function TechnicalSheetsPage() {
             </svg>
           </div>
         ) : sortedSheets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-slate-400">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800/40 py-16 text-slate-400 dark:text-slate-500">
             <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <p className="text-sm font-medium">{t("technicalSheets.noSheets")}</p>
           </div>
         ) : (
-          <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-slate-800 shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-400">
                   <th className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -896,21 +909,17 @@ export default function TechnicalSheetsPage() {
                     {t("technicalSheets.type")} {sortField === "type" && (sortDirection === "asc" ? "↑" : "↓")}
                   </th>
                   <th className="px-4 py-3 text-left">Product</th>
-                  <th className="px-4 py-3 text-left cursor-pointer select-none" onClick={() => handleSort("status")}>
-                    Status {sortField === "status" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th className="px-4 py-3 text-left">Version</th>
                   <th className="px-4 py-3 text-left cursor-pointer select-none" onClick={() => handleSort("date")}>
                     Date {sortField === "date" && (sortDirection === "asc" ? "↑" : "↓")}
                   </th>
                   <th className="px-4 py-3 text-left">{t("technicalSheets.description")}</th>
-                  <th className="px-4 py-3 text-left">{t("common.createdBy")}</th>
+                  <th className="px-4 py-3 text-left">Created By</th>
                   <th className="px-4 py-3 text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-50 dark:divide-white/[0.05]">
                 {sortedSheets.map(sheet => (
-                  <tr key={sheet.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={sheet.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -924,11 +933,11 @@ export default function TechnicalSheetsPage() {
                         }}
                       />
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{sheet.name}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{sheet.name}</td>
                     <td className="px-4 py-3"><Badge type={sheet.type} /></td>
                     <td className="px-4 py-3">
                       {sheet.productId ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 dark:bg-violet-500/10 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                           </svg>
@@ -938,30 +947,20 @@ export default function TechnicalSheetsPage() {
                         <span className="text-slate-400 text-xs">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3"><StatusBadge status={sheet.status} /></td>
-                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">v{sheet.version || 1}</td>
-                    <td className="px-4 py-3 text-slate-500">
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                       {sheet.createdAt ? new Date(sheet.createdAt).toLocaleDateString() : "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 max-w-xs truncate">{sheet.description || "—"}</td>
-                    <td className="px-4 py-3 text-slate-500">{sheet.createdBy || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-xs truncate">{sheet.description || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{sheet.createdBy ? sheet.createdBy.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openPdf(sheet)}
-                          className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors inline-flex items-center gap-1">
+                          className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors inline-flex items-center gap-1">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                           </svg>
                           PDF
                         </button>
-
-                        {canEdit() && (
-                          <button onClick={() => handleDuplicateSheet(sheet)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Duplicate">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        )}
 
                         {sheet.type === "MATERIAL_SHEET" && canEdit() && (
                           <button onClick={() => openMaterialItems(sheet)}
@@ -975,6 +974,21 @@ export default function TechnicalSheetsPage() {
                             {t("technicalSheets.editOperations")}
                           </button>
                         )}
+
+                        <button onClick={() => setAuditModalSheet(sheet)} className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600" title="Audit Trail">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                        </button>
+
+                        {ROLE() === "ADMIN" && (
+                          <button onClick={() => setHistoryId(sheet.id)} className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600" title="View History">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
+
                         {canEdit() && (
                           <>
                             <button onClick={() => openEdit(sheet)}
@@ -1003,13 +1017,13 @@ export default function TechnicalSheetsPage() {
 
       {/* ── Create / Edit Sheet Modal ── */}
       {(modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <h2 className="text-base font-bold text-slate-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {modal === "create" ? t("technicalSheets.createSheet") : t("technicalSheets.editSheet")}
               </h2>
-              <button onClick={() => { setError(""); setModal(null); }} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <button onClick={() => { setError(""); setModal(null); }} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1020,7 +1034,7 @@ export default function TechnicalSheetsPage() {
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="h-4 w-1 rounded-full bg-brand-500" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Sheet Information</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Sheet Information</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
@@ -1063,25 +1077,11 @@ export default function TechnicalSheetsPage() {
                       </div>
                     </>
                   )}
-                  {modal === "edit" && (
-                    <>
-                      <FieldGroup label="Status">
-                        <Select value={sheetDraft.status || "Draft"} onChange={e => setSheetDraft(p => ({ ...p, status: e.target.value }))}>
-                          <option value="Draft">Draft</option>
-                          <option value="Approved">Approved</option>
-                          <option value="Published">Published</option>
-                        </Select>
-                      </FieldGroup>
-                      <FieldGroup label="Version">
-                        <Input value={`v${sheetDraft.version}`} disabled className="bg-slate-100 cursor-not-allowed" />
-                      </FieldGroup>
-                    </>
-                  )}
                   <div className="col-span-2">
                     <FieldGroup label={t("technicalSheets.description")}>
                       <textarea value={sheetDraft.description} onChange={e => setSheetDraft(p => ({ ...p, description: e.target.value }))}
                         rows={2} placeholder={t("technicalSheets.descriptionPlaceholder")}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 resize-none" />
+                        className="w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 dark:focus:bg-slate-800/80 focus:ring-4 focus:ring-brand-500/10 resize-none" />
                     </FieldGroup>
                   </div>
                 </div>
@@ -1093,8 +1093,8 @@ export default function TechnicalSheetsPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <div className="h-4 w-1 rounded-full bg-emerald-500" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Bill of Materials</span>
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{matItems.length} items</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Bill of Materials</span>
+                        <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">{matItems.length} items</span>
                       </div>
                       <button onClick={openNewMaterial} className="text-xs font-semibold text-brand-600 hover:underline">
                         + {t("technicalSheets.newMaterial")}
@@ -1102,12 +1102,12 @@ export default function TechnicalSheetsPage() {
                     </div>
                     <div className="space-y-2">
                       {matItems.length === 0 && (
-                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 rounded-xl">
+                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
                           No materials yet — click "+ Add Material" to begin
                         </p>
                       )}
                       {matItems.map((row, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
+                        <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5 p-3">
                           <div className="col-span-3">
                             <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
                               <option value="">{t("technicalSheets.selectMaterial")}</option>
@@ -1146,8 +1146,8 @@ export default function TechnicalSheetsPage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <div className="h-4 w-1 rounded-full bg-blue-500" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Production Routing</span>
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{opItems.length} steps</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Production Routing</span>
+                        <span className="rounded-full bg-blue-100 dark:bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-400">{opItems.length} steps</span>
                       </div>
                       <button onClick={openNewOperation} className="text-xs font-semibold text-brand-600 hover:underline">
                         + {t("technicalSheets.newOperation")}
@@ -1155,14 +1155,14 @@ export default function TechnicalSheetsPage() {
                     </div>
                     <div className="space-y-2">
                       {opItems.length === 0 && (
-                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 rounded-xl">
+                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
                           No steps yet — click "+ Add Step" to begin
                         </p>
                       )}
                       {opItems.map((row, i) => (
-                        <div key={i} className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-2">
+                        <div key={i} className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 p-3 space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{row.stepOrder}</span>
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
                             <div className="flex-1 grid grid-cols-2 gap-2">
                               <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
                                 <option value="">{t("technicalSheets.selectOperation")}</option>
@@ -1192,8 +1192,8 @@ export default function TechnicalSheetsPage() {
               )}
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-              <button onClick={() => { setError(""); setModal(null); }} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <div className="flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <button onClick={() => { setError(""); setModal(null); }} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                 {t("common.cancel")}
               </button>
               <button onClick={handleSaveSheet} disabled={saving}
@@ -1212,7 +1212,7 @@ export default function TechnicalSheetsPage() {
             {t("technicalSheets.deleteConfirm", { name: activeSheet.name })}
           </p>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               {t("common.cancel")}
             </button>
             <button onClick={handleDelete} disabled={saving}
@@ -1238,7 +1238,7 @@ export default function TechnicalSheetsPage() {
           )}
 
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-slate-700">{t("technicalSheets.billOfMaterials")}</span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("technicalSheets.billOfMaterials")}</span>
             <button onClick={openNewMaterial} className="text-xs font-semibold text-brand-600 hover:underline">
               + {t("technicalSheets.newMaterial")}
             </button>
@@ -1249,7 +1249,7 @@ export default function TechnicalSheetsPage() {
               <p className="text-sm text-slate-400 italic">{t("technicalSheets.noMaterialItems")}</p>
             )}
             {matItems.map((row, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 p-3">
                 <div className="col-span-3">
                   <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
                     <option value="">{t("technicalSheets.selectMaterial")}</option>
@@ -1284,7 +1284,7 @@ export default function TechnicalSheetsPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               {t("common.cancel")}
             </button>
             <button onClick={handleSaveMatItems} disabled={saving}
@@ -1310,7 +1310,7 @@ export default function TechnicalSheetsPage() {
           )}
 
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-slate-700">{t("technicalSheets.productionRouting")}</span>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("technicalSheets.productionRouting")}</span>
             <button onClick={openNewOperation} className="text-xs font-semibold text-brand-600 hover:underline">
               + {t("technicalSheets.newOperation")}
             </button>
@@ -1321,9 +1321,9 @@ export default function TechnicalSheetsPage() {
               <p className="text-sm text-slate-400 italic">{t("technicalSheets.noOperationItems")}</p>
             )}
             {opItems.map((row, i) => (
-              <div key={i} className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+              <div key={i} className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">{row.stepOrder}</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-xs font-bold text-brand-700 dark:text-brand-300">{row.stepOrder}</span>
                   <div className="flex-1 grid grid-cols-2 gap-2">
                     <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
                       <option value="">{t("technicalSheets.selectOperation")}</option>
@@ -1350,7 +1350,7 @@ export default function TechnicalSheetsPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               {t("common.cancel")}
             </button>
             <button onClick={handleSaveOpItems} disabled={saving}
@@ -1363,12 +1363,12 @@ export default function TechnicalSheetsPage() {
 
       {/* ── Material Library ── */}
       {modal === "new-material" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <h2 className="text-base font-bold text-slate-900">Material Library</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Material Stock</h2>
               <button onClick={() => { setEditMaterial(null); setModal(activeSheet ? "material-items" : "create"); }}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1377,17 +1377,20 @@ export default function TechnicalSheetsPage() {
             <div className="p-6 space-y-5">
               {materials.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Existing Materials</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">In Stock ({materials.length})</p>
                   <div className="space-y-1 max-h-52 overflow-y-auto">
-                    {materials.map(m => (
-                      <div key={m.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    {materials.map(m => {
+                      const isLow = m.quantity != null && m.minimumThreshold != null && m.quantity <= m.minimumThreshold;
+                      return (
+                      <div key={m.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isLow ? "border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-500/5" : "border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50"}`}>
                         {editMaterial?.id === m.id ? (
                           <>
-                            <div className="flex-1 grid grid-cols-4 gap-2">
+                            <div className="flex-1 grid grid-cols-5 gap-2">
                               <Input value={editMaterial.name} onChange={e => setEditMaterial(p => ({ ...p, name: e.target.value }))} placeholder="Name" />
                               <Input value={editMaterial.referenceCode || ""} onChange={e => setEditMaterial(p => ({ ...p, referenceCode: e.target.value }))} placeholder="Reference" />
+                              <Input type="number" value={editMaterial.quantity ?? ""} onChange={e => setEditMaterial(p => ({ ...p, quantity: e.target.value }))} placeholder="Qty" />
+                              <Input type="number" value={editMaterial.minimumThreshold ?? ""} onChange={e => setEditMaterial(p => ({ ...p, minimumThreshold: e.target.value }))} placeholder="Min" />
                               <Input value={editMaterial.unit} onChange={e => setEditMaterial(p => ({ ...p, unit: e.target.value }))} placeholder="Unit" />
-                              <Input type="number" value={editMaterial.percentage || ""} onChange={e => setEditMaterial(p => ({ ...p, percentage: e.target.value }))} placeholder="%" />
                             </div>
                             <button onClick={handleUpdateMaterial} disabled={saving}
                               className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50">
@@ -1403,8 +1406,11 @@ export default function TechnicalSheetsPage() {
                         ) : (
                           <>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate">{m.name}</p>
-                              <p className="text-xs text-slate-500">{m.referenceCode || "—"} · {m.unit}{m.percentage != null ? ` · ${m.percentage}%` : ""}</p>
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{m.name}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {m.referenceCode || "—"} · {m.quantity ?? 0} {m.unit}
+                                {isLow && <span className="ml-1 text-amber-600 font-semibold">⚠ Low</span>}
+                              </p>
                             </div>
                             <button onClick={() => setEditMaterial({ ...m })}
                               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700">
@@ -1421,26 +1427,32 @@ export default function TechnicalSheetsPage() {
                           </>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Add New Material</p>
-                <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Add New Material to Stock</p>
+                <div className="space-y-3 rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5 p-4">
                   <FieldGroup label={t("technicalSheets.materialName")}>
                     <Input value={newMaterial.name} onChange={e => setNewMaterial(p => ({ ...p, name: e.target.value }))} />
                   </FieldGroup>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <FieldGroup label={t("technicalSheets.referenceCode")}>
                       <Input value={newMaterial.referenceCode} onChange={e => setNewMaterial(p => ({ ...p, referenceCode: e.target.value }))} />
                     </FieldGroup>
                     <FieldGroup label={t("technicalSheets.unit")}>
                       <Input value={newMaterial.unit} onChange={e => setNewMaterial(p => ({ ...p, unit: e.target.value }))} />
                     </FieldGroup>
-                    <FieldGroup label="Percentage (%)">
-                      <Input type="number" value={newMaterial.percentage} onChange={e => setNewMaterial(p => ({ ...p, percentage: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FieldGroup label={t("orders.quantity")}>
+                      <Input type="number" value={newMaterial.quantity} onChange={e => setNewMaterial(p => ({ ...p, quantity: e.target.value }))} />
+                    </FieldGroup>
+                    <FieldGroup label={t("technicalSheets.minThreshold")}>
+                      <Input type="number" value={newMaterial.minimumThreshold} onChange={e => setNewMaterial(p => ({ ...p, minimumThreshold: e.target.value }))} />
                     </FieldGroup>
                   </div>
                   <FieldGroup label={t("common.organization")}>
@@ -1454,7 +1466,7 @@ export default function TechnicalSheetsPage() {
                   <div className="flex justify-end">
                     <button onClick={handleCreateMaterial} disabled={saving}
                       className="h-9 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                      {saving ? t("common.saving") : "+ Add to Library"}
+                      {saving ? t("common.saving") : "+ Add to Stock"}
                     </button>
                   </div>
                 </div>
@@ -1462,7 +1474,7 @@ export default function TechnicalSheetsPage() {
 
               <div className="flex justify-end pt-1">
                 <button onClick={() => { setEditMaterial(null); setModal(activeSheet ? "material-items" : "create"); }}
-                  className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                   Done
                 </button>
               </div>
@@ -1473,12 +1485,12 @@ export default function TechnicalSheetsPage() {
 
       {/* ── Operation Library ── */}
       {modal === "new-operation" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <h2 className="text-base font-bold text-slate-900">Operation Library</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Operation Library</h2>
               <button onClick={() => { setEditOperation(null); setModal(activeSheet ? "operation-items" : "create"); }}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1487,10 +1499,10 @@ export default function TechnicalSheetsPage() {
             <div className="p-6 space-y-5">
               {operations.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Existing Operations</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Existing Operations</p>
                   <div className="space-y-1 max-h-52 overflow-y-auto">
                     {operations.map(op => (
-                      <div key={op.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                      <div key={op.id} className="flex items-center gap-2 rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 px-3 py-2">
                         {editOperation?.id === op.id ? (
                           <>
                             <div className="flex-1 grid grid-cols-3 gap-2">
@@ -1512,8 +1524,8 @@ export default function TechnicalSheetsPage() {
                         ) : (
                           <>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate">{op.name}</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{op.name}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
                                 {op.description || "—"}
                                 {op.defaultDuration ? ` · ${op.defaultDuration} min` : ""}
                               </p>
@@ -1539,8 +1551,8 @@ export default function TechnicalSheetsPage() {
               )}
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Add New Operation</p>
-                <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Add New Operation</p>
+                <div className="space-y-3 rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 p-4">
                   <FieldGroup label={t("technicalSheets.operationName")}>
                     <Input value={newOperation.name} onChange={e => setNewOperation(p => ({ ...p, name: e.target.value }))} />
                   </FieldGroup>
@@ -1571,7 +1583,7 @@ export default function TechnicalSheetsPage() {
 
               <div className="flex justify-end pt-1">
                 <button onClick={() => { setEditOperation(null); setModal(activeSheet ? "operation-items" : "create"); }}
-                  className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                   Done
                 </button>
               </div>
@@ -1582,14 +1594,14 @@ export default function TechnicalSheetsPage() {
 
       {/* ── PDF Preview Modal ── */}
       {pdfPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">PDF Preview</h2>
-                <p className="text-xs text-slate-500">{pdfPreview.sheetName}</p>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">PDF Preview</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{pdfPreview.sheetName}</p>
               </div>
-              <button onClick={closePdfPreview} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <button onClick={closePdfPreview} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1598,12 +1610,12 @@ export default function TechnicalSheetsPage() {
             <div className="flex-1 min-h-[60vh] p-4">
               <iframe
                 src={pdfPreview.url}
-                className="w-full h-full rounded-xl border border-slate-200"
+                className="w-full h-full rounded-xl border border-slate-200 dark:border-white/[0.08]"
                 title="PDF Preview"
               />
             </div>
-            <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-              <button onClick={closePdfPreview} className="h-10 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <div className="flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <button onClick={closePdfPreview} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                 Cancel
               </button>
               <button onClick={handleDownloadPdf}
@@ -1617,6 +1629,104 @@ export default function TechnicalSheetsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Audit Trail Modal ── */}
+      {auditModalSheet && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Audit Trail</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{auditModalSheet.name} · v{auditModalSheet.version || 1}</p>
+              </div>
+              <button onClick={() => setAuditModalSheet(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {(auditTrail[auditModalSheet.id] || []).length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No audit entries yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {[...(auditTrail[auditModalSheet.id] || [])].reverse().map(entry => (
+                    <div key={entry.id} className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-900/50 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          entry.action === "CREATED" ? "status-emerald" :
+                          entry.action === "UPDATED" ? "status-blue" :
+                          entry.action === "DELETED" ? "status-red" :
+                          entry.action === "STATUS_CHANGE" ? "status-amber" :
+                          entry.action === "DUPLICATED_FROM" ? "status-purple" :
+                          entry.action.includes("MATERIAL") ? "status-emerald" :
+                          entry.action.includes("OPERATION") ? "status-blue" :
+                          "status-slate"
+                        }`}>
+                          {entry.action.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-6 w-6 rounded-full bg-brand-100 dark:bg-brand-900/50 flex items-center justify-center text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                          {(entry.user || "U")[0].toUpperCase()}
+                        </div>
+                        <span className="text-xs text-slate-600 dark:text-slate-300">{entry.user}</span>
+                      </div>
+                      {entry.details && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                          {entry.action === "STATUS_CHANGE" && (
+                            <p>
+                              <span className="font-semibold text-slate-700">{entry.details.from}</span>
+                              <span className="mx-1">→</span>
+                              <span className="font-semibold text-slate-700">{entry.details.to}</span>
+                              {entry.details.comment && <p className="mt-1 italic">"{entry.details.comment}"</p>}
+                            </p>
+                          )}
+                          {entry.action === "UPDATED" && entry.details.changes && (
+                            <div className="space-y-1">
+                              {entry.details.changes.map((c, i) => (
+                                <p key={i}>
+                                  <span className="font-semibold text-slate-700">{c.field}:</span>
+                                  <span className="line-through text-red-400 ml-1">{c.from || "—"}</span>
+                                  <span className="mx-1">→</span>
+                                  <span className="text-emerald-600">{c.to || "—"}</span>
+                                </p>
+                              ))}
+                              {entry.details.version && <p className="mt-1">Version: v{entry.details.version}</p>}
+                            </div>
+                          )}
+                          {entry.action === "CREATED" && (
+                            <p>Created as {entry.details.type?.replace("_", " ")}</p>
+                          )}
+                          {entry.action === "DELETED" && (
+                            <p>Sheet deleted</p>
+                          )}
+                          {entry.action === "DUPLICATED_FROM" && (
+                            <p>Duplicated from "{entry.details.sourceName}"</p>
+                          )}
+                          {entry.details.count && (
+                            <p>{entry.details.count} {entry.details.count === 1 ? "item" : "items"} recorded</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-slate-100 dark:border-white/[0.06] px-6 py-4">
+              <button onClick={() => setAuditModalSheet(null)} className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AuditHistoryModal entityType="TechnicalSheet" entityId={historyId} onClose={() => setHistoryId(null)} />
     </DashboardLayout>
   );
 }

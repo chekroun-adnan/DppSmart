@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
-import OrgPicker from "../components/OrgPicker";
 import OrgSelector from "../components/OrgSelector";
 import {
   createTask,
@@ -12,28 +11,29 @@ import {
   updateTask,
   updateTaskStatus,
 } from "../services/authService";
+import AuditHistoryModal from "../components/AuditHistoryModal";
 
 const STATUSES = ["TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELLED"];
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
 const STATUS_STYLE = {
-  TODO: { bg: "bg-slate-100 text-slate-600", dot: "bg-slate-400", label: "To Do" },
-  IN_PROGRESS: { bg: "bg-blue-100 text-blue-700", dot: "bg-blue-500 animate-pulse", label: "In Progress" },
-  REVIEW: { bg: "bg-amber-100 text-amber-700", dot: "bg-amber-500", label: "Review" },
-  DONE: { bg: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500", label: "Done" },
-  CANCELLED: { bg: "bg-red-100 text-red-600", dot: "bg-red-400", label: "Cancelled" },
+  TODO: { bg: "status-slate", dot: "bg-slate-400", label: "To Do" },
+  IN_PROGRESS: { bg: "status-blue", dot: "bg-blue-500 animate-pulse", label: "In Progress" },
+  REVIEW: { bg: "status-amber", dot: "bg-amber-500", label: "Review" },
+  DONE: { bg: "status-emerald", dot: "bg-emerald-500", label: "Done" },
+  CANCELLED: { bg: "status-red", dot: "bg-red-400", label: "Cancelled" },
 };
 
 const PRIORITY_STYLE = {
-  LOW: "bg-slate-100 text-slate-500",
-  MEDIUM: "bg-sky-100 text-sky-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  URGENT: "bg-red-100 text-red-700",
+  LOW: "status-slate",
+  MEDIUM: "status-sky",
+  HIGH: "status-orange",
+  URGENT: "status-red",
 };
 
-const INPUT = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10";
-const SELECT = `${INPUT} cursor-pointer`;
-const TEXTAREA = "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 resize-none";
+const INPUT = "h-11 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-4 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10";
+const SELECT = "h-11 w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-4 pr-10 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 cursor-pointer bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.75rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.75rem_center]";
+const TEXTAREA = "w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/60 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-800/80 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 resize-none";
 
 function FieldGroup({ label, children }) {
   return (
@@ -92,7 +92,7 @@ export default function TasksPage() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [selectedOrgId, setSelectedOrgId] = useState(() => localStorage.getItem("orgId") || "");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null); // "create" | "edit" | "detail" | "delete"
@@ -102,6 +102,7 @@ export default function TasksPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [historyId, setHistoryId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -226,17 +227,6 @@ export default function TasksPage() {
     finally { setSaving(false); }
   };
 
-  // ── EMPLOYEE MULTI-SELECT ─────────────────────────────────────────────────────
-  const toggleEmployee = (empId) => {
-    setDraft((p) => ({
-      ...p,
-      assignedEmployeeIds: p.assignedEmployeeIds.includes(empId)
-        ? p.assignedEmployeeIds.filter((id) => id !== empId)
-        : [...p.assignedEmployeeIds, empId],
-    }));
-  };
-
-
   const FormBody = (
     <div className="space-y-4">
       <FieldGroup label={t("tasks.titleLabel", "Title")}>
@@ -267,47 +257,33 @@ export default function TasksPage() {
       <ProgressBar value={draft.progress} onChange={(v) => setDraft((p) => ({ ...p, progress: v }))} t={t} />
 
       <FieldGroup label={t("tasks.organizationLabel", "Organization")}>
-        <OrgPicker value={draft.organizationId} onChange={(id) => setDraft((p) => ({ ...p, organizationId: id }))} />
+        <select className={SELECT} value={draft.organizationId} onChange={(e) => setDraft((p) => ({ ...p, organizationId: e.target.value }))}>
+          <option value="">{t("tasks.selectOrgPlaceholder", "Select an organization...")}</option>
+          {orgs.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+        </select>
       </FieldGroup>
 
       {employees.length > 0 && (
-        <FieldGroup label={t("tasks.assignEmployees", "Assign Employees")}>
-          <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto">
-            {employees
-              .filter((e) => !draft.organizationId || !e.organizationId || e.organizationId === draft.organizationId)
-              .map((emp) => {
-                const selected = draft.assignedEmployeeIds.includes(emp.id);
-                return (
-                  <button
-                    key={emp.id}
-                    type="button"
-                    onClick={() => toggleEmployee(emp.id)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                      selected ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/20" : "border-slate-200 bg-white hover:border-brand-200"
-                    }`}
-                  >
-                    <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                      selected ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-600"
-                    }`}>
-                      {emp.fullName?.[0]?.toUpperCase() || "?"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-bold truncate ${selected ? "text-brand-700" : "text-slate-900"}`}>{emp.fullName}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{emp.role || emp.department}</p>
-                    </div>
-                    {selected && (
-                      <svg className="w-3.5 h-3.5 text-brand-600 shrink-0 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-          </div>
-          {draft.organizationId && employees.filter((e) => !e.organizationId || e.organizationId === draft.organizationId).length === 0 && (
-            <p className="text-xs text-slate-400 mt-1">{t("tasks.noEmployees", "No employees in this organization.")}</p>
-          )}
-        </FieldGroup>
+      <FieldGroup label={t("tasks.assignEmployees", "Assign Employees")}>
+        <select
+          multiple
+          className={`${SELECT} h-44`}
+          value={draft.assignedEmployeeIds}
+          onChange={(e) => setDraft((p) => ({ ...p, assignedEmployeeIds: Array.from(e.target.selectedOptions, (opt) => opt.value) }))}
+        >
+          {employees
+            .filter((e) => !draft.organizationId || !e.organizationId || e.organizationId === draft.organizationId)
+            .map((emp) => (
+              <option key={emp.id} value={emp.id}>{emp.fullName}{emp.role ? ` (${emp.role})` : ""}</option>
+            ))}
+        </select>
+        {draft.organizationId && employees.filter((e) => !e.organizationId || e.organizationId === draft.organizationId).length === 0 && (
+          <p className="text-xs text-slate-400 mt-1">{t("tasks.noEmployees", "No employees in this organization.")}</p>
+        )}
+        {employees.length > 0 && (
+          <p className="text-[10px] text-slate-400 mt-1">{t("tasks.multiSelectHint", "Hold Ctrl/Cmd to select multiple employees.")}</p>
+        )}
+      </FieldGroup>
       )}
     </div>
   );
@@ -320,8 +296,8 @@ export default function TasksPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">{t("tasks.title", "Workforce")}</p>
-                <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">{t("tasks.tasks", "Tasks")}</h1>
-                <p className="mt-1 text-sm text-slate-500">{t("tasks.subtitle", "Create tasks, assign to employees, and track their progress.")}</p>
+                <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t("tasks.tasks", "Tasks")}</h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("tasks.subtitle", "Create tasks, assign to employees, and track their progress.")}</p>
           </div>
           {canManage && (
             <button type="button" onClick={openCreate} className="btn-primary">
@@ -347,7 +323,7 @@ export default function TasksPage() {
                 statusFilter === key ? "bg-brand-600 shadow-lg" : "glass-card hover:shadow-soft-xl"
               }`}
             >
-              <p className={`text-2xl font-extrabold ${statusFilter === key ? "text-white" : "text-slate-900"}`}>{value}</p>
+              <p className={`text-2xl font-extrabold ${statusFilter === key ? "text-white" : "text-slate-900 dark:text-slate-100"}`}>{value}</p>
               <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${statusFilter === key ? "text-brand-200" : "text-slate-400"}`}>{label}</p>
             </button>
           ))}
@@ -358,7 +334,7 @@ export default function TasksPage() {
           <OrgSelector value={selectedOrgId} onChange={setSelectedOrgId} className="flex-1" />
           <div className="relative max-w-xs w-full">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm outline-none focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder={t("tasks.searchPlaceholder", "Search tasks...")} value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/50 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10" placeholder={t("tasks.searchPlaceholder", "Search tasks...")} value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </div>
 
@@ -403,6 +379,11 @@ export default function TasksPage() {
                       <button type="button" onClick={() => openEdit(task)} className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-all">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
+                      {role === "ADMIN" && (
+                        <button type="button" onClick={() => setHistoryId(task.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all" title="View History">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                      )}
                       <button type="button" onClick={() => { setPendingDelete(task); setActionError(""); setModal("delete"); }} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
@@ -411,7 +392,7 @@ export default function TasksPage() {
                   </div>
 
                   {/* Title */}
-                  <p className="text-sm font-bold text-slate-900 leading-snug mb-1">{task.title}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug mb-1">{task.title}</p>
                   {task.description && <p className="text-xs text-slate-400 line-clamp-2 mb-3">{task.description}</p>}
 
                   {/* Progress */}
@@ -420,14 +401,14 @@ export default function TasksPage() {
                       <span className="text-[10px] text-slate-400 font-semibold">{t("tasks.progress", "Progress")}</span>
                       <span className="text-[10px] font-bold text-slate-600">{task.progress ?? 0}%</span>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-slate-100">
+                    <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
                       <div className={`h-full rounded-full transition-all ${(task.progress ?? 0) >= 100 ? "bg-emerald-500" : (task.progress ?? 0) >= 60 ? "bg-brand-500" : (task.progress ?? 0) >= 30 ? "bg-amber-500" : "bg-slate-300"}`}
                         style={{ width: `${task.progress ?? 0}%` }} />
                     </div>
                   </div>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/[0.06]">
                     <div className="flex -space-x-1.5">
                       {(task.assignedEmployeeIds || []).slice(0, 4).map((empId) => {
                         const emp = employees.find((e) => e.id === empId);
@@ -463,14 +444,14 @@ export default function TasksPage() {
 
       {/* ── CREATE / EDIT MODAL ─────────────────────────────────────────────── */}
       {canManage && (modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in">
-          <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-7 pt-7 pb-4 border-b border-slate-100 shrink-0">
-                <h2 className="text-xl font-bold text-slate-900">{modal === "create" ? t("tasks.newTask", "New Task") : t("tasks.editTask", "Edit Task")}</h2>
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 py-6 animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{modal === "create" ? t("tasks.newTask", "New Task") : t("tasks.editTask", "Edit Task")}</h2>
             </div>
             <div className="overflow-y-auto flex-1 px-7 py-5">{FormBody}</div>
             {actionError && <p className="px-7 text-sm text-rose-600">{actionError}</p>}
-            <div className="px-7 py-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <div className="px-7 py-5 border-t border-slate-100 dark:border-white/[0.06] flex justify-end gap-3 shrink-0">
               <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
               <button type="button" onClick={modal === "create" ? handleCreate : handleEdit} disabled={saving} className="btn-primary py-2 px-5 text-sm">
                 {saving ? t("tasks.saving", "Saving...") : modal === "create" ? t("tasks.createTask", "Create Task") : t("tasks.saveChanges", "Save Changes")}
@@ -487,8 +468,8 @@ export default function TasksPage() {
         const isOverdue = detailTask.dueDate && new Date(detailTask.dueDate) < new Date() && detailTask.status !== "DONE" && detailTask.status !== "CANCELLED";
         const assignedEmps = (detailTask.assignedEmployeeIds || []).map((id) => employees.find((e) => e.id === id)).filter(Boolean);
         return (
-          <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
-            <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
+            <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-7 pt-7 pb-6 shrink-0">
                 <div className="flex items-start justify-between gap-3">
@@ -514,7 +495,7 @@ export default function TasksPage() {
                     {detailTask.description && (
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t("tasks.description", "Description")}</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{detailTask.description}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{detailTask.description}</p>
                       </div>
                     )}
 
@@ -537,7 +518,7 @@ export default function TasksPage() {
                           type="button"
                           onClick={() => handleStatusChange(detailTask, s)}
                           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-all ${
-                            detailTask.status === s ? `${sst.bg} ring-2 ring-offset-1 ring-current` : "border-slate-200 text-slate-500 hover:border-slate-300 bg-white"
+                            detailTask.status === s ? `${sst.bg} ring-2 ring-offset-1 ring-current` : "border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:border-slate-300 bg-white dark:bg-slate-700"
                           }`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${sst.dot}`} />{sst.label}
@@ -553,12 +534,12 @@ export default function TasksPage() {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{t("tasks.assignedTo", "Assigned To")}</p>
                     <div className="space-y-2">
                       {assignedEmps.map((emp) => (
-                        <div key={emp.id} className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                        <div key={emp.id} className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
                           <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center shrink-0">
                             {emp.fullName?.[0]?.toUpperCase() || "?"}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-900">{emp.fullName}</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{emp.fullName}</p>
                             <p className="text-[10px] text-slate-400">{emp.role || emp.department}</p>
                           </div>
                         </div>
@@ -570,21 +551,21 @@ export default function TasksPage() {
                 {/* Meta */}
                 <div className="grid grid-cols-2 gap-3">
                        {detailTask.dueDate && (
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                        <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
                           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{t("tasks.dueDate", "Due Date")}</p>
-                      <p className={`text-sm font-semibold mt-0.5 ${isOverdue ? "text-rose-600" : "text-slate-900"}`}>
+                      <p className={`text-sm font-semibold mt-0.5 ${isOverdue ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
                         {new Date(detailTask.dueDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
                       </p>
                     </div>
                   )}
-                   <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                   <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{t("tasks.createdBy", "Created By")}</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-0.5 truncate">{detailTask.createdBy || "—"}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mt-0.5 truncate">{detailTask.createdBy || "—"}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="px-7 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <div className="px-7 py-4 border-t border-slate-100 dark:border-white/[0.06] flex justify-end gap-3 shrink-0">
                 <button type="button" onClick={() => { setModal(null); openEdit(detailTask); }} className="btn-secondary py-2 px-5 text-sm">{t("tasks.edit", "Edit")}</button>
                 <button type="button" onClick={() => setModal(null)} className="btn-primary py-2 px-5 text-sm">{t("tasks.close", "Close")}</button>
               </div>
@@ -595,10 +576,10 @@ export default function TasksPage() {
 
       {/* ── DELETE MODAL ────────────────────────────────────────────────────── */}
       {canManage && modal === "delete" && pendingDelete && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl ring-1 ring-slate-900/10">
-            <h2 className="text-xl font-bold text-slate-900">{t("tasks.deleteTask", "Delete Task")}</h2>
-            <p className="mt-2 text-sm text-slate-600">{t("tasks.deleteConfirm", `Delete "${pendingDelete.title}"? This cannot be undone.`)}</p>
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t("tasks.deleteTask", "Delete Task")}</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t("tasks.deleteConfirm", `Delete "${pendingDelete.title}"? This cannot be undone.`)}</p>
             {actionError && <p className="mt-3 text-sm text-rose-600">{actionError}</p>}
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
@@ -609,6 +590,8 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+
+      <AuditHistoryModal entityType="Task" entityId={historyId} onClose={() => setHistoryId(null)} />
     </DashboardLayout>
   );
 }

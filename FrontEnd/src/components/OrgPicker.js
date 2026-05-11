@@ -26,7 +26,7 @@ export default function OrgPicker({ value, onChange }) {
   );
 
   if (loading) {
-    return <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />;
+    return <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-700/50 animate-pulse" />;
   }
 
   if (!orgs.length) {
@@ -37,14 +37,14 @@ export default function OrgPicker({ value, onChange }) {
     <div className="space-y-2">
       {/* Selected preview */}
       {selected && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-2.5">
+        <div className="flex items-center gap-2.5 rounded-xl border border-brand-300 dark:border-brand-500/40 bg-brand-50 dark:bg-brand-500/10 px-3 py-2.5">
           <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white shrink-0 ${
             (selected.type || "").toUpperCase() === "MAIN" ? "bg-brand-600" : "bg-slate-700"
           }`}>
             {selected.name?.[0]?.toUpperCase() || "O"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-brand-700 truncate">{selected.name}</p>
+            <p className="text-sm font-bold text-brand-700 dark:text-brand-400 truncate">{selected.name}</p>
             <p className="text-[9px] uppercase tracking-wider font-bold text-slate-400">
               {(selected.type || "").toUpperCase() === "MAIN" ? "Main org" : "Sub org"}
             </p>
@@ -71,12 +71,12 @@ export default function OrgPicker({ value, onChange }) {
           placeholder="Search organizations..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-400 focus:bg-white transition"
+          className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-8 pr-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-400 focus:bg-white dark:focus:bg-slate-700 transition"
         />
       </div>
 
       {/* List */}
-      <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
+      <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 divide-y divide-slate-100 dark:divide-white/[0.05] bg-white dark:bg-slate-800">
         {filtered.length === 0 ? (
           <p className="py-3 text-center text-xs text-slate-400">No matches</p>
         ) : (
@@ -89,16 +89,16 @@ export default function OrgPicker({ value, onChange }) {
                 type="button"
                 onClick={() => onChange(isSelected ? "" : org.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                  isSelected ? "bg-brand-50" : "hover:bg-slate-50"
+                  isSelected ? "bg-brand-50 dark:bg-brand-500/15" : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                  isSelected ? "bg-brand-600 text-white" : isMain ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-600"
+                  isSelected ? "bg-brand-600 text-white" : isMain ? "bg-slate-800 dark:bg-slate-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                 }`}>
                   {org.name?.[0]?.toUpperCase() || "O"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-bold truncate ${isSelected ? "text-brand-700" : "text-slate-900"}`}>
+                  <p className={`text-xs font-bold truncate ${isSelected ? "text-brand-700 dark:text-brand-400" : "text-slate-900 dark:text-slate-100"}`}>
                     {org.name}
                   </p>
                   <p className="text-[9px] uppercase tracking-wider font-bold text-slate-400">
@@ -106,7 +106,7 @@ export default function OrgPicker({ value, onChange }) {
                   </p>
                 </div>
                 {isSelected && (
-                  <svg className="w-4 h-4 text-brand-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 )}
