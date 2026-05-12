@@ -17,6 +17,7 @@ public class CreateReceptionDTO {
     public static class ItemReceptionDTO {
         @NotBlank(message = "itemId is required")
         private String itemId;
+        private Integer receivedQuantity;
         private Integer approvedQuantity;
         private Integer rejectedQuantity;
         private String conditionStatus;

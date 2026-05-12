@@ -2,6 +2,7 @@ package com.dppsmart.dppsmart.SupplyChain.Services;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.dppsmart.dppsmart.Audit.Services.AuditService;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Organization.Entities.Organization;
@@ -33,6 +34,7 @@ public class SupplierService {
     private final UserRepository userRepository;
     private final PermissionService permissionService;
     private final AuditService auditService;
+    private final NotificationServiceImpl notificationService;
 
     public SupplierResponseDTO create(CreateSupplierDTO dto) {
         User user = getCurrentUser();
@@ -54,6 +56,14 @@ public class SupplierService {
         Supplier saved = supplierRepository.save(supplier);
 
         auditService.log("Supplier", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Supplier created: " + saved.getCompanyName());
+
+        notificationService.createNotification(
+                user.getId(),
+                "New Supplier Added",
+                saved.getCompanyName() + " has been added as a supplier",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/suppliers/" + saved.getId()
+        );
 
         return supplierMapper.toDto(saved);
     }
@@ -113,6 +123,14 @@ public class SupplierService {
 
         auditService.log("Supplier", saved.getId(), "UPDATE", saved.getOrganizationId(), null, "Supplier updated: " + saved.getCompanyName());
 
+        notificationService.createNotification(
+                user.getId(),
+                "Supplier Updated",
+                saved.getCompanyName() + " information has been updated",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/suppliers/" + saved.getId()
+        );
+
         return supplierMapper.toDto(saved);
     }
 
@@ -130,6 +148,14 @@ public class SupplierService {
         supplierRepository.delete(supplier);
 
         auditService.log("Supplier", id, "DELETE", supplier.getOrganizationId(), null, "Supplier deleted: " + supplier.getCompanyName());
+
+        notificationService.createNotification(
+                user.getId(),
+                "Supplier Removed",
+                supplier.getCompanyName() + " has been removed",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/suppliers"
+        );
     }
 
     private User getCurrentUser() {

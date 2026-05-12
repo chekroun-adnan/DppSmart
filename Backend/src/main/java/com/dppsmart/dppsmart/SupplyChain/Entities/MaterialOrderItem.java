@@ -13,9 +13,13 @@ public class MaterialOrderItem {
     private String materialName;
     private String materialReference;
     private Integer orderedQuantity;
-    private Integer approvedQuantity;
+    private Integer receivedQuantity;
+    private Integer acceptedQuantity;
     private Integer rejectedQuantity;
+    private Integer returnedQuantity;
+    private Integer unitPrice;
     private String unit;
     private String conditionStatus;
     private String notes;
+    private Integer remainingQuantity;
 }

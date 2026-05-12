@@ -1,12 +1,13 @@
 package com.dppsmart.dppsmart.SupplyChain.Enums;
 
 public enum MaterialOrderStatus {
-    ORDERED,
-    CONFIRMED_BY_SUPPLIER,
-    IN_TRANSIT,
-    ARRIVED,
-    PARTIALLY_APPROVED,
+    PENDING,
     APPROVED,
-    DECLINED,
-    RETURNED
+    SHIPPED,
+    PARTIALLY_RECEIVED,
+    RECEIVED,
+    DISPUTED,
+    RETURNED,
+    COMPLETED,
+    DECLINED
 }
