@@ -1,0 +1,17 @@
+package com.dppsmart.dppsmart.Orders.Entities;
+
+public enum ClientOrderStatus {
+    PENDING_REVIEW,
+    READY_FOR_CONFIRMATION,
+    BLOCKED_INSUFFICIENT_STOCK,
+    BLOCKED_INSUFFICIENT_MATERIALS,
+    BLOCKED_NO_BOM,
+    DATE_CHANGE_REQUESTED,
+    CONFIRMED,
+    IN_PRODUCTION,
+    READY,
+    DELIVERED,
+    REJECTED,
+    PROCESSING,
+    CANCELLED
+}

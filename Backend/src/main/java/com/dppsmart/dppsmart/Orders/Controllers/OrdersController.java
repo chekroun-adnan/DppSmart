@@ -1,8 +1,6 @@
 package com.dppsmart.dppsmart.Orders.Controllers;
 
-import com.dppsmart.dppsmart.Orders.DTO.CreateOrderDto;
-import com.dppsmart.dppsmart.Orders.DTO.OrderResponseDto;
-import com.dppsmart.dppsmart.Orders.DTO.UpdateOrderDto;
+import com.dppsmart.dppsmart.Orders.DTO.*;
 import com.dppsmart.dppsmart.Orders.Services.OrdersService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +14,7 @@ import java.util.List;
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 public class OrdersController {
+
     private final OrdersService ordersService;
 
     @PostMapping
@@ -24,22 +23,64 @@ public class OrdersController {
         return ResponseEntity.ok(ordersService.create(dto));
     }
 
-    @PutMapping
+    @PostMapping("/admin/confirm")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> update(@RequestBody @Valid UpdateOrderDto dto) {
-        return ResponseEntity.ok(ordersService.update(dto));
+    public ResponseEntity<OrderResponseDto> adminConfirm(@RequestBody @Valid AdminConfirmOrderDto dto) {
+        return ResponseEntity.ok(ordersService.adminConfirm(dto));
     }
 
-    @GetMapping("/{id}")
+    @PostMapping("/admin/propose-date")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> adminProposeDate(@RequestBody @Valid AdminProposeDateDto dto) {
+        return ResponseEntity.ok(ordersService.adminProposeDate(dto));
+    }
+
+    @PostMapping("/{id}/ready")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> markReady(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.markReady(id));
+    }
+
+    @PostMapping("/{id}/delivered")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> markDelivered(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.markDelivered(id));
+    }
+
+    @PostMapping("/client/accept")
+    @PreAuthorize("hasAnyRole('CLIENT')")
+    public ResponseEntity<OrderResponseDto> clientAccept(@RequestBody @Valid ClientRespondDto dto) {
+        return ResponseEntity.ok(ordersService.clientAccept(dto));
+    }
+
+    @PostMapping("/client/reject")
+    @PreAuthorize("hasAnyRole('CLIENT')")
+    public ResponseEntity<OrderResponseDto> clientReject(@RequestBody @Valid ClientRespondDto dto) {
+        return ResponseEntity.ok(ordersService.clientReject(dto));
+    }
+
+    @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
-    public ResponseEntity<OrderResponseDto> getById(@PathVariable String id) {
-        return ResponseEntity.ok(ordersService.getById(id));
+    public ResponseEntity<OrderResponseDto> cancel(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.cancel(id));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
     public ResponseEntity<List<OrderResponseDto>> getAll() {
         return ResponseEntity.ok(ordersService.getAll());
+    }
+
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('CLIENT')")
+    public ResponseEntity<List<OrderResponseDto>> getMyOrders() {
+        return ResponseEntity.ok(ordersService.getMyOrders());
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
+    public ResponseEntity<OrderResponseDto> getById(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.getById(id));
     }
 
     @GetMapping("/organization/{organizationId}")
@@ -50,9 +91,8 @@ public class OrdersController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<?> delete(@PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String id) {
         ordersService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }
-

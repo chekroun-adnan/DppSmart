@@ -1,21 +1,23 @@
 package com.dppsmart.dppsmart.Orders.DTO;
 
-import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class CreateOrderDto {
-    @NotBlank(message = "productId is required")
-    private String productId;
 
-    @NotBlank(message = "organizationId is required")
-    private String organizationId;
+    private String organizationId; // optional for CLIENTs — resolved server-side from their account
 
-    @Min(value = 1, message = "quantity must be >= 1")
-    private Integer quantity;
+    @NotEmpty(message = "At least one item is required")
+    @Valid
+    private List<OrderItemDto> items;
 
-    @NotBlank(message = "status is required")
-    private String status;
+    @NotNull(message = "requestedDeliveryDate is required")
+    private LocalDate requestedDeliveryDate;
 }
-
