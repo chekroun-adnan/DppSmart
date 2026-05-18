@@ -16,8 +16,8 @@ import com.dppsmart.dppsmart.Scan.Entities.ScanEvent;
 import com.dppsmart.dppsmart.Scan.Repositories.ScanEventRepository;
 import com.dppsmart.dppsmart.Security.Permission;
 import com.dppsmart.dppsmart.Security.PermissionService;
-import com.dppsmart.dppsmart.Stock.Entities.Stock;
-import com.dppsmart.dppsmart.Stock.Repositories.StockRepository;
+import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
+import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import org.springframework.stereotype.Service;
@@ -34,7 +34,7 @@ public class AiAssistantService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
     private final ProductRepository productRepository;
-    private final StockRepository stockRepository;
+    private final MaterialStockRepository materialStockRepository;
     private final OrdersRepository ordersRepository;
     private final ProductionRepository productionRepository;
     private final EmployeesRepository employeesRepository;
@@ -46,7 +46,7 @@ public class AiAssistantService {
             UserRepository userRepository,
             OrganizationRepository organizationRepository,
             ProductRepository productRepository,
-            StockRepository stockRepository,
+            MaterialStockRepository materialStockRepository,
             OrdersRepository ordersRepository,
             ProductionRepository productionRepository,
             EmployeesRepository employeesRepository,
@@ -57,7 +57,7 @@ public class AiAssistantService {
         this.userRepository = userRepository;
         this.organizationRepository = organizationRepository;
         this.productRepository = productRepository;
-        this.stockRepository = stockRepository;
+        this.materialStockRepository = materialStockRepository;
         this.ordersRepository = ordersRepository;
         this.productionRepository = productionRepository;
         this.employeesRepository = employeesRepository;
@@ -126,7 +126,7 @@ public class AiAssistantService {
             if (containsAny(lower, "reorder", "reorder plan", "forecast")) {
                 return reorderPlanGlobal();
             }
-            long lowStock = stockRepository.findAll().stream()
+            long lowStock = materialStockRepository.findAll().stream()
                     .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                     .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
                     .count();
@@ -173,7 +173,7 @@ public class AiAssistantService {
                 .collect(Collectors.groupingBy(ScanEvent::getProductId, Collectors.counting()));
 
         List<Map.Entry<String, Long>> spikes = byProduct.entrySet().stream()
-                .filter(e -> e.getValue() >= 50) // simple threshold
+                .filter(e -> e.getValue() >= 50) 
                 .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
                 .limit(5)
                 .toList();
@@ -224,7 +224,7 @@ public class AiAssistantService {
         long orders = ordersRepository.findAll().stream().filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(since)).count();
         long scans = scanEventRepository.findByScannedAtAfter(since).size();
         long productionsCreated = productionRepository.findAll().stream().filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isAfter(since)).count();
-        long lowStock = stockRepository.findAll().stream()
+            long lowStock = materialStockRepository.findAll().stream()
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                 .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
                 .count();
@@ -245,12 +245,12 @@ public class AiAssistantService {
                 .toList();
         Map<String, Long> demandByOrg = recent.stream()
                 .filter(o -> o.getOrganizationId() != null)
-                .collect(Collectors.groupingBy(Orders::getOrganizationId, Collectors.summingLong(o -> o.getQuantity() == null ? 0 : o.getQuantity())));
+                .collect(Collectors.groupingBy(Orders::getOrganizationId, Collectors.summingLong(this::orderQuantity)));
 
-        var lowStockByOrg = stockRepository.findAll().stream()
+        var lowStockByOrg = materialStockRepository.findAll().stream()
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                 .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
-                .collect(Collectors.groupingBy(Stock::getOrganizationId, Collectors.counting()));
+                .collect(Collectors.groupingBy(MaterialStock::getOrganizationId, Collectors.counting()));
 
         return "Reorder plan (heuristic): demand last 30d by org=" + demandByOrg + ", low-stock items by org=" + lowStockByOrg;
     }
@@ -340,8 +340,8 @@ public class AiAssistantService {
     }
 
     private String orgLowStock(List<String> orgIds) {
-        List<Stock> stocks = orgIds.stream()
-                .flatMap(id -> stockRepository.findByOrganizationId(id).stream())
+        List<MaterialStock> stocks = orgIds.stream()
+                .flatMap(id -> materialStockRepository.findByOrganizationId(id).stream())
                 .toList();
         long low = stocks.stream()
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
@@ -374,9 +374,8 @@ public class AiAssistantService {
         Map<String, Long> byStatus = recent.stream()
                 .map(Orders::getStatus)
                 .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(s -> !s.isBlank())
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+                .map(Enum::name)
+                .collect(Collectors.groupingBy(status -> status, Collectors.counting()));
 
         return "Order demand (last 7 days): " + recent.size() + " orders. Status distribution: " + byStatus;
     }
@@ -393,7 +392,7 @@ public class AiAssistantService {
                 .filter(s -> orgIds.contains(s.getOrganizationId()))
                 .count();
         long lowStock = orgIds.stream()
-                .flatMap(id -> stockRepository.findByOrganizationId(id).stream())
+                .flatMap(id -> materialStockRepository.findByOrganizationId(id).stream())
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                 .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
                 .count();
@@ -411,13 +410,26 @@ public class AiAssistantService {
                 .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(since))
                 .filter(o -> orgIds.contains(o.getOrganizationId()))
                 .toList();
-        long demand = recent.stream().mapToLong(o -> o.getQuantity() == null ? 0 : o.getQuantity()).sum();
+        long demand = recent.stream().mapToLong(this::orderQuantity).sum();
         long lowStockItems = orgIds.stream()
-                .flatMap(id -> stockRepository.findByOrganizationId(id).stream())
+                .flatMap(id -> materialStockRepository.findByOrganizationId(id).stream())
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                 .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
                 .count();
         return "Reorder forecast (heuristic): last 30d order quantity=" + demand + ", low-stock items=" + lowStockItems + ". Suggestion: prioritize replenishment of items below minimumThreshold.";
+    }
+
+    private long orderQuantity(Orders order) {
+        if (order.getTotalQuantity() != null) {
+            return order.getTotalQuantity();
+        }
+        if (order.getItems() == null) {
+            return 0;
+        }
+        return order.getItems().stream()
+                .filter(Objects::nonNull)
+                .mapToLong(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+                .sum();
     }
 
     private String productionRiskOrg(List<String> orgIds) {
@@ -602,7 +614,7 @@ public class AiAssistantService {
         long max = 0;
         for (ProductionStep s : steps) {
             if (s == null) continue;
-            if (s.isCompleted()) continue;
+            if (Boolean.TRUE.equals(s.getCompleted())) continue;
             if (s.getStartDate() == null) continue;
             long days = ChronoUnit.DAYS.between(s.getStartDate(), now);
             if (days > max) max = days;
@@ -629,4 +641,3 @@ public class AiAssistantService {
         };
     }
 }
-
