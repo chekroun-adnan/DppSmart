@@ -19,9 +19,16 @@ public class OrderItem {
     private String estimatedProductionTime;
     private OrderItemStatus status;
 
-    // BOM check result — stored snapshot at order creation time
+    
     private String technicalSheetId;
     private Integer technicalSheetVersion;
     private List<BomMaterialLineDto> requiredMaterials;
     private boolean materialsAvailable;
+
+    // extended workflow fields
+    private Integer allocatedQuantity;
+    private Integer missingQuantity;
+    private String relatedProductionId;
+    private String estimatedDeliveryDate;
+    private boolean reserved;
 }

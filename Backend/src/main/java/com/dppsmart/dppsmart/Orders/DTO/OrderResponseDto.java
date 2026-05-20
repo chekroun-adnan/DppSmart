@@ -2,6 +2,7 @@ package com.dppsmart.dppsmart.Orders.DTO;
 
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Orders.Entities.OrderItem;
+import com.dppsmart.dppsmart.Orders.Entities.OrderPriority;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -24,6 +25,20 @@ public class OrderResponseDto {
     private Integer totalQuantity;
     private boolean overallMaterialsSufficient;
     private String relatedProductionId;
+    private String deliveryToken;
+    private OrderPriority orderPriority;
+    private Integer priority;
+    private String allocationSessionId;
+    private boolean hasReservations;
+    private LocalDateTime reservedUntil;
+    private List<String> relatedProductionIds;
+    private String supplyChainOrderId;
+    private LocalDateTime stockCheckedAt;
+    private LocalDateTime productionStartedAt;
+    private LocalDateTime productionCompletedAt;
+    private LocalDateTime deliveryReadyAt;
+    private String confirmedBy;
+    private String deliveredBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;

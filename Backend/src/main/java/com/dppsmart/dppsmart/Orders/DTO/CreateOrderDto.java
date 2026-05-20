@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 public class CreateOrderDto {
 
-    private String organizationId; // optional for CLIENTs — resolved server-side from their account
+    private String organizationId; 
 
     @NotEmpty(message = "At least one item is required")
     @Valid

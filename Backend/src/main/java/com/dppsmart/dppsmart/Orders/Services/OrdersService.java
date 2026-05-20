@@ -5,11 +5,18 @@ import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
-import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
+import com.dppsmart.dppsmart.Email.Services.EmailService;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
+import com.dppsmart.dppsmart.MaterialStock.Services.MaterialStockService;
+import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrder;
+import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrderItem;
+import com.dppsmart.dppsmart.SupplyChain.Enums.MaterialOrderStatus;
+import com.dppsmart.dppsmart.SupplyChain.Repositories.MaterialOrderRepository;
+import com.dppsmart.dppsmart.SupplyChain.Repositories.SupplierRepository;
 import com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType;
 import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Orders.DTO.*;
+import com.dppsmart.dppsmart.Orders.DTO.OrderProcessResultDTO.MissingMaterialLine;
 import com.dppsmart.dppsmart.Orders.Entities.*;
 import com.dppsmart.dppsmart.Orders.Mapper.OrdersMapper;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
@@ -17,7 +24,7 @@ import com.dppsmart.dppsmart.Product.Entities.Product;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
 import com.dppsmart.dppsmart.ProductStock.Entities.ProductStock;
 import com.dppsmart.dppsmart.ProductStock.Repositories.ProductStockRepository;
-import com.dppsmart.dppsmart.Production.DTO.CreateProductionDto;
+import com.dppsmart.dppsmart.ProductStock.Services.ProductStockService;
 import com.dppsmart.dppsmart.Production.Entities.Production;
 import com.dppsmart.dppsmart.Production.Entities.ProductionStatus;
 import com.dppsmart.dppsmart.Production.Repositories.ProductionRepository;
@@ -27,6 +34,7 @@ import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
 import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomCalculationResultDto;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomMaterialLineDto;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.MaterialSheetItem;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
@@ -54,8 +62,6 @@ public class OrdersService {
     private final ProductRepository productRepository;
     private final ProductStockRepository productStockRepository;
     private final MaterialStockRepository materialStockRepository;
-    private final TechnicalSheetRepository technicalSheetRepository;
-    private final MaterialSheetItemRepository materialSheetItemRepository;
     private final TechnicalSheetModuleService technicalSheetModuleService;
     private final ProductionRepository productionRepository;
     private final StockMovementService stockMovementService;
@@ -63,8 +69,15 @@ public class OrdersService {
     private final PermissionService permissionService;
     private final AuditService auditService;
     private final NotificationServiceImpl notificationService;
+    private final EmailService emailService;
+    private final MaterialStockService materialStockService;
+    private final ProductStockService productStockService;
+    private final TechnicalSheetRepository technicalSheetRepository;
+    private final MaterialSheetItemRepository materialSheetItemRepository;
+    private final MaterialOrderRepository materialOrderRepository;
+    private final SupplierRepository supplierRepository;
 
-    // ─── Client: Create Order ─────────────────────────────────────────────────
+    
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
@@ -72,7 +85,7 @@ public class OrdersService {
 
         String resolvedOrgId;
         if (user.getRole() == Roles.CLIENT) {
-            // Try account-linked org first, then fall back to the first org in the system
+            
             resolvedOrgId = user.getOrganizationId() != null ? user.getOrganizationId()
                     : (user.getAssignedOrganizationIds() != null && !user.getAssignedOrganizationIds().isEmpty()
                     ? user.getAssignedOrganizationIds().get(0) : null);
@@ -98,13 +111,13 @@ public class OrdersService {
         List<OrderItem> items = new ArrayList<>();
         int totalQty = 0;
         boolean overallMaterialsSufficient = true;
-        ClientOrderStatus derivedStatus = ClientOrderStatus.READY_FOR_CONFIRMATION;
+        ClientOrderStatus derivedStatus = ClientOrderStatus.PENDING_REVIEW;
 
         for (OrderItemDto itemDto : dto.getItems()) {
             Product product = productRepository.findById(itemDto.getProductId())
                     .orElseThrow(() -> new NotFoundException("Product not found: " + itemDto.getProductId()));
 
-            // Product stock check
+            
             Optional<ProductStock> stockOpt = productStockRepository
                     .findByProductId(itemDto.getProductId()).stream().findFirst();
             int available = stockOpt.map(s -> s.getQuantity() != null ? s.getQuantity() : 0).orElse(0);
@@ -118,7 +131,7 @@ public class OrdersService {
                 itemStatus = OrderItemStatus.OUT_OF_STOCK;
             }
 
-            // BOM check using active technical sheet
+            
             BomCalculationResultDto bom = null;
             String technicalSheetId = null;
             Integer technicalSheetVersion = null;
@@ -134,14 +147,11 @@ public class OrdersService {
                 itemMaterialsAvailable = bom.isSufficient();
                 if (!itemMaterialsAvailable) {
                     overallMaterialsSufficient = false;
-                    if (itemStatus == OrderItemStatus.AVAILABLE || itemStatus == OrderItemStatus.PARTIAL) {
+                    if (itemStatus == OrderItemStatus.OUT_OF_STOCK || itemStatus == OrderItemStatus.PARTIAL) {
                         itemStatus = OrderItemStatus.TO_PRODUCE;
                     }
                 }
             } catch (NotFoundException e) {
-                // No active BOM — mark as blocked
-                overallMaterialsSufficient = false;
-                derivedStatus = ClientOrderStatus.BLOCKED_NO_BOM;
                 itemMaterialsAvailable = false;
             }
 
@@ -161,16 +171,7 @@ public class OrdersService {
             totalQty += itemDto.getQuantity();
         }
 
-        // Determine overall order status
-        if (derivedStatus != ClientOrderStatus.BLOCKED_NO_BOM) {
-            if (!overallMaterialsSufficient) {
-                derivedStatus = ClientOrderStatus.BLOCKED_INSUFFICIENT_MATERIALS;
-            } else if (items.stream().anyMatch(i -> i.getStatus() == OrderItemStatus.OUT_OF_STOCK)) {
-                derivedStatus = ClientOrderStatus.BLOCKED_INSUFFICIENT_STOCK;
-            } else {
-                derivedStatus = ClientOrderStatus.READY_FOR_CONFIRMATION;
-            }
-        }
+        derivedStatus = ClientOrderStatus.PENDING_REVIEW;
 
         Orders order = new Orders();
         order.setId(NanoIdUtils.randomNanoId());
@@ -188,6 +189,22 @@ public class OrdersService {
         order.setUpdatedBy(user.getEmail());
 
         Orders saved = ordersRepository.save(order);
+
+        if (saved.getStatus() == ClientOrderStatus.PENDING_REVIEW) {
+            for (OrderItem item : saved.getItems()) {
+                if (item.getStatus() == OrderItemStatus.AVAILABLE || item.getStatus() == OrderItemStatus.PARTIAL) {
+                    int toReserve = Math.min(item.getQuantity(), item.getAvailableStock());
+                    if (toReserve > 0) productStockService.reserveProduct(item.getProductId(), toReserve);
+                }
+                if (item.getRequiredMaterials() != null) {
+                    for (BomMaterialLineDto mat : item.getRequiredMaterials()) {
+                        int toReserve = (int) Math.ceil(mat.getRequiredQuantity());
+                        if (toReserve > 0) materialStockService.reserveMaterial(mat.getMaterialId(), toReserve);
+                    }
+                }
+            }
+        }
+
         auditService.log("Order", saved.getId(), "CREATE", saved.getOrganizationId(), null,
                 "Order created: " + saved.getOrderReference() + " [" + saved.getStatus() + "]");
 
@@ -199,10 +216,321 @@ public class OrdersService {
                 "Order " + saved.getOrderReference() + " needs review. Status: " + saved.getStatus(),
                 "/admin/orders/" + saved.getId());
 
+        
+        List<String> productLines = saved.getItems().stream()
+                .map(i -> i.getProductName() + " × " + i.getQuantity())
+                .collect(Collectors.toList());
+        emailService.sendOrderSubmittedToClient(
+                user.getEmail(),
+                saved.getOrderReference(),
+                user.getName() != null ? user.getName() : user.getEmail(),
+                dto.getRequestedDeliveryDate() != null ? dto.getRequestedDeliveryDate().toString() : "—",
+                productLines
+        );
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Admin: Confirm Order (triggers production) ────────────────────────────
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderProcessResultDTO processOrder(String orderId, AdminConfirmOrderDto dto) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        Set<ClientOrderStatus> allowedStatuses = Set.of(
+                ClientOrderStatus.PENDING_REVIEW,
+                ClientOrderStatus.READY_FOR_CONFIRMATION,
+                ClientOrderStatus.DATE_CHANGE_REQUESTED,
+                ClientOrderStatus.CONFIRMED
+        );
+        if (!allowedStatuses.contains(order.getStatus())) {
+            throw new BadRequestException("Order cannot be processed in status: " + order.getStatus());
+        }
+
+        if (dto.getConfirmedDeliveryDate() != null) {
+            order.setConfirmedDeliveryDate(dto.getConfirmedDeliveryDate());
+        }
+
+        record ItemPlan(OrderItem item, int fromStock, int toProduce) {}
+        List<ItemPlan> plans = new ArrayList<>();
+        boolean allFromStock = true;
+
+        for (OrderItem item : order.getItems()) {
+            int stock = productStockRepository.findByProductId(item.getProductId())
+                    .stream().findFirst()
+                    .map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0)
+                    .orElse(0);
+            int fromStock = Math.min(item.getQuantity(), stock);
+            int toProduce = item.getQuantity() - fromStock;
+            if (toProduce > 0) allFromStock = false;
+            plans.add(new ItemPlan(item, fromStock, toProduce));
+        }
+
+        if (allFromStock) {
+            for (ItemPlan plan : plans) {
+                productStockRepository.findByProductId(plan.item().getProductId()).stream().findFirst()
+                        .ifPresent(ps -> {
+                            int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
+                            int newQty = Math.max(0, before - plan.item().getQuantity());
+                            ps.setQuantity(newQty);
+                            ps.setLastUpdatedBy(user.getEmail());
+                            ps.setUpdatedAt(LocalDateTime.now());
+                            productStockRepository.save(ps);
+                            stockMovementService.recordProductMovement(
+                                    MovementType.PRODUCT_DECREASED, plan.item().getProductId(),
+                                    plan.item().getProductName(), plan.item().getUnit(),
+                                    plan.item().getQuantity(), before, newQty,
+                                    order.getId(), null, order.getOrganizationId(), user.getEmail());
+                        });
+            }
+
+            order.setStatus(ClientOrderStatus.READY);
+            order.setDeliveryToken(NanoIdUtils.randomNanoId());
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setUpdatedBy(user.getEmail());
+            Orders saved = ordersRepository.save(order);
+
+            auditService.log("Order", saved.getId(), "PROCESS_DELIVERED", saved.getOrganizationId(), null,
+                    "Order processed → fully from stock, ready for delivery: " + saved.getOrderReference());
+            notificationService.createNotification(saved.getClientId(), "Order Ready for Delivery",
+                    "Your order " + saved.getOrderReference() + " is ready — all items in stock!",
+                    NotificationType.ORDER, "/client-orders/" + saved.getId());
+
+            User client = userRepository.findById(saved.getClientId()).orElse(null);
+            if (client != null) {
+                emailService.sendOrderReadyToClient(client.getEmail(), saved.getOrderReference(),
+                        client.getName() != null ? client.getName() : client.getEmail(),
+                        saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : "");
+            }
+
+            return OrderProcessResultDTO.builder()
+                    .orderId(saved.getId())
+                    .orderReference(saved.getOrderReference())
+                    .outcome(OrderProcessResultDTO.Outcome.DELIVERED)
+                    .deliveryToken(saved.getDeliveryToken())
+                    .message("All items available in stock. Order is ready for delivery.")
+                    .build();
+        }
+
+        Map<String, Double> materialNeeds = new LinkedHashMap<>();
+        Map<String, String> materialNames = new LinkedHashMap<>();
+        Map<String, String> materialUnits = new LinkedHashMap<>();
+
+        for (ItemPlan plan : plans) {
+            if (plan.toProduce() <= 0) continue;
+            final int toProduce = plan.toProduce();
+            technicalSheetRepository.findByProductIdAndStatus(
+                    plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
+                    .ifPresent(sheet -> {
+                        List<MaterialSheetItem> sheetItems =
+                                materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                        for (MaterialSheetItem si : sheetItems) {
+                            double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                            double needed = qpu * toProduce;
+                            if (needed <= 0) continue;
+                            materialNeeds.merge(si.getMaterialId(), needed, Double::sum);
+                            materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
+                                materialNames.put(ms.getId(), ms.getName());
+                                materialUnits.put(ms.getId(), ms.getUnit() != null ? ms.getUnit() : "");
+                            });
+                        }
+                    });
+        }
+
+        List<MissingMaterialLine> missingLines = new ArrayList<>();
+        boolean allMaterialsAvailable = true;
+
+        for (Map.Entry<String, Double> entry : materialNeeds.entrySet()) {
+            String matId = entry.getKey();
+            double required = entry.getValue();
+            int avail = materialStockRepository.findById(matId)
+                    .map(ms -> ms.getQuantity() != null ? ms.getQuantity() : 0).orElse(0);
+            double missing = Math.max(0.0, required - avail);
+            if (missing > 0) {
+                allMaterialsAvailable = false;
+                missingLines.add(MissingMaterialLine.builder()
+                        .materialId(matId)
+                        .materialName(materialNames.getOrDefault(matId, matId))
+                        .unit(materialUnits.getOrDefault(matId, ""))
+                        .requiredQuantity(Math.round(required * 100.0) / 100.0)
+                        .availableQuantity(avail)
+                        .missingQuantity(Math.round(missing * 100.0) / 100.0)
+                        .build());
+            }
+        }
+
+        if (allMaterialsAvailable) {
+            List<String> productionIds = new ArrayList<>();
+
+            for (ItemPlan plan : plans) {
+                if (plan.fromStock() > 0) {
+                    final int fromStockFinal = plan.fromStock();
+                    productStockRepository.findByProductId(plan.item().getProductId()).stream().findFirst()
+                            .ifPresent(ps -> {
+                                int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
+                                int newQty = Math.max(0, before - fromStockFinal);
+                                ps.setQuantity(newQty);
+                                ps.setLastUpdatedBy(user.getEmail());
+                                ps.setUpdatedAt(LocalDateTime.now());
+                                productStockRepository.save(ps);
+                                stockMovementService.recordProductMovement(
+                                        MovementType.PRODUCT_DECREASED, plan.item().getProductId(),
+                                        plan.item().getProductName(), plan.item().getUnit(), fromStockFinal,
+                                        before, newQty, order.getId(), null,
+                                        order.getOrganizationId(), user.getEmail());
+                            });
+                }
+
+                if (plan.toProduce() > 0) {
+                    final int toProduceFinal = plan.toProduce();
+                    technicalSheetRepository.findByProductIdAndStatus(
+                            plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
+                            .ifPresent(sheet -> {
+                                List<MaterialSheetItem> sheetItems =
+                                        materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                                for (MaterialSheetItem si : sheetItems) {
+                                    double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                    double needed = qpu * toProduceFinal;
+                                    if (needed <= 0) continue;
+                                    materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
+                                        int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
+                                        int newQty = Math.max(0, before - (int) Math.ceil(needed));
+                                        ms.setQuantity(newQty);
+                                        ms.setLastUpdatedBy(user.getEmail());
+                                        ms.setUpdatedAt(LocalDateTime.now());
+                                        materialStockRepository.save(ms);
+                                        stockMovementService.recordMaterialMovement(
+                                                MovementType.MATERIAL_DECREASED, ms.getId(), ms.getName(),
+                                                ms.getUnit(), needed, before, newQty,
+                                                order.getId(), null, order.getOrganizationId(), user.getEmail());
+                                    });
+                                }
+                            });
+
+                    Production production = Production.builder()
+                            .id(NanoIdUtils.randomNanoId())
+                            .productId(plan.item().getProductId())
+                            .organizationId(order.getOrganizationId())
+                            .quantity(toProduceFinal)
+                            .clientOrderId(order.getId())
+                            .status(ProductionStatus.PLANNED)
+                            .steps(Collections.emptyList())
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+                    Production savedProduction = productionRepository.save(production);
+                    productionIds.add(savedProduction.getId());
+
+                    auditService.log("Production", savedProduction.getId(), "CREATE",
+                            order.getOrganizationId(), null,
+                            "Production of " + toProduceFinal + " × " + plan.item().getProductName()
+                                    + " started for order " + order.getOrderReference());
+                    notifyAdmins(order.getOrganizationId(), "Production Started",
+                            toProduceFinal + " × " + plan.item().getProductName()
+                                    + " queued for production (order " + order.getOrderReference() + ")",
+                            "/production/" + savedProduction.getId());
+                }
+            }
+
+            order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+            order.setRelatedProductionId(productionIds.isEmpty() ? null : productionIds.get(productionIds.size() - 1));
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setUpdatedBy(user.getEmail());
+            Orders saved = ordersRepository.save(order);
+
+            auditService.log("Order", saved.getId(), "PROCESS_PRODUCTION", saved.getOrganizationId(), null,
+                    "Order processed → production started: " + saved.getOrderReference());
+            notificationService.createNotification(saved.getClientId(), "Production Started",
+                    "Production for your order " + saved.getOrderReference() + " has started.",
+                    NotificationType.ORDER, "/client-orders/" + saved.getId());
+
+            User client = userRepository.findById(saved.getClientId()).orElse(null);
+            if (client != null) {
+                emailService.sendOrderConfirmedToClient(client.getEmail(), saved.getOrderReference(),
+                        saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : "—",
+                        client.getName() != null ? client.getName() : client.getEmail());
+            }
+
+            return OrderProcessResultDTO.builder()
+                    .orderId(saved.getId())
+                    .orderReference(saved.getOrderReference())
+                    .outcome(OrderProcessResultDTO.Outcome.PRODUCTION_STARTED)
+                    .productionIds(productionIds)
+                    .message("Materials available. Production started for "
+                            + productionIds.size() + " item(s).")
+                    .build();
+        }
+
+        String supplierId = supplierRepository.findByOrganizationId(order.getOrganizationId())
+                .stream().findFirst()
+                .map(s -> s.getId())
+                .orElse(null);
+
+        MaterialOrder supplyOrder = new MaterialOrder();
+        supplyOrder.setId(NanoIdUtils.randomNanoId());
+        supplyOrder.setOrderNumber("PO-AUTO-" + NanoIdUtils.randomNanoId().substring(0, 6).toUpperCase());
+        supplyOrder.setSupplierId(supplierId);
+        supplyOrder.setOrganizationId(order.getOrganizationId());
+        supplyOrder.setOrderedBy(user.getEmail());
+        supplyOrder.setStatus(MaterialOrderStatus.PENDING);
+        supplyOrder.setNotes("Auto-generated from order " + order.getOrderReference()
+                + " — awaiting admin approval.");
+        supplyOrder.setSourceClientOrderId(order.getId());
+        supplyOrder.setCreatedAt(LocalDateTime.now());
+        supplyOrder.setUpdatedAt(LocalDateTime.now());
+
+        List<MaterialOrderItem> supplyItems = new ArrayList<>();
+        int totalQty = 0;
+        for (MissingMaterialLine ml : missingLines) {
+            MaterialOrderItem soi = new MaterialOrderItem();
+            soi.setId(NanoIdUtils.randomNanoId());
+            soi.setMaterialId(ml.getMaterialId());
+            soi.setMaterialName(ml.getMaterialName());
+            soi.setMaterialReference(ml.getMaterialId());
+            soi.setOrderedQuantity((int) Math.ceil(ml.getMissingQuantity()));
+            soi.setReceivedQuantity(0);
+            soi.setAcceptedQuantity(0);
+            soi.setRejectedQuantity(0);
+            soi.setReturnedQuantity(0);
+            soi.setRemainingQuantity((int) Math.ceil(ml.getMissingQuantity()));
+            soi.setUnit(ml.getUnit());
+            soi.setUnitPrice(0);
+            supplyItems.add(soi);
+            totalQty += soi.getOrderedQuantity();
+        }
+        supplyOrder.setItems(supplyItems);
+        supplyOrder.setTotalOrderedQuantity(totalQty);
+
+        MaterialOrder savedSupplyOrder = materialOrderRepository.save(supplyOrder);
+
+        order.setStatus(ClientOrderStatus.WAITING_FOR_MATERIALS);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
+
+        auditService.log("Order", saved.getId(), "PROCESS_SUPPLY_ORDER", saved.getOrganizationId(), null,
+                "Order processed → materials missing, supply order " + savedSupplyOrder.getOrderNumber()
+                        + " auto-created: " + saved.getOrderReference());
+        auditService.log("MaterialOrder", savedSupplyOrder.getId(), "CREATE", saved.getOrganizationId(), null,
+                "Auto-created from order " + saved.getOrderReference());
+
+        notifyAdmins(order.getOrganizationId(), "Supply Order Created",
+                "Order " + order.getOrderReference() + " is missing materials. "
+                        + "Supply order " + savedSupplyOrder.getOrderNumber() + " was created — awaiting approval.",
+                "/supply-chain");
+
+        return OrderProcessResultDTO.builder()
+                .orderId(saved.getId())
+                .orderReference(saved.getOrderReference())
+                .outcome(OrderProcessResultDTO.Outcome.SUPPLY_ORDER_CREATED)
+                .supplyOrderId(savedSupplyOrder.getId())
+                .supplyOrderNumber(savedSupplyOrder.getOrderNumber())
+                .missingMaterials(missingLines)
+                .message(missingLines.size() + " material(s) are insufficient. "
+                        + "Supply order " + savedSupplyOrder.getOrderNumber()
+                        + " created — please approve it in Supply Chain.")
+                .build();
+    }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto adminConfirm(AdminConfirmOrderDto dto) {
@@ -220,9 +548,8 @@ public class OrdersService {
             throw new BadRequestException("Order cannot be confirmed in status: " + order.getStatus());
         }
 
-        // Reserve / decrease materials for each item
         for (OrderItem item : order.getItems()) {
-            if (item.getRequiredMaterials() != null) {
+            if (item.getRequiredMaterials() != null && !item.getRequiredMaterials().isEmpty()) {
                 for (BomMaterialLineDto matLine : item.getRequiredMaterials()) {
                     materialStockRepository.findById(matLine.getMaterialId()).ifPresent(stock -> {
                         int before = stock.getQuantity() != null ? stock.getQuantity() : 0;
@@ -238,9 +565,32 @@ public class OrdersService {
                                 order.getId(), null, order.getOrganizationId(), user.getEmail());
                     });
                 }
+            } else if (item.getStatus() == OrderItemStatus.OUT_OF_STOCK
+                    || item.getStatus() == OrderItemStatus.TO_PRODUCE) {
+                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                        .ifPresent(sheet -> {
+                            List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                            for (MaterialSheetItem si : sheetItems) {
+                                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                double totalNeeded = qpu * item.getQuantity();
+                                if (totalNeeded <= 0) continue;
+                                materialStockRepository.findById(si.getMaterialId()).ifPresent(stock -> {
+                                    int before = stock.getQuantity() != null ? stock.getQuantity() : 0;
+                                    int newQty = Math.max(0, before - (int) Math.ceil(totalNeeded));
+                                    stock.setQuantity(newQty);
+                                    stock.setLastUpdatedBy(user.getEmail());
+                                    stock.setUpdatedAt(LocalDateTime.now());
+                                    materialStockRepository.save(stock);
+
+                                    stockMovementService.recordMaterialMovement(
+                                            MovementType.MATERIAL_DECREASED, stock.getId(), stock.getName(),
+                                            stock.getUnit(), totalNeeded, before, newQty,
+                                            order.getId(), null, order.getOrganizationId(), user.getEmail());
+                                });
+                            }
+                        });
             }
 
-            // Decrease finished product stock if AVAILABLE
             if (item.getStatus() == OrderItemStatus.AVAILABLE) {
                 productStockRepository.findByProductId(item.getProductId()).stream().findFirst()
                         .ifPresent(ps -> {
@@ -260,7 +610,6 @@ public class OrdersService {
             }
         }
 
-        // Create production for items that need manufacturing
         List<OrderItem> toProduceItems = order.getItems().stream()
                 .filter(i -> i.getStatus() == OrderItemStatus.OUT_OF_STOCK
                         || i.getStatus() == OrderItemStatus.TO_PRODUCE
@@ -269,20 +618,20 @@ public class OrdersService {
 
         String productionId = null;
         if (!toProduceItems.isEmpty()) {
-            // Create one production per distinct product
             for (OrderItem item : toProduceItems) {
                 Production production = Production.builder()
                         .id(NanoIdUtils.randomNanoId())
                         .productId(item.getProductId())
                         .organizationId(order.getOrganizationId())
                         .quantity(item.getQuantity())
+                        .clientOrderId(order.getId())
                         .status(ProductionStatus.PLANNED)
                         .steps(Collections.emptyList())
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
                 Production savedProduction = productionRepository.save(production);
-                productionId = savedProduction.getId(); // keep last for linking
+                productionId = savedProduction.getId(); 
 
                 auditService.log("Production", savedProduction.getId(), "CREATE", order.getOrganizationId(), null,
                         "Production auto-created from order " + order.getOrderReference());
@@ -306,10 +655,19 @@ public class OrdersService {
                 "Your order " + saved.getOrderReference() + " is confirmed and in production. Delivery: " + dto.getConfirmedDeliveryDate(),
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
 
+        User client = userRepository.findById(saved.getClientId()).orElse(null);
+        if (client != null) {
+            emailService.sendOrderConfirmedToClient(
+                    client.getEmail(),
+                    saved.getOrderReference(),
+                    dto.getConfirmedDeliveryDate() != null ? dto.getConfirmedDeliveryDate().toString() : "—",
+                    client.getName() != null ? client.getName() : client.getEmail()
+            );
+        }
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Admin: Propose New Date ──────────────────────────────────────────────
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto adminProposeDate(AdminProposeDateDto dto) {
@@ -329,10 +687,383 @@ public class OrdersService {
         notificationService.createNotification(saved.getClientId(), "Delivery Date Change Requested",
                 "New date proposed for order " + saved.getOrderReference() + ": " + dto.getProposedDeliveryDate(),
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
+
+        User clientForPropose = userRepository.findById(saved.getClientId()).orElse(null);
+        if (clientForPropose != null) {
+            emailService.sendDateProposedToClient(
+                    clientForPropose.getEmail(),
+                    saved.getOrderReference(),
+                    clientForPropose.getName() != null ? clientForPropose.getName() : clientForPropose.getEmail(),
+                    order.getRequestedDeliveryDate() != null ? order.getRequestedDeliveryDate().toString() : "—",
+                    dto.getProposedDeliveryDate() != null ? dto.getProposedDeliveryDate().toString() : "—",
+                    dto.getAdminMessage()
+            );
+        }
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Mark Ready / Delivered ───────────────────────────────────────────────
+
+    public OrderReviewResultDTO reviewOrder(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        Set<ClientOrderStatus> activeStatuses = Set.of(
+                ClientOrderStatus.PENDING_REVIEW,
+                ClientOrderStatus.READY_FOR_CONFIRMATION,
+                ClientOrderStatus.DATE_CHANGE_REQUESTED,
+                ClientOrderStatus.CONFIRMED
+        );
+
+        List<OrderReviewResultDTO.ItemReviewDTO> itemResults = new ArrayList<>();
+        boolean canConfirmAll = true;
+
+        for (OrderItem item : order.getItems()) {
+            Optional<ProductStock> psOpt = productStockRepository
+                    .findByProductId(item.getProductId()).stream().findFirst();
+            int stock = psOpt.map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0).orElse(0);
+
+            int otherDemand = ordersRepository.findAll().stream()
+                    .filter(o -> !o.getId().equals(orderId) && activeStatuses.contains(o.getStatus()))
+                    .flatMap(o -> o.getItems().stream())
+                    .filter(oi -> item.getProductId().equals(oi.getProductId()))
+                    .mapToInt(OrderItem::getQuantity)
+                    .sum();
+
+            int effectiveAvailable = Math.max(0, stock - otherDemand);
+            int productionNeeded = Math.max(0, item.getQuantity() - effectiveAvailable);
+            boolean canFulfill = productionNeeded == 0;
+            if (!canFulfill) canConfirmAll = false;
+
+            itemResults.add(OrderReviewResultDTO.ItemReviewDTO.builder()
+                    .productId(item.getProductId())
+                    .productName(item.getProductName())
+                    .orderedQuantity(item.getQuantity())
+                    .availableStock(stock)
+                    .otherOrdersDemand(otherDemand)
+                    .effectiveAvailable(effectiveAvailable)
+                    .productionNeededQty(productionNeeded)
+                    .canFulfillFromStock(canFulfill)
+                    .build());
+        }
+
+        return OrderReviewResultDTO.builder()
+                .orderId(orderId)
+                .orderReference(order.getOrderReference())
+                .canConfirmDirectly(canConfirmAll)
+                .items(itemResults)
+                .build();
+    }
+
+    public OrderAvailabilityCheckDTO availabilityCheck(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        List<OrderAvailabilityCheckDTO.ProductAvailability> products = new ArrayList<>();
+        Map<String, Double> materialNeeds = new LinkedHashMap<>();
+
+        boolean allFromStock = true;
+        boolean anyNeedsProduction = false;
+
+        for (OrderItem item : order.getItems()) {
+            int stock = productStockRepository.findByProductId(item.getProductId())
+                    .stream().findFirst()
+                    .map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0)
+                    .orElse(0);
+            int fromStock = Math.min(item.getQuantity(), stock);
+            int toProduce = item.getQuantity() - fromStock;
+
+            if (fromStock < item.getQuantity()) allFromStock = false;
+            if (toProduce > 0) {
+                anyNeedsProduction = true;
+                final int finalToProduce = toProduce;
+                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                        .ifPresent(sheet -> {
+                            List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                            for (MaterialSheetItem si : sheetItems) {
+                                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                double needed = qpu * finalToProduce;
+                                if (needed <= 0) continue;
+                                materialNeeds.merge(si.getMaterialId(), needed, Double::sum);
+                            }
+                        });
+            }
+
+            products.add(OrderAvailabilityCheckDTO.ProductAvailability.builder()
+                    .productId(item.getProductId())
+                    .productName(item.getProductName())
+                    .orderedQuantity(item.getQuantity())
+                    .availableFinishedStock(stock)
+                    .quantityFromStock(fromStock)
+                    .quantityToProduce(toProduce)
+                    .build());
+        }
+
+        List<OrderAvailabilityCheckDTO.MissingMaterial> missingMaterials = new ArrayList<>();
+        boolean rawMaterialsEnough = true;
+
+        for (Map.Entry<String, Double> entry : materialNeeds.entrySet()) {
+            String matId = entry.getKey();
+            double required = entry.getValue();
+            var ms = materialStockRepository.findById(matId);
+            int avail = ms.map(m -> m.getQuantity() != null ? m.getQuantity() : 0).orElse(0);
+            double missing = Math.max(0.0, required - avail);
+            if (missing > 0) rawMaterialsEnough = false;
+            missingMaterials.add(OrderAvailabilityCheckDTO.MissingMaterial.builder()
+                    .materialId(matId)
+                    .materialName(ms.map(m -> m.getName()).orElse(matId))
+                    .unit(ms.map(m -> m.getUnit()).orElse(""))
+                    .requiredQuantity(Math.round(required * 100.0) / 100.0)
+                    .availableQuantity(avail)
+                    .missingQuantity(Math.round(missing * 100.0) / 100.0)
+                    .build());
+        }
+
+        return OrderAvailabilityCheckDTO.builder()
+                .orderId(orderId)
+                .orderReference(order.getOrderReference())
+                .fullyAvailableFromStock(allFromStock)
+                .needsProduction(anyNeedsProduction)
+                .rawMaterialsEnough(!anyNeedsProduction || rawMaterialsEnough)
+                .products(products)
+                .missingMaterials(missingMaterials)
+                .build();
+    }
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto confirmDelivery(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        Set<ClientOrderStatus> allowedStatuses = Set.of(
+                ClientOrderStatus.PENDING_REVIEW,
+                ClientOrderStatus.READY_FOR_CONFIRMATION,
+                ClientOrderStatus.DATE_CHANGE_REQUESTED,
+                ClientOrderStatus.CONFIRMED
+        );
+        if (!allowedStatuses.contains(order.getStatus())) {
+            throw new BadRequestException("Order cannot be confirmed for delivery in status: " + order.getStatus());
+        }
+
+        for (OrderItem item : order.getItems()) {
+            productStockRepository.findByProductId(item.getProductId()).stream().findFirst()
+                    .ifPresent(ps -> {
+                        int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
+                        int deduct = Math.min(item.getQuantity(), before);
+                        int newQty = before - deduct;
+                        ps.setQuantity(newQty);
+                        ps.setLastUpdatedBy(user.getEmail());
+                        ps.setUpdatedAt(LocalDateTime.now());
+                        productStockRepository.save(ps);
+                        stockMovementService.recordProductMovement(
+                                MovementType.PRODUCT_DECREASED, item.getProductId(),
+                                item.getProductName(), item.getUnit(), deduct,
+                                before, newQty, order.getId(), null,
+                                order.getOrganizationId(), user.getEmail());
+                    });
+        }
+
+        order.setStatus(ClientOrderStatus.READY);
+        order.setDeliveryToken(com.aventrix.jnanoid.jnanoid.NanoIdUtils.randomNanoId());
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
+
+        auditService.log("Order", saved.getId(), "CONFIRM_DELIVERY", saved.getOrganizationId(), null,
+                "Order confirmed for direct delivery (full stock): " + saved.getOrderReference());
+        notificationService.createNotification(saved.getClientId(), "Order Ready for Delivery",
+                "Your order " + saved.getOrderReference() + " is ready for delivery!",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.ORDER,
+                "/client-orders/" + saved.getId());
+
+        return OrdersMapper.toDto(saved);
+    }
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto startProductionWithMaterials(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        Set<ClientOrderStatus> allowed = Set.of(
+                ClientOrderStatus.PENDING_REVIEW,
+                ClientOrderStatus.READY_FOR_CONFIRMATION,
+                ClientOrderStatus.DATE_CHANGE_REQUESTED,
+                ClientOrderStatus.CONFIRMED
+        );
+        if (!allowed.contains(order.getStatus())) {
+            throw new BadRequestException("Order cannot start production in status: " + order.getStatus());
+        }
+
+        String lastProductionId = null;
+
+        for (OrderItem item : order.getItems()) {
+            int stock = productStockRepository.findByProductId(item.getProductId())
+                    .stream().findFirst()
+                    .map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0)
+                    .orElse(0);
+            int fromStock = Math.min(item.getQuantity(), stock);
+            int toProduce = item.getQuantity() - fromStock;
+
+            if (fromStock > 0) {
+                final int finalFromStock = fromStock;
+                productStockRepository.findByProductId(item.getProductId()).stream().findFirst()
+                        .ifPresent(ps -> {
+                            int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
+                            int newQty = Math.max(0, before - finalFromStock);
+                            ps.setQuantity(newQty);
+                            ps.setLastUpdatedBy(user.getEmail());
+                            ps.setUpdatedAt(LocalDateTime.now());
+                            productStockRepository.save(ps);
+                            stockMovementService.recordProductMovement(
+                                    MovementType.PRODUCT_DECREASED, item.getProductId(),
+                                    item.getProductName(), item.getUnit(), finalFromStock,
+                                    before, newQty, order.getId(), null,
+                                    order.getOrganizationId(), user.getEmail());
+                        });
+            }
+
+            if (toProduce > 0) {
+                final int finalToProduce = toProduce;
+                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                        .ifPresent(sheet -> {
+                            List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                            for (MaterialSheetItem si : sheetItems) {
+                                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                double needed = qpu * finalToProduce;
+                                if (needed <= 0) continue;
+                                materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
+                                    int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
+                                    int newQty = Math.max(0, before - (int) Math.ceil(needed));
+                                    ms.setQuantity(newQty);
+                                    ms.setLastUpdatedBy(user.getEmail());
+                                    ms.setUpdatedAt(LocalDateTime.now());
+                                    materialStockRepository.save(ms);
+                                    stockMovementService.recordMaterialMovement(
+                                            MovementType.MATERIAL_DECREASED, ms.getId(), ms.getName(),
+                                            ms.getUnit(), needed, before, newQty,
+                                            order.getId(), null, order.getOrganizationId(), user.getEmail());
+                                });
+                            }
+                        });
+
+                Production production = Production.builder()
+                        .id(com.aventrix.jnanoid.jnanoid.NanoIdUtils.randomNanoId())
+                        .productId(item.getProductId())
+                        .organizationId(order.getOrganizationId())
+                        .quantity(toProduce)
+                        .clientOrderId(order.getId())
+                        .status(ProductionStatus.PLANNED)
+                        .steps(Collections.emptyList())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                Production savedProduction = productionRepository.save(production);
+                lastProductionId = savedProduction.getId();
+
+                auditService.log("Production", savedProduction.getId(), "CREATE", order.getOrganizationId(), null,
+                        "Production of " + toProduce + " × " + item.getProductName()
+                                + " started for order " + order.getOrderReference());
+                notifyAdmins(order.getOrganizationId(), "Production Started",
+                        toProduce + " × " + item.getProductName()
+                                + " queued for production (order " + order.getOrderReference() + ")",
+                        "/production/" + savedProduction.getId());
+            }
+        }
+
+        order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+        order.setRelatedProductionId(lastProductionId);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
+
+        auditService.log("Order", saved.getId(), "START_PRODUCTION", saved.getOrganizationId(), null,
+                "Production started for order: " + saved.getOrderReference());
+        notificationService.createNotification(saved.getClientId(), "Production Started",
+                "Production for your order " + saved.getOrderReference() + " has started.",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.ORDER,
+                "/client-orders/" + saved.getId());
+
+        return OrdersMapper.toDto(saved);
+    }
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto launchProductionForShortfall(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        if (order.getStatus() != ClientOrderStatus.PENDING_REVIEW
+                && order.getStatus() != ClientOrderStatus.READY_FOR_CONFIRMATION
+                && order.getStatus() != ClientOrderStatus.DATE_CHANGE_REQUESTED) {
+            throw new BadRequestException("Order is not in a reviewable status");
+        }
+
+        Set<ClientOrderStatus> activeStatuses = Set.of(
+                ClientOrderStatus.PENDING_REVIEW,
+                ClientOrderStatus.READY_FOR_CONFIRMATION,
+                ClientOrderStatus.DATE_CHANGE_REQUESTED,
+                ClientOrderStatus.CONFIRMED
+        );
+
+        String lastProductionId = null;
+        for (OrderItem item : order.getItems()) {
+            Optional<ProductStock> psOpt = productStockRepository
+                    .findByProductId(item.getProductId()).stream().findFirst();
+            int stock = psOpt.map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0).orElse(0);
+
+            int otherDemand = ordersRepository.findAll().stream()
+                    .filter(o -> !o.getId().equals(orderId) && activeStatuses.contains(o.getStatus()))
+                    .flatMap(o -> o.getItems().stream())
+                    .filter(oi -> item.getProductId().equals(oi.getProductId()))
+                    .mapToInt(OrderItem::getQuantity)
+                    .sum();
+
+            int effectiveAvailable = Math.max(0, stock - otherDemand);
+            int productionNeeded = Math.max(0, item.getQuantity() - effectiveAvailable);
+
+            if (productionNeeded > 0) {
+                Production production = Production.builder()
+                        .id(NanoIdUtils.randomNanoId())
+                        .productId(item.getProductId())
+                        .organizationId(order.getOrganizationId())
+                        .quantity(productionNeeded)
+                        .clientOrderId(order.getId())
+                        .status(ProductionStatus.PLANNED)
+                        .steps(Collections.emptyList())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                Production saved = productionRepository.save(production);
+                lastProductionId = saved.getId();
+
+                auditService.log("Production", saved.getId(), "CREATE", order.getOrganizationId(), null,
+                        "Production of " + productionNeeded + " × " + item.getProductName()
+                                + " launched for order " + order.getOrderReference());
+                notifyAdmins(order.getOrganizationId(), "Production Launched",
+                        productionNeeded + " × " + item.getProductName()
+                                + " queued for production (order " + order.getOrderReference() + ")",
+                        "/production/" + saved.getId());
+            }
+        }
+
+        order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+        order.setRelatedProductionId(lastProductionId);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
+
+        auditService.log("Order", saved.getId(), "LAUNCH_PRODUCTION", saved.getOrganizationId(), null,
+                "Admin launched production for shortfall on order " + saved.getOrderReference());
+        notificationService.createNotification(saved.getClientId(), "Production Launched",
+                "Production has been launched for your order " + saved.getOrderReference() + ".",
+                NotificationType.ORDER, "/client-orders/" + saved.getId());
+
+        return OrdersMapper.toDto(saved);
+    }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto markReady(String orderId) {
@@ -340,11 +1071,12 @@ public class OrdersService {
         requireAdminOrSubAdmin(user);
         Orders order = getOrderAndCheckAccess(orderId, user);
 
-        if (order.getStatus() != ClientOrderStatus.IN_PRODUCTION) {
-            throw new BadRequestException("Order must be IN_PRODUCTION to mark as READY");
+        if (order.getStatus() != ClientOrderStatus.IN_PRODUCTION && order.getStatus() != ClientOrderStatus.PRODUCTION_COMPLETED) {
+            throw new BadRequestException("Order must be IN_PRODUCTION or PRODUCTION_COMPLETED to mark as READY");
         }
 
         order.setStatus(ClientOrderStatus.READY);
+        order.setDeliveryToken(NanoIdUtils.randomNanoId());
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(user.getEmail());
         Orders saved = ordersRepository.save(order);
@@ -354,6 +1086,92 @@ public class OrdersService {
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
         auditService.log("Order", saved.getId(), "READY", saved.getOrganizationId(), null,
                 "Order marked as ready: " + saved.getOrderReference());
+
+        User clientReady = userRepository.findById(saved.getClientId()).orElse(null);
+        if (clientReady != null) {
+            emailService.sendOrderReadyToClient(
+                    clientReady.getEmail(),
+                    saved.getOrderReference(),
+                    clientReady.getName() != null ? clientReady.getName() : clientReady.getEmail(),
+                    saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : ""
+            );
+        }
+
+        return OrdersMapper.toDto(saved);
+    }
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto startProduction(String orderId) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+        Orders order = getOrderAndCheckAccess(orderId, user);
+
+        if (order.getStatus() != ClientOrderStatus.CONFIRMED) {
+            throw new BadRequestException("Order must be CONFIRMED to start production");
+        }
+
+        List<OrderItem> readyItems = order.getItems().stream()
+                .filter(i -> i.isMaterialsAvailable()
+                        && (i.getStatus() == OrderItemStatus.AVAILABLE
+                            || i.getStatus() == OrderItemStatus.PARTIAL))
+                .collect(Collectors.toList());
+
+        if (readyItems.isEmpty()) {
+            throw new BadRequestException("No items with sufficient materials to start production");
+        }
+
+        String productionId = null;
+        for (OrderItem item : readyItems) {
+            if (item.getRequiredMaterials() != null) {
+                for (var matLine : item.getRequiredMaterials()) {
+                    materialStockRepository.findById(matLine.getMaterialId()).ifPresent(stock -> {
+                        int before = stock.getQuantity() != null ? stock.getQuantity() : 0;
+                        int newQty = Math.max(0, before - (int) Math.ceil(matLine.getRequiredQuantity()));
+                        stock.setQuantity(newQty);
+                        stock.setLastUpdatedBy(user.getEmail());
+                        stock.setUpdatedAt(LocalDateTime.now());
+                        materialStockRepository.save(stock);
+                        stockMovementService.recordMaterialMovement(
+                                MovementType.MATERIAL_DECREASED, stock.getId(), stock.getName(),
+                                stock.getUnit(), matLine.getRequiredQuantity(), before, newQty,
+                                order.getId(), null, order.getOrganizationId(), user.getEmail());
+                    });
+                }
+            }
+
+            Production production = Production.builder()
+                    .id(NanoIdUtils.randomNanoId())
+                    .productId(item.getProductId())
+                    .organizationId(order.getOrganizationId())
+                    .quantity(item.getQuantity())
+                    .clientOrderId(order.getId())
+                    .status(ProductionStatus.PLANNED)
+                    .steps(Collections.emptyList())
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            Production savedProduction = productionRepository.save(production);
+            productionId = savedProduction.getId();
+
+            auditService.log("Production", savedProduction.getId(), "CREATE", order.getOrganizationId(), null,
+                    "Production started from order " + order.getOrderReference());
+            notifyAdmins(order.getOrganizationId(), "Production Started",
+                    "Production for " + item.getProductName() + " started — order " + order.getOrderReference(),
+                    "/production/" + savedProduction.getId());
+        }
+
+        order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+        order.setRelatedProductionId(productionId);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
+
+        auditService.log("Order", saved.getId(), "START_PRODUCTION", saved.getOrganizationId(), null,
+                "Production started for order: " + saved.getOrderReference());
+        notificationService.createNotification(saved.getClientId(), "Production Started",
+                "Production for your order " + saved.getOrderReference() + " has started.",
+                NotificationType.ORDER, "/client-orders/" + saved.getId());
+
         return OrdersMapper.toDto(saved);
     }
 
@@ -367,7 +1185,6 @@ public class OrdersService {
             throw new BadRequestException("Order must be READY before marking as DELIVERED");
         }
 
-        // Record delivery movement
         for (OrderItem item : order.getItems()) {
             stockMovementService.recordProductMovement(
                     MovementType.PRODUCT_DELIVERED, item.getProductId(),
@@ -386,10 +1203,19 @@ public class OrdersService {
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
         auditService.log("Order", saved.getId(), "DELIVERED", saved.getOrganizationId(), null,
                 "Order delivered: " + saved.getOrderReference());
+
+        User clientDelivered = userRepository.findById(saved.getClientId()).orElse(null);
+        if (clientDelivered != null) {
+            emailService.sendOrderDeliveredToClient(
+                    clientDelivered.getEmail(),
+                    saved.getOrderReference(),
+                    clientDelivered.getName() != null ? clientDelivered.getName() : clientDelivered.getEmail()
+            );
+        }
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Client: Accept / Reject proposed date ────────────────────────────────
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto clientAccept(ClientRespondDto dto) {
@@ -411,7 +1237,18 @@ public class OrdersService {
                 "Client accepted new date");
         notifyAdmins(saved.getOrganizationId(), "Client Accepted New Date",
                 "Client accepted the proposed date for " + saved.getOrderReference(),
-                "/admin/orders/" + saved.getId());
+                "/orders");
+
+        String acceptedDate = saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : "—";
+        String clientName = user.getName() != null ? user.getName() : user.getEmail();
+        userRepository.findByRole(Roles.ADMIN).forEach(admin ->
+                emailService.sendClientAcceptedDateToAdmin(admin.getEmail(), saved.getOrderReference(),
+                        clientName, acceptedDate, dto.getClientResponseMessage()));
+        userRepository.findByRole(Roles.SUBADMIN).stream()
+                .filter(u -> permissionService.canAccessOrganization(u, saved.getOrganizationId()))
+                .forEach(admin -> emailService.sendClientAcceptedDateToAdmin(admin.getEmail(), saved.getOrderReference(),
+                        clientName, acceptedDate, dto.getClientResponseMessage()));
+
         return OrdersMapper.toDto(saved);
     }
 
@@ -434,14 +1271,24 @@ public class OrdersService {
                 "Client rejected new date");
         notifyAdmins(saved.getOrganizationId(), "Client Rejected New Date",
                 "Client rejected the proposed date for " + saved.getOrderReference(),
-                "/admin/orders/" + saved.getId());
+                "/orders");
+
+        String proposedDate = order.getProposedDeliveryDate() != null ? order.getProposedDeliveryDate().toString() : "—";
+        String clientNameReject = user.getName() != null ? user.getName() : user.getEmail();
+        userRepository.findByRole(Roles.ADMIN).forEach(admin ->
+                emailService.sendClientRejectedDateToAdmin(admin.getEmail(), saved.getOrderReference(),
+                        clientNameReject, proposedDate, dto.getClientResponseMessage()));
+        userRepository.findByRole(Roles.SUBADMIN).stream()
+                .filter(u -> permissionService.canAccessOrganization(u, saved.getOrganizationId()))
+                .forEach(admin -> emailService.sendClientRejectedDateToAdmin(admin.getEmail(), saved.getOrderReference(),
+                        clientNameReject, proposedDate, dto.getClientResponseMessage()));
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Cancel ───────────────────────────────────────────────────────────────
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
-    public OrderResponseDto cancel(String orderId) {
+    public OrderResponseDto cancel(String orderId, String reason) {
         User user = getCurrentUser();
         Orders order = ordersRepository.findById(orderId)
                 .orElseThrow(() -> new NotFoundException("Order not found"));
@@ -453,19 +1300,80 @@ public class OrdersService {
         if (order.getStatus() == ClientOrderStatus.IN_PRODUCTION || order.getStatus() == ClientOrderStatus.DELIVERED)
             throw new BadRequestException("Cannot cancel an order that is already in production or delivered");
 
+        if (order.getStatus() == ClientOrderStatus.READY_FOR_CONFIRMATION || order.getStatus() == ClientOrderStatus.PENDING_REVIEW) {
+            for (OrderItem item : order.getItems()) {
+                if (item.getStatus() == OrderItemStatus.AVAILABLE || item.getStatus() == OrderItemStatus.PARTIAL) {
+                    int toRelease = Math.min(item.getQuantity(), item.getAvailableStock());
+                    if (toRelease > 0) productStockService.releaseProduct(item.getProductId(), toRelease);
+                }
+                if (item.getRequiredMaterials() != null) {
+                    for (BomMaterialLineDto mat : item.getRequiredMaterials()) {
+                        int toRelease = (int) Math.ceil(mat.getRequiredQuantity());
+                        if (toRelease > 0) materialStockService.releaseMaterial(mat.getMaterialId(), toRelease);
+                    }
+                }
+            }
+        }
+
         order.setStatus(ClientOrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(user.getEmail());
         Orders saved = ordersRepository.save(order);
         auditService.log("Order", saved.getId(), "CANCEL", saved.getOrganizationId(), null,
-                "Order cancelled: " + saved.getOrderReference());
+                "Order cancelled: " + saved.getOrderReference() + (reason != null && !reason.isBlank() ? " | Reason: " + reason : ""));
         notificationService.createNotification(saved.getClientId(), "Order Cancelled",
-                "Order " + saved.getOrderReference() + " has been cancelled.",
+                "Order " + saved.getOrderReference() + " has been cancelled." + (reason != null && !reason.isBlank() ? " Reason: " + reason : ""),
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
+
+        User client = userRepository.findById(saved.getClientId()).orElse(null);
+        if (client != null) {
+            String cancelReason = reason != null && !reason.isBlank() ? reason : "Your order has been cancelled by the admin.";
+            emailService.sendOrderCancelledToClient(
+                    client.getEmail(),
+                    saved.getOrderReference(),
+                    cancelReason,
+                    client.getName() != null ? client.getName() : "Client"
+            );
+        }
+
         return OrdersMapper.toDto(saved);
     }
 
-    // ─── Read ─────────────────────────────────────────────────────────────────
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto deliverByToken(String token) {
+        Orders order = ordersRepository.findByDeliveryTokenAndStatus(token, ClientOrderStatus.READY)
+                .orElseThrow(() -> new NotFoundException("Invalid or expired delivery token"));
+
+        for (OrderItem item : order.getItems()) {
+            stockMovementService.recordProductMovement(
+                    MovementType.PRODUCT_DELIVERED, item.getProductId(),
+                    item.getProductName(), item.getUnit(), item.getQuantity(),
+                    0, 0, order.getId(), order.getRelatedProductionId(),
+                    order.getOrganizationId(), "QR_SCAN");
+        }
+
+        order.setStatus(ClientOrderStatus.DELIVERED);
+        order.setDeliveryToken(null);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy("QR_DELIVERY");
+        Orders saved = ordersRepository.save(order);
+
+        notificationService.createNotification(saved.getClientId(), "Order Delivered",
+                "Your order " + saved.getOrderReference() + " has been confirmed as delivered via QR scan!",
+                NotificationType.ORDER, "/client-orders/" + saved.getId());
+        auditService.log("Order", saved.getId(), "DELIVERED_QR", saved.getOrganizationId(), null,
+                "Order delivered via QR scan: " + saved.getOrderReference());
+
+        User clientD = userRepository.findById(saved.getClientId()).orElse(null);
+        if (clientD != null) {
+            emailService.sendOrderDeliveredToClient(clientD.getEmail(), saved.getOrderReference(),
+                    clientD.getName() != null ? clientD.getName() : clientD.getEmail());
+        }
+
+        return OrdersMapper.toDto(saved);
+    }
+
 
     @Cacheable(value = "allOrders")
     public List<OrderResponseDto> getAll() {
@@ -521,7 +1429,6 @@ public class OrdersService {
                 "Order deleted: " + order.getOrderReference());
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private Orders getOrderAndCheckAccess(String orderId, User user) {
         Orders order = ordersRepository.findById(orderId)

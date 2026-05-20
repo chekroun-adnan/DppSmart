@@ -37,6 +37,23 @@ public class Orders {
     private boolean overallMaterialsSufficient;
 
     private String relatedProductionId;
+    private String deliveryToken;
+
+    private OrderPriority orderPriority;
+    private Integer priority;
+    private String allocationSessionId;
+    private boolean hasReservations;
+    private LocalDateTime reservedUntil;
+
+    // workflow tracking
+    private List<String> relatedProductionIds;
+    private String supplyChainOrderId;
+    private LocalDateTime stockCheckedAt;
+    private LocalDateTime productionStartedAt;
+    private LocalDateTime productionCompletedAt;
+    private LocalDateTime deliveryReadyAt;
+    private String confirmedBy;
+    private String deliveredBy;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

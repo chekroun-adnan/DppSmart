@@ -1,7 +1,10 @@
 package com.dppsmart.dppsmart.Orders.Controllers;
 
 import com.dppsmart.dppsmart.Orders.DTO.*;
+import com.dppsmart.dppsmart.Orders.DTO.OrderAvailabilityCheckDTO;
+import com.dppsmart.dppsmart.Orders.DTO.OrderProcessResultDTO;
 import com.dppsmart.dppsmart.Orders.Services.OrdersService;
+import com.dppsmart.dppsmart.Orders.Services.OrderWorkflowService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,7 @@ import java.util.List;
 public class OrdersController {
 
     private final OrdersService ordersService;
+    private final OrderWorkflowService orderWorkflowService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
@@ -29,10 +33,54 @@ public class OrdersController {
         return ResponseEntity.ok(ordersService.adminConfirm(dto));
     }
 
+    @PostMapping("/{id}/process")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderProcessResultDTO> processOrder(
+            @PathVariable String id,
+            @RequestBody @Valid AdminConfirmOrderDto dto) {
+        return ResponseEntity.ok(ordersService.processOrder(id, dto));
+    }
+
     @PostMapping("/admin/propose-date")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<OrderResponseDto> adminProposeDate(@RequestBody @Valid AdminProposeDateDto dto) {
         return ResponseEntity.ok(ordersService.adminProposeDate(dto));
+    }
+
+    @GetMapping("/{id}/review")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderReviewResultDTO> reviewOrder(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.reviewOrder(id));
+    }
+
+    @PostMapping("/{id}/launch-production-shortfall")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> launchProductionForShortfall(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.launchProductionForShortfall(id));
+    }
+
+    @PostMapping("/{id}/start-production")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> startProduction(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.startProduction(id));
+    }
+
+    @GetMapping("/{id}/availability-check")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderAvailabilityCheckDTO> availabilityCheck(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.availabilityCheck(id));
+    }
+
+    @PostMapping("/{id}/confirm-delivery")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> confirmDelivery(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.confirmDelivery(id));
+    }
+
+    @PostMapping("/{id}/start-production-v2")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> startProductionV2(@PathVariable String id) {
+        return ResponseEntity.ok(ordersService.startProductionWithMaterials(id));
     }
 
     @PostMapping("/{id}/ready")
@@ -61,8 +109,9 @@ public class OrdersController {
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
-    public ResponseEntity<OrderResponseDto> cancel(@PathVariable String id) {
-        return ResponseEntity.ok(ordersService.cancel(id));
+    public ResponseEntity<OrderResponseDto> cancel(@PathVariable String id, @RequestBody(required = false) CancelOrderDto dto) {
+        String reason = dto != null ? dto.getReason() : null;
+        return ResponseEntity.ok(ordersService.cancel(id, reason));
     }
 
     @GetMapping
@@ -89,10 +138,93 @@ public class OrdersController {
         return ResponseEntity.ok(ordersService.getByOrganization(organizationId));
     }
 
+    @PostMapping("/deliver-by-token/{token}")
+    public ResponseEntity<OrderResponseDto> deliverByToken(@PathVariable String token) {
+        return ResponseEntity.ok(ordersService.deliverByToken(token));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         ordersService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Workflow endpoints ────────────────────────────────────────────────
+
+    @PostMapping("/{id}/workflow/confirm")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowConfirm(
+            @PathVariable String id,
+            @RequestBody ConfirmWorkflowDto dto) {
+        return ResponseEntity.ok(orderWorkflowService.confirmOrder(
+                id, dto.getConfirmedDeliveryDate(), dto.getPriority(), dto.getAdminMessage()));
+    }
+
+    @PostMapping("/{id}/workflow/set-priority")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowSetPriority(
+            @PathVariable String id,
+            @RequestBody @Valid SetPriorityDto dto) {
+        return ResponseEntity.ok(orderWorkflowService.setPriority(id, dto.getPriority()));
+    }
+
+    @PostMapping("/{id}/workflow/request-delivery-date")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowRequestDeliveryDate(
+            @PathVariable String id,
+            @RequestBody @Valid RequestDeliveryDateDto dto) {
+        return ResponseEntity.ok(orderWorkflowService.requestDeliveryDate(id, dto.getProposedDate(), dto.getMessage()));
+    }
+
+    @GetMapping("/{id}/workflow/check-stock")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<WorkflowStockCheckResult> workflowCheckStock(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.checkStock(id));
+    }
+
+    @GetMapping("/{id}/workflow/simulate")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<SimulationResult> workflowSimulate(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.simulate(id));
+    }
+
+    @PostMapping("/{id}/workflow/process")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderProcessResultDTO> workflowProcess(
+            @PathVariable String id,
+            @RequestBody(required = false) ConfirmWorkflowDto dto) {
+        java.time.LocalDate date = dto != null ? dto.getConfirmedDeliveryDate() : null;
+        return ResponseEntity.ok(orderWorkflowService.processOrderFull(id, date));
+    }
+
+    @PostMapping("/{id}/workflow/deliver")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowDeliver(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.deliverOrder(id));
+    }
+
+    @PostMapping("/workflow/complete-production/{productionId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowCompleteProduction(@PathVariable String productionId) {
+        return ResponseEntity.ok(orderWorkflowService.completeProduction(productionId));
+    }
+
+    @GetMapping("/{id}/workflow/materials")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<MaterialsBreakdownResult> workflowMaterials(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.getMaterialsBreakdown(id));
+    }
+
+    @PostMapping("/{id}/workflow/reserve-materials")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowReserveMaterials(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.reserveMaterialsForOrder(id));
+    }
+
+    @PostMapping("/{id}/workflow/release-materials")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> workflowReleaseMaterials(@PathVariable String id) {
+        return ResponseEntity.ok(orderWorkflowService.releaseMaterialsForOrder(id));
     }
 }
