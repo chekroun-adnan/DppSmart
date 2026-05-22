@@ -14,9 +14,9 @@ public class ProductionStep {
 
     private String description;
 
-    private boolean completed;
+    private Boolean completed;
 
-    private int orderIndex;
+    private Integer orderIndex;
 
     private LocalDateTime startDate;
 

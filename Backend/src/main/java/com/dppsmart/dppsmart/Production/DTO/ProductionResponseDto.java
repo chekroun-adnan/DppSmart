@@ -17,4 +17,7 @@ public class ProductionResponseDto {
     private int quantity;
     private List<ProductionStep> steps;
     private LocalDateTime createdAt;
+    private String clientOrderId;
+    private LocalDateTime completedAt;
+    private LocalDateTime updatedAt;
 }

@@ -19,4 +19,6 @@ public class CreateProductionDto {
     private int quantity;
     @NotNull(message = "steps is required")
     private List<ProductionStep> steps;
+
+    private String clientOrderId;
 }

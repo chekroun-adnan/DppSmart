@@ -17,6 +17,9 @@ public class ProductionMapper {
         dto.setQuantity(p.getQuantity());
         dto.setSteps(p.getSteps());
         dto.setCreatedAt(p.getCreatedAt());
+        dto.setClientOrderId(p.getClientOrderId());
+        dto.setCompletedAt(p.getCompletedAt());
+        dto.setUpdatedAt(p.getUpdatedAt());
 
         return dto;
     }

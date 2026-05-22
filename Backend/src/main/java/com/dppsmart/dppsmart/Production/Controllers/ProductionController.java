@@ -1,11 +1,14 @@
 package com.dppsmart.dppsmart.Production.Controllers;
 
 import com.dppsmart.dppsmart.Production.DTO.CreateProductionDto;
+import com.dppsmart.dppsmart.Production.DTO.ProductionMaterialConsumptionDto;
 import com.dppsmart.dppsmart.Production.DTO.ProductionResponseDto;
+import com.dppsmart.dppsmart.Production.DTO.UpdateProductionDto;
 import com.dppsmart.dppsmart.Production.DTO.UpdateProductionStatusDto;
 import com.dppsmart.dppsmart.Production.Services.ProductionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,12 +39,38 @@ public class ProductionController {
         return productionService.getByOrganization(organizationId);
     }
 
+    @GetMapping("/by-order/{orderId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public List<ProductionResponseDto> getByOrderId(@PathVariable String orderId) {
+        return productionService.getByOrderId(orderId);
+    }
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ProductionResponseDto updateStatus(
             @PathVariable String id,
             @RequestBody @Valid UpdateProductionStatusDto dto) {
         return productionService.updateStatus(id, dto);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ProductionResponseDto update(
+            @PathVariable String id,
+            @RequestBody @Valid UpdateProductionDto dto) {
+        return productionService.update(id, dto);
+    }
+
+    @PostMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<ProductionResponseDto> complete(@PathVariable String id) {
+        return ResponseEntity.ok(productionService.completeProductionBatch(id));
+    }
+
+    @GetMapping("/{id}/material-consumption")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<ProductionMaterialConsumptionDto> getMaterialConsumption(@PathVariable String id) {
+        return ResponseEntity.ok(productionService.getMaterialConsumption(id));
     }
 
     @PutMapping("/{id}/step/start/{stepIndex}")
@@ -58,6 +87,16 @@ public class ProductionController {
             @PathVariable String id,
             @PathVariable int stepIndex) {
         return productionService.completeStep(id, stepIndex);
+    }
+
+    @PutMapping("/{id}/step/{stepIndex}/assign")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ProductionResponseDto assignStep(
+            @PathVariable String id,
+            @PathVariable int stepIndex,
+            @RequestParam String employeeId,
+            @RequestParam(required = false) String employeeName) {
+        return productionService.assignStep(id, stepIndex, employeeId, employeeName);
     }
 
     @DeleteMapping("/{id}")

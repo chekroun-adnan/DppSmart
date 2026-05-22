@@ -11,4 +11,6 @@ public interface ProductionRepository extends MongoRepository<Production, String
     List<Production> findByOrganizationId(String organizationId);
 
     List<Production> findByProductId(String productId);
+
+    List<Production> findByClientOrderId(String clientOrderId);
 }

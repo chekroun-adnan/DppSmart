@@ -1,10 +1,10 @@
 package com.dppsmart.dppsmart.Production.Entities;
 
-
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,6 +22,18 @@ public class Production {
     private ProductionStatus status;
     private int quantity;
     private List<ProductionStep> steps;
+
+    private String clientOrderId;
+    private LocalDate estimatedEndDate;
+    private LocalDateTime completedAt;
+
+    private String assignedTo;
+    private String allocationSessionId;
+    private Integer priority;
+    private LocalDateTime startedAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private boolean materialsConsumed;
 }
