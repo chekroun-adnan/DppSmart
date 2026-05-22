@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,6 +67,50 @@ public class NotificationServiceImpl {
         n.setLink(link);
         n.setRead(false);
         n.setCreatedAt(LocalDateTime.now());
+        notificationRepository.save(n);
+
+        NotificationDto dto = NotificationDto.fromEntity(n);
+        try {
+            eventService.notifyUser(userId, dto);
+        } catch (Exception e) {
+            log.warn("WebSocket broadcast failed (non-critical): {}", e.getMessage());
+        }
+    }
+
+    public void createNotificationWithDedup(String userId, String title, String message,
+                                              Notification.NotificationType type, String link,
+                                              String deduplicationKey) {
+        if (userId == null || userId.isBlank() || deduplicationKey == null) return;
+
+        Optional<Notification> existing = notificationRepository.findByDeduplicationKeyAndReadFalse(deduplicationKey);
+        if (existing.isPresent()) {
+            Notification n = existing.get();
+            n.setMessage(message);
+            n.setTitle(title);
+            n.setCreatedAt(LocalDateTime.now());
+            if (!n.getUserId().equals(userId)) {
+                n.setUserId(userId);
+            }
+            notificationRepository.save(n);
+
+            NotificationDto dto = NotificationDto.fromEntity(n);
+            try {
+                eventService.notifyUser(userId, dto);
+            } catch (Exception e) {
+                log.warn("WebSocket broadcast failed (non-critical): {}", e.getMessage());
+            }
+            return;
+        }
+
+        Notification n = new Notification();
+        n.setUserId(userId);
+        n.setTitle(title);
+        n.setMessage(message);
+        n.setType(type);
+        n.setLink(link);
+        n.setRead(false);
+        n.setCreatedAt(LocalDateTime.now());
+        n.setDeduplicationKey(deduplicationKey);
         notificationRepository.save(n);
 
         NotificationDto dto = NotificationDto.fromEntity(n);

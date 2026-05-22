@@ -1,7 +1,10 @@
 package com.dppsmart.dppsmart.Notification.Controllers;
 
 import com.dppsmart.dppsmart.Notification.DTO.NotificationDto;
+import com.dppsmart.dppsmart.Notification.Entities.Notification;
+import com.dppsmart.dppsmart.Notification.Repositories.NotificationRepository;
 import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
+import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,10 +21,14 @@ import java.util.Map;
 public class NotificationController {
 
     private final NotificationServiceImpl notificationService;
+    private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     private String getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null ? auth.getName() : null;
+        if (auth == null) return null;
+        String email = auth.getName();
+        return userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
     }
 
     @GetMapping
@@ -69,5 +76,28 @@ public class NotificationController {
     public ResponseEntity<Void> deleteNotification(@PathVariable String id) {
         notificationService.deleteNotification(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/cleanup-low-stock")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<Map<String, Object>> cleanupLowStockNotifications() {
+        List<Notification> allAlerts = notificationRepository.findAll();
+        int total = allAlerts.size();
+
+        List<Notification> toDelete = allAlerts.stream()
+                .filter(n -> n.getTitle() != null
+                        && (n.getTitle().contains("Low Raw Material") || n.getTitle().contains("Low Finished Stock"))
+                        && n.getDeduplicationKey() == null)
+                .toList();
+
+        notificationRepository.deleteAll(toDelete);
+
+        long remaining = notificationRepository.count();
+        return ResponseEntity.ok(Map.of(
+                "deleted", toDelete.size(),
+                "totalBefore", total,
+                "totalAfter", remaining,
+                "message", "Old low-stock notifications (without dedup keys) cleaned up."
+        ));
     }
 }

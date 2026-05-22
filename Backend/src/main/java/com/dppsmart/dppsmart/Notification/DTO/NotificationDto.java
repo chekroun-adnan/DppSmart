@@ -15,6 +15,7 @@ public class NotificationDto {
     private boolean read;
     private LocalDateTime createdAt;
     private LocalDateTime readAt;
+    private String deduplicationKey;
 
     public static NotificationDto fromEntity(Notification n) {
         NotificationDto dto = new NotificationDto();
@@ -26,6 +27,7 @@ public class NotificationDto {
         dto.setRead(n.isRead());
         dto.setCreatedAt(n.getCreatedAt());
         dto.setReadAt(n.getReadAt());
+        dto.setDeduplicationKey(n.getDeduplicationKey());
         return dto;
     }
 }

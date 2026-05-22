@@ -20,7 +20,9 @@ public class Notification {
     private LocalDateTime createdAt;
     private LocalDateTime readAt;
 
+    private String deduplicationKey;
+
     public enum NotificationType {
-        ORDER, DELIVERY, PRODUCTION, TASK, SYSTEM, ALERT
+        ORDER, DELIVERY, PRODUCTION, TASK, SYSTEM, ALERT, ALLOCATION, RESERVATION, CONFLICT, SECURITY
     }
 }
