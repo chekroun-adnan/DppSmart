@@ -13,9 +13,10 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         return new ConcurrentMapCacheManager(
-                "products", "allProducts", "dpp", 
-                "orders", "allOrders", 
-                "stocks", "allStocks",
+                "products", "allProducts", "dpp",
+                "orders", "allOrders",
+                "materialStocks", "allMaterialStocks",
+                "productStocks", "allProductStocks",
                 "organizations", "allMainOrganizations"
         );
     }

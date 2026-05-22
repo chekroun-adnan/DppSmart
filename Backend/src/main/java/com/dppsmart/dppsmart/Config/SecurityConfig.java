@@ -1,7 +1,10 @@
 package com.dppsmart.dppsmart.Config;
 
+import com.dppsmart.dppsmart.Security.Injection.MongoInjectionFilter;
 import com.dppsmart.dppsmart.Security.JwtFilter;
 import com.dppsmart.dppsmart.Security.OAuth2SuccessHandler;
+import com.dppsmart.dppsmart.Security.RateLimit.RateLimitFilter;
+import com.dppsmart.dppsmart.Security.Sanitization.XssFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +19,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -33,6 +37,9 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
     private final UserDetailsService userDetailsService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final RateLimitFilter rateLimitFilter;
+    private final XssFilter xssFilter;
+    private final MongoInjectionFilter mongoInjectionFilter;
 
     @Value("${app.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
     private String allowedOriginPatternsProperty;
@@ -43,14 +50,28 @@ public class SecurityConfig {
         return http
                 .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
-                // OAuth2 requires a session briefly to complete the handshake; JWT takes over after redirect
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .headers(headers -> headers
+                        .contentTypeOptions(ct -> {})
+                        .frameOptions(frame -> frame.deny())
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31_536_000))
+                        .referrerPolicy(ref -> ref
+                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; frame-ancestors 'none'"))
+                )
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/auth/logout").authenticated()
+                        .requestMatchers("/auth/logout", "/auth/logout-all").authenticated()
+                        .requestMatchers("/auth/security/**").authenticated()
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/api/sessions/**").authenticated()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/*/dpp").permitAll()
+                        .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/scans").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ai/public/chat").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
@@ -69,7 +90,10 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2SuccessHandler)
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(xssFilter,             UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(mongoInjectionFilter,  UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter,       UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter,             UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
@@ -85,8 +109,19 @@ public class SecurityConfig {
                 HttpMethod.DELETE.name(),
                 HttpMethod.OPTIONS.name()
         ));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "X-Requested-With",
+                "Cache-Control"
+        ));
+        config.setExposedHeaders(List.of(
+                "X-RateLimit-Remaining",
+                "Retry-After"
+        ));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
