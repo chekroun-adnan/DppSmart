@@ -22,7 +22,7 @@ public class ApiResponse<T> {
     }
 
     public static ApiResponse<Void> ok(String message) {
-        return new ApiResponse<>(true, message, null, Instant.now());
+        return new ApiResponse<>(true, message, (Void) null, Instant.now());
     }
 }
 
