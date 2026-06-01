@@ -8,4 +8,5 @@ import java.util.List;
 public interface MaterialSheetItemRepository extends MongoRepository<MaterialSheetItem, String> {
     List<MaterialSheetItem> findByTechnicalSheetId(String technicalSheetId);
     void deleteByTechnicalSheetId(String technicalSheetId);
+    List<MaterialSheetItem> findByMaterialId(String materialId);
 }

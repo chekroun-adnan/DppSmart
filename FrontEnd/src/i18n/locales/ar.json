@@ -13,7 +13,8 @@
     "settings": "الإعدادات",
     "logout": "تسجيل الخروج",
     "loggingOut": "جارٍ تسجيل الخروج...",
-    "technicalSheets": "الأوراق التقنية"
+    "technicalSheets": "الأوراق التقنية",
+    "security": "الأمان"
   },
   "common": {
     "save": "حفظ",

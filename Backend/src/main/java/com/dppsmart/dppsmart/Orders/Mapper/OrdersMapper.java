@@ -24,8 +24,6 @@ public class OrdersMapper {
         dto.setOrderPriority(order.getOrderPriority());
         dto.setPriority(order.getPriority());
         dto.setAllocationSessionId(order.getAllocationSessionId());
-        dto.setHasReservations(order.isHasReservations());
-        dto.setReservedUntil(order.getReservedUntil());
         dto.setRelatedProductionIds(order.getRelatedProductionIds());
         dto.setSupplyChainOrderId(order.getSupplyChainOrderId());
         dto.setStockCheckedAt(order.getStockCheckedAt());

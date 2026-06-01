@@ -14,19 +14,23 @@ public class BulkOrderRequirementResponseDTO {
 
     // ─── Per-product stock analysis ────────────────────────────────────────────
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class AffectedOrderItem {
-        private String orderId;
-        private String orderReference;
-        private int orderedQuantity;
-        private int allocatedFromStock;   // how much finished stock covers this order
-        private int quantityToProduce;    // orderedQuantity - allocatedFromStock
-        private int priority;             // 1 = first to be fulfilled
-        private String status;            // "FROM_STOCK", "NEEDS_PRODUCTION", "PARTIAL"
-    }
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public static class AffectedOrderItem {
+    private String orderId;
+    private String orderReference;
+    private int orderedQuantity;
+    private int allocatedFromStock;
+    private int quantityToProduce;
+    private int priority;
+    private String status;
+    private List<MaterialRequirement> materialRequirements;
+    private String productionStatus;
+    private int producibleQuantityNow;
+    private boolean canStartProduction;
+}
 
     @Data
     @Builder
@@ -63,6 +67,9 @@ public class BulkOrderRequirementResponseDTO {
         private double remainingAfter;        // max(0, available - totalRequired)
         private double missingQuantity;       // max(0, totalRequired - available)
         private String status;               // "AVAILABLE" or "INSUFFICIENT"
+        private double willConsumeIfChosen;
+        private double availableBefore;
+        private double availableAfterSimulation;
     }
 
     // ─── Root fields ──────────────────────────────────────────────────────────

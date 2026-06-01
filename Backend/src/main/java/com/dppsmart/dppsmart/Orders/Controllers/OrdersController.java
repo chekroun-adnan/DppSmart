@@ -150,8 +150,6 @@ public class OrdersController {
         return ResponseEntity.noContent().build();
     }
 
-    // ── Workflow endpoints ────────────────────────────────────────────────
-
     @PostMapping("/{id}/workflow/confirm")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<OrderResponseDto> workflowConfirm(
@@ -216,15 +214,4 @@ public class OrdersController {
         return ResponseEntity.ok(orderWorkflowService.getMaterialsBreakdown(id));
     }
 
-    @PostMapping("/{id}/workflow/reserve-materials")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowReserveMaterials(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.reserveMaterialsForOrder(id));
-    }
-
-    @PostMapping("/{id}/workflow/release-materials")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowReleaseMaterials(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.releaseMaterialsForOrder(id));
-    }
 }

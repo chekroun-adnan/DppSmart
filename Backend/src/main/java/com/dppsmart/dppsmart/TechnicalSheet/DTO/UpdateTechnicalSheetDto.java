@@ -6,4 +6,6 @@ import lombok.Data;
 public class UpdateTechnicalSheetDto {
     private String name;
     private String description;
+    private String notes;
+    private Integer targetQuantity;
 }

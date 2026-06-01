@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import AuditHistoryModal from "../components/AuditHistoryModal";
@@ -165,6 +166,31 @@ function ProductsPage() {
       mounted = false;
     };
   }, []);
+
+  const isEditOpen = Boolean(editingProductId);
+
+  useEffect(() => {
+    if (isCreateModalOpen || isEditOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isCreateModalOpen, isEditOpen]);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        setIsCreateModalOpen(false);
+        setEditingProductId("");
+        setActionError("");
+      }
+    }
+    if (isCreateModalOpen || isEditOpen) {
+      window.addEventListener("keydown", handleEsc);
+    }
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isCreateModalOpen, isEditOpen]);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -807,13 +833,33 @@ function ProductsPage() {
 
       <AuditHistoryModal entityType="Product" entityId={historyId} onClose={() => setHistoryId(null)} />
 
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">New Product</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Fill in the product information to create a new entry.
-            </p>
+      {isCreateModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setIsCreateModalOpen(false); setActionError(""); }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">New Product</h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Fill in the product information to create a new entry.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsCreateModalOpen(false); setActionError(""); }}
+                className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="text-sm text-slate-700 dark:text-slate-300">
                 Product Name
@@ -1051,15 +1097,36 @@ function ProductsPage() {
             </div>
           </div>
         </div>
-      )}
+        </div>
+      , document.body)}
 
-      {editingProductId ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-800 p-6 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Update Product</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Edit the product information below. Changes are saved to the database.
-            </p>
+      {editingProductId && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setEditingProductId(""); setActionError(""); }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Update Product</h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Edit the product information below. Changes are saved to the database.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingProductId(""); setActionError(""); }}
+                className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="text-sm text-slate-700 dark:text-slate-300">
                 Product Name
@@ -1297,7 +1364,8 @@ function ProductsPage() {
             </div>
           </div>
         </div>
-      ) : null}
+        </div>
+      , document.body)}
 
       {pendingDeleteProduct ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4">

@@ -7,7 +7,6 @@ import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
-import com.dppsmart.dppsmart.ProductionCapacity.Entities.ProductionCapacity;
 import com.dppsmart.dppsmart.ProductionCapacity.Entities.ProductionQueue;
 import com.dppsmart.dppsmart.ProductionCapacity.Repositories.ProductionCapacityRepository;
 import com.dppsmart.dppsmart.ProductionCapacity.Repositories.ProductionQueueRepository;
@@ -18,9 +17,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service

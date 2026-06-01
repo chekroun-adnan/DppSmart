@@ -1,6 +1,8 @@
 package com.dppsmart.dppsmart.Scan.Controllers;
 
 import com.dppsmart.dppsmart.Scan.DTO.CreateScanEventDto;
+import com.dppsmart.dppsmart.Scan.DTO.ScanAlertDto;
+import com.dppsmart.dppsmart.Scan.DTO.ScanAnalyticsDto;
 import com.dppsmart.dppsmart.Scan.DTO.ScanEventResponseDto;
 import com.dppsmart.dppsmart.Scan.Services.ScanService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,5 +37,16 @@ public class ScanController {
     public ResponseEntity<List<ScanEventResponseDto>> getByOrganization(@PathVariable String organizationId) {
         return ResponseEntity.ok(scanService.getByOrganization(organizationId));
     }
-}
 
+    @GetMapping("/analytics/{organizationId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<ScanAnalyticsDto> getAnalytics(@PathVariable String organizationId) {
+        return ResponseEntity.ok(scanService.getAnalytics(organizationId));
+    }
+
+    @GetMapping("/alerts/{organizationId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<List<ScanAlertDto>> getAlerts(@PathVariable String organizationId) {
+        return ResponseEntity.ok(scanService.getAlerts(organizationId));
+    }
+}

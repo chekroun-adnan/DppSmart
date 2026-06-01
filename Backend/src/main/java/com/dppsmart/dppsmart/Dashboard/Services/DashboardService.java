@@ -3,6 +3,7 @@ package com.dppsmart.dppsmart.Dashboard.Services;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Dashboard.DTO.*;
+import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
@@ -17,8 +18,8 @@ import com.dppsmart.dppsmart.Production.Repositories.ProductionRepository;
 import com.dppsmart.dppsmart.Scan.Entities.ScanEvent;
 import com.dppsmart.dppsmart.Scan.Repositories.ScanEventRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
-import com.dppsmart.dppsmart.Stock.Entities.Stock;
-import com.dppsmart.dppsmart.Stock.Repositories.StockRepository;
+import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
+import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -29,7 +30,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,7 +39,7 @@ public class DashboardService {
     private final OrganizationRepository organizationRepository;
     private final ProductRepository productRepository;
     private final ProductionRepository productionRepository;
-    private final StockRepository stockRepository;
+    private final MaterialStockRepository materialStockRepository;
     private final OrdersRepository ordersRepository;
     private final EmployeesRepository employeesRepository;
     private final ScanEventRepository scanEventRepository;
@@ -68,7 +68,7 @@ public class DashboardService {
         List<Product> products = getProductsForScope(effectiveOrgIds, permissionService.isAdmin(user));
         List<Production> productions = getProductionsForScope(effectiveOrgIds, permissionService.isAdmin(user));
         List<Orders> orders = getOrdersForScope(effectiveOrgIds, permissionService.isAdmin(user));
-        List<Stock> stocks = getStocksForScope(effectiveOrgIds, permissionService.isAdmin(user));
+        List<MaterialStock> stocks = getStocksForScope(effectiveOrgIds, permissionService.isAdmin(user));
         List<ScanEvent> scans = getScansForScope(effectiveOrgIds, permissionService.isAdmin(user));
 
         resp.setKpis(kpis);
@@ -101,7 +101,7 @@ public class DashboardService {
             kpis.setOrders(ordersRepository.count());
             kpis.setEmployees(employeesRepository.count());
             kpis.setScans(scanEventRepository.count());
-            kpis.setLowStockItems(countLowStock(stockRepository.findAll()));
+            kpis.setLowStockItems(countLowStock(materialStockRepository.findAll()));
             kpis.setProductionsByStatus(groupProductionsByStatus(productionRepository.findAll()));
             kpis.setOrdersByStatus(groupOrdersByStatus(ordersRepository.findAll().stream().map(Orders::getStatus).toList()));
             return;
@@ -147,7 +147,7 @@ public class DashboardService {
             employees += employeesRepository.findByOrganizationId(orgId).size();
             scans += scanEventRepository.findByOrganizationIdOrderByScannedAtDesc(orgId).size();
 
-            lowStock += countLowStock(stockRepository.findByOrganizationId(orgId));
+            lowStock += countLowStock(materialStockRepository.findByOrganizationId(orgId));
         }
 
         kpis.setProducts(products);
@@ -175,9 +175,9 @@ public class DashboardService {
         return scopeOrgIds.stream().flatMap(orgId -> ordersRepository.findByOrganizationId(orgId).stream()).toList();
     }
 
-    private List<Stock> getStocksForScope(List<String> scopeOrgIds, boolean isAdmin) {
-        if (isAdmin && scopeOrgIds.isEmpty()) return stockRepository.findAll();
-        return scopeOrgIds.stream().flatMap(orgId -> stockRepository.findByOrganizationId(orgId).stream()).toList();
+    private List<MaterialStock> getStocksForScope(List<String> scopeOrgIds, boolean isAdmin) {
+        if (isAdmin && scopeOrgIds.isEmpty()) return materialStockRepository.findAll();
+        return scopeOrgIds.stream().flatMap(orgId -> materialStockRepository.findByOrganizationId(orgId).stream()).toList();
     }
 
     private List<ScanEvent> getScansForScope(List<String> scopeOrgIds, boolean isAdmin) {
@@ -389,7 +389,7 @@ public class DashboardService {
         return notifications;
     }
 
-    private long countLowStock(List<Stock> stocks) {
+    private long countLowStock(List<MaterialStock> stocks) {
         return stocks.stream()
                 .filter(s -> s.getQuantity() != null && s.getMinimumThreshold() != null)
                 .filter(s -> s.getQuantity() <= s.getMinimumThreshold())
@@ -406,12 +406,11 @@ public class DashboardService {
                 ));
     }
 
-    private Map<String, Long> groupOrdersByStatus(List<String> statuses) {
+    private Map<String, Long> groupOrdersByStatus(List<ClientOrderStatus> statuses) {
         return statuses.stream()
                 .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(s -> !s.isBlank())
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+                .map(ClientOrderStatus::name)
+                .collect(Collectors.groupingBy(status -> status, Collectors.counting()));
     }
 
     private void mergeProductionStatusCounts(Map<ProductionStatus, Long> target, Map<ProductionStatus, Long> source) {
@@ -471,4 +470,3 @@ public class DashboardService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }
-

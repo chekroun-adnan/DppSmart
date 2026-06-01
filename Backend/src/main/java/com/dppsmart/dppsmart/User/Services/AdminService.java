@@ -12,6 +12,7 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Mapper.AuthMapper;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,6 +31,8 @@ public class AdminService {
     private EmployeesRepository employeesRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private NotificationServiceImpl notificationService;
 
     public UserDto adminCreateUser(AdminCreateUserDto dto) {
 
@@ -66,6 +69,14 @@ public class AdminService {
 
         User savedUser = userRepository.save(user);
 
+        notificationService.createNotification(
+                user.getId(),
+                "User Account Created",
+                dto.getName() + " account has been created with role " + dto.getRole(),
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/users/" + savedUser.getId()
+        );
+
         if (savedUser.getRole() == Roles.EMPLOYEE && !employeesRepository.existsById(savedUser.getId())) {
             Employees emp = new Employees();
             emp.setId(savedUser.getId());
@@ -88,9 +99,25 @@ public class AdminService {
     }
 
     public void deleteAnyAccount(String userId){
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User admin = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new NotFoundException("Admin not found"));
+
+        if (admin.getRole() != Roles.ADMIN) {
+            throw new BadRequestException("Only ADMIN can delete users");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
         userRepository.delete(user);
+
+        notificationService.createNotification(
+                admin.getId(),
+                "User Account Deleted",
+                "User account " + user.getEmail() + " has been deleted",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/users"
+        );
     }
 
     public UserDto updateUserPassword(String id, String newPassword) {

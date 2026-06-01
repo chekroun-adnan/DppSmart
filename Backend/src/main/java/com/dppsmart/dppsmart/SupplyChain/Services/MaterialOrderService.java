@@ -5,17 +5,24 @@ import com.dppsmart.dppsmart.Audit.Services.AuditService;
 import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
+import com.dppsmart.dppsmart.Email.Services.EmailService;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
+import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
+import com.dppsmart.dppsmart.Orders.Services.OrderWorkflowService;
+import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
+import com.dppsmart.dppsmart.SecurityAlert.Services.RuleDetectionService;
+import com.dppsmart.dppsmart.SecurityAlert.Services.SecurityAnalysisService;
+import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
+import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
 import com.dppsmart.dppsmart.SupplyChain.DTO.*;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrder;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrderItem;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialReception;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialTracking;
 import com.dppsmart.dppsmart.SupplyChain.Enums.MaterialOrderStatus;
-import com.dppsmart.dppsmart.SupplyChain.Enums.ReceptionDecision;
 import com.dppsmart.dppsmart.SupplyChain.Enums.ReceptionDecision;
 import com.dppsmart.dppsmart.SupplyChain.Repositories.MaterialOrderRepository;
 import com.dppsmart.dppsmart.SupplyChain.Repositories.MaterialReceptionRepository;
@@ -24,18 +31,22 @@ import com.dppsmart.dppsmart.SupplyChain.Repositories.SupplierRepository;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MaterialOrderService {
 
     private final MaterialOrderRepository orderRepository;
@@ -43,10 +54,19 @@ public class MaterialOrderService {
     private final MaterialReceptionRepository receptionRepository;
     private final SupplierRepository supplierRepository;
     private final MaterialStockRepository materialStockRepository;
+    private final SecurityAnalysisService securityAnalysisService;
+    private final RuleDetectionService ruleDetectionService;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
     private final AuditService auditService;
     private final NotificationServiceImpl notificationService;
+    private final EmailService emailService;
+    private final OrdersRepository ordersRepository;
+    private final StockMovementService stockMovementService;
+
+    @Lazy
+    @Autowired
+    private OrderWorkflowService orderWorkflowService;
 
     public MaterialOrderResponseDTO createOrder(CreateMaterialOrderDTO dto) {
         User user = getCurrentUser();
@@ -122,6 +142,16 @@ public class MaterialOrderService {
                 com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.DELIVERY,
                 "/material-orders/" + saved.getId());
 
+        
+        supplierRepository.findById(saved.getSupplierId()).ifPresent(supplier -> {
+            List<EmailService.OrderItemSummary> itemSummaries = saved.getItems().stream()
+                    .map(i -> new EmailService.OrderItemSummary(i.getMaterialName(), i.getOrderedQuantity(), i.getUnit() != null ? i.getUnit() : ""))
+                    .toList();
+            String orgName = saved.getOrganizationId();
+            emailService.sendSupplierNotification(supplier.getEmail(), saved.getOrderNumber(), orgName, itemSummaries);
+            emailService.sendOrderConfirmation(user.getEmail(), saved.getOrderNumber(), supplier.getCompanyName() != null ? supplier.getCompanyName() : supplier.getName(), itemSummaries, orgName);
+        });
+
         MaterialOrderResponseDTO response = toDto(saved);
         enrichSupplierName(response);
         return response;
@@ -185,6 +215,11 @@ public class MaterialOrderService {
             throw new ForbiddenException("Not allowed to update this order");
         }
 
+        if (dto.getSupplierId() != null) {
+            supplierRepository.findById(dto.getSupplierId())
+                    .orElseThrow(() -> new NotFoundException("Supplier not found"));
+            order.setSupplierId(dto.getSupplierId());
+        }
         if (dto.getExpectedDeliveryDate() != null) {
             order.setExpectedDeliveryDate(LocalDate.parse(dto.getExpectedDeliveryDate()));
         }
@@ -208,6 +243,10 @@ public class MaterialOrderService {
                 "PO " + saved.getOrderNumber() + " has been updated",
                 com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.DELIVERY,
                 "/material-orders/" + saved.getId());
+
+        if (dto.getStatus() != null) {
+            emailService.sendDeliveryUpdate(saved.getOrderedBy(), saved.getOrderNumber(), saved.getStatus().name(), saved.getShipmentTrackingNumber());
+        }
 
         MaterialOrderResponseDTO response = toDto(saved);
         enrichSupplierName(response);
@@ -285,6 +324,7 @@ public class MaterialOrderService {
         int totalAccepted = 0;
         int totalRejected = 0;
         int totalReceived = 0;
+        List<StockReceivingResultDTO> receivingResults = new ArrayList<>();
 
         if (dto.getItemDecisions() != null) {
             for (CreateReceptionDTO.ItemReceptionDTO itemDecision : dto.getItemDecisions()) {
@@ -298,25 +338,24 @@ public class MaterialOrderService {
                 int rejected = itemDecision.getRejectedQuantity() != null ? itemDecision.getRejectedQuantity() : 0;
 
                 if (received <= 0) continue;
-
                 if (approved + rejected > received) {
                     throw new BadRequestException("Approved + rejected exceeds received quantity for: " + item.getMaterialName());
                 }
 
-                int acceptedQty = approved;
-                int rejectedQty = rejected;
-
                 item.setReceivedQuantity((item.getReceivedQuantity() != null ? item.getReceivedQuantity() : 0) + received);
-                item.setAcceptedQuantity((item.getAcceptedQuantity() != null ? item.getAcceptedQuantity() : 0) + acceptedQty);
-                item.setRejectedQuantity((item.getRejectedQuantity() != null ? item.getRejectedQuantity() : 0) + rejectedQty);
+                item.setAcceptedQuantity((item.getAcceptedQuantity() != null ? item.getAcceptedQuantity() : 0) + approved);
+                item.setRejectedQuantity((item.getRejectedQuantity() != null ? item.getRejectedQuantity() : 0) + rejected);
                 item.setRemainingQuantity(Math.max(0, item.getOrderedQuantity() - item.getAcceptedQuantity()));
                 if (itemDecision.getConditionStatus() != null) item.setConditionStatus(itemDecision.getConditionStatus());
                 if (itemDecision.getNotes() != null) item.setNotes(itemDecision.getNotes());
 
-                addToStock(item, order.getOrganizationId(), acceptedQty);
+                if (approved > 0) {
+                    StockReceivingResultDTO result = addToStock(item, order.getOrganizationId(), approved, order.getId(), user.getEmail());
+                    receivingResults.add(result);
+                }
 
-                totalAccepted += acceptedQty;
-                totalRejected += rejectedQty;
+                totalAccepted += approved;
+                totalRejected += rejected;
                 totalReceived += received;
             }
         }
@@ -366,6 +405,37 @@ public class MaterialOrderService {
                 com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.DELIVERY,
                 "/supply-chain");
 
+        
+        if (totalRejected > 0) {
+            final int finalTotalRejected = totalRejected;
+            supplierRepository.findById(order.getSupplierId()).ifPresent(supplier -> {
+                List<EmailService.MismatchItem> mismatches = order.getItems().stream()
+                        .filter(i -> i.getRejectedQuantity() != null && i.getRejectedQuantity() > 0)
+                        .map(i -> new EmailService.MismatchItem(
+                                i.getMaterialName(),
+                                i.getOrderedQuantity() != null ? i.getOrderedQuantity() : 0,
+                                i.getReceivedQuantity() != null ? i.getReceivedQuantity() : 0,
+                                i.getRejectedQuantity()))
+                        .toList();
+                emailService.sendMismatchAlert(supplier.getEmail(), order.getOrderNumber(), mismatches, decision.name());
+            });
+        }
+
+        if (totalRejected > 0) {
+            var supplierAlert = ruleDetectionService.detectSupplierAnomaly(
+                    order.getId(), order.getSupplierId(),
+                    totalReceived, totalAccepted, false, totalRejected,
+                    order.getOrganizationId());
+            if (supplierAlert != null) {
+                securityAnalysisService.analyzeAndAlert(supplierAlert);
+            }
+        }
+
+        // If this PO was auto-created for a blocked order, re-trigger the workflow
+        if (order.getSourceClientOrderId() != null && totalAccepted > 0) {
+            tryUnblockSourceOrder(order.getSourceClientOrderId());
+        }
+
         ReceptionResponseDTO responseDto = new ReceptionResponseDTO();
         responseDto.setId(reception.getId());
         responseDto.setMaterialOrderId(reception.getMaterialOrderId());
@@ -374,7 +444,24 @@ public class MaterialOrderService {
         responseDto.setDecision(reception.getDecision() != null ? reception.getDecision().name() : null);
         responseDto.setNotes(reception.getNotes());
         responseDto.setRejectionReason(reception.getRejectionReason());
+        responseDto.setStockResults(receivingResults);
         return responseDto;
+    }
+
+    private void tryUnblockSourceOrder(String sourceOrderId) {
+        ordersRepository.findById(sourceOrderId).ifPresent(sourceOrder -> {
+            if (sourceOrder.getStatus() == ClientOrderStatus.WAITING_FOR_MATERIALS) {
+                try {
+                    // Reset to a re-processable status so processOrderFull can re-evaluate stock
+                    sourceOrder.setStatus(ClientOrderStatus.READY_FOR_CONFIRMATION);
+                    sourceOrder.setUpdatedAt(LocalDateTime.now());
+                    ordersRepository.save(sourceOrder);
+                    orderWorkflowService.processOrderFull(sourceOrderId, sourceOrder.getConfirmedDeliveryDate());
+                } catch (Exception ignored) {
+                    // Best-effort: if re-processing fails, the order stays at READY_FOR_CONFIRMATION for admin to retry
+                }
+            }
+        });
     }
 
     public List<ReceptionResponseDTO> getReceptions(String orderId) {
@@ -393,18 +480,121 @@ public class MaterialOrderService {
         }).toList();
     }
 
-    private void addToStock(MaterialOrderItem item, String orgId, int acceptedQty) {
-        if (acceptedQty <= 0) return;
-        List<MaterialStock> existing = materialStockRepository.findByOrganizationId(orgId).stream()
-                .filter(s -> s.getId().equals(item.getMaterialId()) ||
-                        (item.getMaterialName() != null && s.getName().equals(item.getMaterialName())))
-                .toList();
-        if (!existing.isEmpty()) {
-            MaterialStock stock = existing.get(0);
-            stock.setQuantity(stock.getQuantity() + acceptedQty);
+    /**
+     * Normalizes a material name for fuzzy matching: lowercase, trim, collapse spaces, strip accents.
+     */
+    private String normalizeMaterialName(String name) {
+        if (name == null) return "";
+        String normalized = Normalizer.normalize(name.trim().toLowerCase(), Normalizer.Form.NFD);
+        normalized = normalized.replaceAll("\\p{M}", "");   // strip accent marks
+        normalized = normalized.replaceAll("\\s+", " ");    // collapse duplicate spaces
+        return normalized;
+    }
+
+    /**
+     * Finds an existing stock document for the given item using the priority:
+     * 1. materialId + orgId + unit
+     * 2. normalized materialName + orgId + unit
+     * 3. referenceCode + orgId + unit
+     *
+     * Returns an Optional wrapping both the stock and the match reason.
+     */
+    private Optional<StockMatch> findStockMatch(MaterialOrderItem item, String orgId) {
+        List<MaterialStock> orgStocks = materialStockRepository.findByOrganizationId(orgId);
+        String unit = item.getUnit() != null ? item.getUnit().trim().toLowerCase() : "";
+
+        // 1. materialId + unit
+        if (item.getMaterialId() != null && !item.getMaterialId().isBlank()) {
+            for (MaterialStock s : orgStocks) {
+                String sUnit = s.getUnit() != null ? s.getUnit().trim().toLowerCase() : "";
+                if (s.getId().equals(item.getMaterialId()) && unit.equals(sUnit)) {
+                    return Optional.of(new StockMatch(s, StockReceivingResultDTO.MatchedBy.MATERIAL_ID));
+                }
+            }
+        }
+
+        // 2. normalized name + unit
+        String normName = normalizeMaterialName(item.getMaterialName());
+        if (!normName.isBlank()) {
+            for (MaterialStock s : orgStocks) {
+                String sUnit = s.getUnit() != null ? s.getUnit().trim().toLowerCase() : "";
+                if (normalizeMaterialName(s.getName()).equals(normName) && unit.equals(sUnit)) {
+                    return Optional.of(new StockMatch(s, StockReceivingResultDTO.MatchedBy.MATERIAL_NAME_UNIT));
+                }
+            }
+        }
+
+        // 3. referenceCode + unit
+        if (item.getMaterialReference() != null && !item.getMaterialReference().isBlank()) {
+            for (MaterialStock s : orgStocks) {
+                String sUnit = s.getUnit() != null ? s.getUnit().trim().toLowerCase() : "";
+                if (item.getMaterialReference().equalsIgnoreCase(s.getReferenceCode()) && unit.equals(sUnit)) {
+                    return Optional.of(new StockMatch(s, StockReceivingResultDTO.MatchedBy.REFERENCE_CODE));
+                }
+                // also check alternativeRefCodes
+                if (s.getAlternativeRefCodes() != null && unit.equals(sUnit)) {
+                    boolean altMatch = s.getAlternativeRefCodes().stream()
+                            .anyMatch(alt -> alt.equalsIgnoreCase(item.getMaterialReference()));
+                    if (altMatch) return Optional.of(new StockMatch(s, StockReceivingResultDTO.MatchedBy.REFERENCE_CODE));
+                }
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private record StockMatch(MaterialStock stock, StockReceivingResultDTO.MatchedBy matchedBy) {}
+
+    private StockReceivingResultDTO addToStock(MaterialOrderItem item, String orgId, int acceptedQty,
+                                               String orderId, String createdBy) {
+        if (acceptedQty <= 0) return null;
+
+        Optional<StockMatch> match = findStockMatch(item, orgId);
+
+        if (match.isPresent()) {
+            MaterialStock stock = match.get().stock();
+            StockReceivingResultDTO.MatchedBy matchedBy = match.get().matchedBy();
+
+            int previousQty = stock.getQuantity() != null ? stock.getQuantity() : 0;
+            int newQty = previousQty + acceptedQty;
+
+            stock.setQuantity(newQty);
             stock.setUpdatedAt(LocalDateTime.now());
+
+            // Store alternative refCode if it differs from the primary
+            String receivedRef = item.getMaterialReference();
+            if (receivedRef != null && !receivedRef.isBlank()
+                    && !receivedRef.equalsIgnoreCase(stock.getReferenceCode())) {
+                if (stock.getAlternativeRefCodes() == null) stock.setAlternativeRefCodes(new ArrayList<>());
+                boolean alreadyStored = stock.getAlternativeRefCodes().stream()
+                        .anyMatch(r -> r.equalsIgnoreCase(receivedRef));
+                if (!alreadyStored) stock.getAlternativeRefCodes().add(receivedRef);
+            }
+
             materialStockRepository.save(stock);
+
+            stockMovementService.recordMaterialMovement(
+                    MovementType.MATERIAL_RECEIVED, stock.getId(), stock.getName(),
+                    stock.getUnit(), acceptedQty, previousQty, newQty,
+                    orderId, null, orgId, createdBy);
+
+            log.info("STOCK RECEIVE: merged {} +{} (matched by {}) → qty {} → {}",
+                    stock.getName(), acceptedQty, matchedBy, previousQty, newQty);
+
+            return StockReceivingResultDTO.builder()
+                    .action(StockReceivingResultDTO.Action.UPDATED_EXISTING_STOCK)
+                    .matchedBy(matchedBy)
+                    .stockId(stock.getId())
+                    .materialName(stock.getName())
+                    .receivedQuantity(acceptedQty)
+                    .previousQuantity(previousQty)
+                    .newQuantity(newQty)
+                    .primaryReferenceCode(stock.getReferenceCode())
+                    .receivedReferenceCode(receivedRef)
+                    .alternativeRefCodes(stock.getAlternativeRefCodes())
+                    .build();
         } else {
+            // No match — create new stock item
             MaterialStock newStock = new MaterialStock();
             newStock.setId(NanoIdUtils.randomNanoId());
             newStock.setName(item.getMaterialName());
@@ -413,8 +603,32 @@ public class MaterialOrderService {
             newStock.setMinimumThreshold(0);
             newStock.setUnit(item.getUnit());
             newStock.setOrganizationId(orgId);
+            newStock.setCreatedBy(createdBy);
+            newStock.setLastUpdatedBy(createdBy);
             newStock.setUpdatedAt(LocalDateTime.now());
+            newStock.setAlternativeRefCodes(new ArrayList<>());
             materialStockRepository.save(newStock);
+
+            stockMovementService.recordMaterialMovement(
+                    MovementType.MATERIAL_RECEIVED, newStock.getId(), newStock.getName(),
+                    newStock.getUnit(), acceptedQty, 0, acceptedQty,
+                    orderId, null, orgId, createdBy);
+
+            log.info("STOCK RECEIVE: created new stock {} qty={} ref={}",
+                    newStock.getName(), acceptedQty, newStock.getReferenceCode());
+
+            return StockReceivingResultDTO.builder()
+                    .action(StockReceivingResultDTO.Action.CREATED_NEW_STOCK)
+                    .matchedBy(StockReceivingResultDTO.MatchedBy.NO_MATCH)
+                    .stockId(newStock.getId())
+                    .materialName(newStock.getName())
+                    .receivedQuantity(acceptedQty)
+                    .previousQuantity(0)
+                    .newQuantity(acceptedQty)
+                    .primaryReferenceCode(newStock.getReferenceCode())
+                    .receivedReferenceCode(newStock.getReferenceCode())
+                    .alternativeRefCodes(new ArrayList<>())
+                    .build();
         }
     }
 
@@ -441,16 +655,13 @@ public class MaterialOrderService {
     }
 
     private void removeFromStock(MaterialOrderItem item, String orgId, int quantity) {
-        List<MaterialStock> existing = materialStockRepository.findByOrganizationId(orgId).stream()
-                .filter(s -> s.getId().equals(item.getMaterialId()) ||
-                        (item.getMaterialName() != null && s.getName().equals(item.getMaterialName())))
-                .toList();
-        if (!existing.isEmpty()) {
-            MaterialStock stock = existing.get(0);
-            stock.setQuantity(Math.max(0, stock.getQuantity() - quantity));
+        findStockMatch(item, orgId).ifPresent(match -> {
+            MaterialStock stock = match.stock();
+            int prev = stock.getQuantity() != null ? stock.getQuantity() : 0;
+            stock.setQuantity(Math.max(0, prev - quantity));
             stock.setUpdatedAt(LocalDateTime.now());
             materialStockRepository.save(stock);
-        }
+        });
     }
 
     public TrackingResponseDTO updateTracking(String orderId, CreateTrackingDTO dto) {
@@ -537,6 +748,7 @@ public class MaterialOrderService {
         dto.setInvoiceNumber(order.getInvoiceNumber());
         dto.setInvoiceUrl(order.getInvoiceUrl());
         dto.setDeliveryProofPhotos(order.getDeliveryProofPhotos());
+        dto.setSourceClientOrderId(order.getSourceClientOrderId());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
         dto.setDeliveryIds(order.getDeliveryIds());

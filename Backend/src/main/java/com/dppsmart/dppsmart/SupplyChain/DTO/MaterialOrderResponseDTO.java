@@ -34,6 +34,7 @@ public class MaterialOrderResponseDTO {
     private String invoiceNumber;
     private String invoiceUrl;
     private List<String> deliveryProofPhotos;
+    private String sourceClientOrderId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

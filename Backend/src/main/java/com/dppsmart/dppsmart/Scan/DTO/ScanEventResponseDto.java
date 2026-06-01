@@ -3,6 +3,7 @@ package com.dppsmart.dppsmart.Scan.DTO;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class ScanEventResponseDto {
@@ -18,5 +19,10 @@ public class ScanEventResponseDto {
     private Double longitude;
     private String locationText;
     private String scannedByUserEmail;
+    private String signature;
+    private Boolean signatureValid;
+    private Integer riskScore;
+    private List<String> anomalyFlags;
+    private Boolean fakeProduct;
+    private String source;
 }
-

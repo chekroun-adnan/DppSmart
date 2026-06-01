@@ -109,9 +109,7 @@ public class OrderMaterialRequirementService {
             double qpu        = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
             double required   = round2(qpu * missingProd);
             int avail         = ms != null && ms.getQuantity() != null ? ms.getQuantity() : 0;
-            int reserved      = ms != null && ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
-            double free       = Math.max(0.0, avail - reserved);
-            double missing    = round2(Math.max(0.0, required - free));
+            double missing    = round2(Math.max(0.0, required - avail));
             double cross      = round2(crossShortfall.getOrDefault(si.getMaterialId(), 0.0));
             double recommended = round2(missing + cross);
 
@@ -123,7 +121,6 @@ public class OrderMaterialRequirementService {
                     .quantityPerUnit(qpu)
                     .requiredQuantity(required)
                     .availableStock(avail)
-                    .reservedQuantity(reserved)
                     .otherOrdersShortfall(cross)
                     .missingQuantity(missing)
                     .recommendedOrderQuantity(recommended)

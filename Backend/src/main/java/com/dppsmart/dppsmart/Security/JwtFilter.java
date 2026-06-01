@@ -1,5 +1,6 @@
 package com.dppsmart.dppsmart.Security;
 
+import com.dppsmart.dppsmart.Security.Session.SessionService;
 import com.dppsmart.dppsmart.User.Entities.Token;
 import com.dppsmart.dppsmart.User.Repositories.TokenRepository;
 import jakarta.servlet.FilterChain;
@@ -24,6 +25,7 @@ public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final TokenRepository tokenRepository;
+    private final SessionService sessionService;
 
     @Override
     protected void doFilterInternal(
@@ -47,7 +49,6 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         String email;
-
         try {
             email = jwtService.extractUsername(token);
         } catch (Exception e) {
@@ -58,10 +59,9 @@ public class JwtFilter extends OncePerRequestFilter {
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             Token storedToken = tokenRepository.findByToken(token).orElse(null);
 
-            boolean isTokenValid =
-                    storedToken != null &&
-                            !storedToken.isExpired() &&
-                            !storedToken.isRevoked();
+            boolean isTokenValid = storedToken != null
+                    && !storedToken.isExpired()
+                    && !storedToken.isRevoked();
 
             if (!isTokenValid) {
                 filterChain.doFilter(request, response);
@@ -72,16 +72,14 @@ public class JwtFilter extends OncePerRequestFilter {
 
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                    );
-
-            authToken.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
-            );
-
+                            userDetails, null, userDetails.getAuthorities());
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
+
+            try {
+                sessionService.touchSession(storedToken.getId());
+            } catch (Exception ignored) {
+            }
         }
 
         filterChain.doFilter(request, response);

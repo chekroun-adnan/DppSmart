@@ -29,8 +29,6 @@ public class OrderResponseDto {
     private OrderPriority orderPriority;
     private Integer priority;
     private String allocationSessionId;
-    private boolean hasReservations;
-    private LocalDateTime reservedUntil;
     private List<String> relatedProductionIds;
     private String supplyChainOrderId;
     private LocalDateTime stockCheckedAt;

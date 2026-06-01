@@ -88,7 +88,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(orderService.updateOrder(id, dto));
     }
 
-    // Delivery management
+    
     @PostMapping("/{orderId}/deliveries")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<DeliveryResponseDTO> createDelivery(@PathVariable String orderId, @RequestBody @Valid CreateDeliveryDTO dto) {
@@ -115,7 +115,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(deliveryService.receiveDelivery(deliveryId, dto));
     }
 
-    // Return requests
+    
     @PostMapping("/{orderId}/returns")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ResponseEntity<ReturnRequestResponseDTO> createReturn(@PathVariable String orderId, @RequestBody @Valid CreateReturnRequestDTO dto) {
@@ -147,7 +147,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(returnRequestService.getReturnsByOrg(orgId));
     }
 
-    // Disputes
+    
     @PostMapping("/{orderId}/disputes")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ResponseEntity<DisputeResponseDTO> createDispute(@PathVariable String orderId, @RequestBody @Valid CreateDisputeDTO dto) {
@@ -179,7 +179,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(disputeService.getDisputesByOrg(orgId));
     }
 
-    // Supplier discussions
+    
     @GetMapping("/{orderId}/discussion")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ResponseEntity<DiscussionResponseDTO> getDiscussion(@PathVariable String orderId) {
@@ -192,7 +192,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(discussionService.sendMessage(orderId, dto));
     }
 
-    // Tracking
+    
     @PostMapping("/{orderId}/tracking")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ResponseEntity<TrackingResponseDTO> updateTracking(@PathVariable String orderId, @RequestBody CreateTrackingDTO dto) {
@@ -205,7 +205,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(orderService.getTrackingHistory(orderId));
     }
 
-    // Reception
+    
     @PostMapping("/{orderId}/reception")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ResponseEntity<ReceptionResponseDTO> validateReception(@PathVariable String orderId, @RequestBody CreateReceptionDTO dto) {
@@ -219,7 +219,7 @@ public class MaterialOrderController {
         return ResponseEntity.ok(orderService.getReceptions(orderId));
     }
 
-    // Analytics
+    
     @GetMapping("/analytics/organization/{orgId}")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<ProcurementAnalyticsDTO> getAnalytics(@PathVariable String orgId) {

@@ -42,8 +42,6 @@ public class Orders {
     private OrderPriority orderPriority;
     private Integer priority;
     private String allocationSessionId;
-    private boolean hasReservations;
-    private LocalDateTime reservedUntil;
 
     // workflow tracking
     private List<String> relatedProductionIds;

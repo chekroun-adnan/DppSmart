@@ -16,6 +16,8 @@ import {
   getProductStocks,
   updateProductStock,
   adjustProductQuantity,
+  getAvailableProducts,
+  repairMaterialLinks,
 } from "../services/authService";
 import AuditHistoryModal from "../components/AuditHistoryModal";
 
@@ -40,6 +42,16 @@ function FieldGroup({ label, children }) {
   );
 }
 
+function exportToCsv(data, filename) {
+  if (!data || data.length === 0) return;
+  const keys = Object.keys(data[0]);
+  const rows = [keys.join(','), ...data.map(row => keys.map(k => JSON.stringify(row[k] ?? '')).join(','))];
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 const emptyMaterialDraft = { name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: "" };
 const emptyProductDraft = { productName: "", productId: "", quantity: "", unit: "pcs", organizationId: "" };
 
@@ -61,6 +73,7 @@ export default function StockPage() {
   const [activeTab, setActiveTab] = useState("materials");
   const [materialStocks, setMaterialStocks] = useState([]);
   const [productStocks, setProductStocks] = useState([]);
+  const [products, setProducts] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [selectedOrgId, setSelectedOrgId] = useState(() => localStorage.getItem("orgId") || "");
   const [loading, setLoading] = useState(true);
@@ -75,16 +88,21 @@ export default function StockPage() {
   const [historyId, setHistoryId] = useState(null);
   const [quantityAdjust, setQuantityAdjust] = useState(null);
   const [adjustAmount, setAdjustAmount] = useState("");
+  const [showExport, setShowExport] = useState(false);
+  const [repairingLinks, setRepairingLinks] = useState(false);
+  const [repairLinksResult, setRepairLinksResult] = useState(null);
 
   const reload = async () => {
-    const [matData, prodData, orgData] = await Promise.all([
+    const [matData, prodData, orgData, prodsData] = await Promise.all([
       getMaterialStocks(),
       getProductStocks(),
       loadOrgs(),
+      getAvailableProducts(),
     ]);
     setMaterialStocks(matData);
     setProductStocks(prodData);
     setOrgs(orgData);
+    setProducts(Array.isArray(prodsData) ? prodsData : []);
   };
 
   useEffect(() => {
@@ -147,6 +165,7 @@ export default function StockPage() {
   };
 
   const validateProductDraft = () => {
+    if (!editingItem && !draft.productId) return t("stock.selectProductRequired", "Please select a product.");
     if (!draft.productName?.trim()) return t("stock.productNameRequired", "Product name is required.");
     if (draft.quantity === "" || draft.quantity === null || draft.quantity === undefined) return t("stock.quantityRequired", "Quantity is required.");
     if (Number(draft.quantity) < 0) return t("stock.quantityNonNegative", "Quantity cannot be negative.");
@@ -254,11 +273,34 @@ export default function StockPage() {
 
   const ProductFormContent = (
     <>
-      <FieldGroup label={t("stock.productName", "Product Name")}>
-        <input className={INPUT} placeholder={t("stock.productPlaceholder", "Finished T-Shirt")} value={draft.productName} onChange={(e) => setDraft((p) => ({ ...p, productName: e.target.value }))} />
-      </FieldGroup>
-      <FieldGroup label={t("stock.productId", "Product ID (optional)")}>
-        <input className={INPUT} placeholder={t("stock.productIdPlaceholder", "Link to a product")} value={draft.productId} onChange={(e) => setDraft((p) => ({ ...p, productId: e.target.value }))} />
+      <FieldGroup label={t("stock.productName", "Product")}>
+        {editingItem ? (
+          <div className="h-11 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-4 flex items-center text-sm text-slate-600 dark:text-slate-300 select-none">
+            {draft.productName || "—"}
+          </div>
+        ) : (
+          <select
+            className={SELECT}
+            value={draft.productId}
+            onChange={(e) => {
+              const p = products.find(p => p.id === e.target.value);
+              if (p) setDraft(prev => ({
+                ...prev,
+                productId: p.id,
+                productName: p.productName || p.variantName || "",
+                organizationId: p.organizationId || prev.organizationId,
+              }));
+              else setDraft(prev => ({ ...prev, productId: "", productName: "" }));
+            }}
+          >
+            <option value="">{t("stock.selectProduct", "Select a product…")}</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.productName || p.variantName || p.id}{p.sku ? ` — ${p.sku}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </FieldGroup>
       <div className="grid grid-cols-2 gap-4">
         <FieldGroup label={t("orders.quantity")}>
@@ -285,11 +327,116 @@ export default function StockPage() {
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t("stock.stockManagement", "Stock Management")}</h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("stock.subtitle", "Manage material and product inventory across all your organizations.")}</p>
           </div>
-          <button type="button" onClick={openCreate} className="btn-primary">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            {t("stock.addStockItem", "Add Stock Item")}
-          </button>
+          <div className="flex items-center gap-3">
+            {role === "ADMIN" && activeTab === "materials" && (
+              <button
+                type="button"
+                disabled={repairingLinks}
+                onClick={async () => {
+                  setRepairingLinks(true);
+                  setRepairLinksResult(null);
+                  try {
+                    const res = await repairMaterialLinks();
+                    setRepairLinksResult({ ok: true, relinked: res.relinked, stillBroken: res.stillBroken });
+                    await reload();
+                  } catch (e) {
+                    setRepairLinksResult({ ok: false, message: e.message || "Repair failed." });
+                  } finally {
+                    setRepairingLinks(false);
+                  }
+                }}
+                className="flex items-center gap-2 h-11 px-4 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-60"
+                title="Re-link BOM material items whose stock ID is stale (after delete/reinsert)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                {repairingLinks ? "Repairing..." : "Repair Links"}
+              </button>
+            )}
+            {/* Export dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowExport(v => !v)}
+                className="flex items-center gap-2 h-11 px-4 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                {t("common.export", "Export")}
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {showExport && (
+                <div className="absolute right-0 top-full mt-1 w-44 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/[0.08] shadow-xl z-50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowExport(false);
+                      if (activeTab === "materials") {
+                        const rows = filteredMaterials.map(s => ({
+                          name: s.name,
+                          referenceCode: s.referenceCode,
+                          quantity: s.quantity,
+                          unit: s.unit,
+                          minimumThreshold: s.minimumThreshold,
+                          organization: s.organizationId,
+                        }));
+                        exportToCsv(rows, 'material-stock.csv');
+                      } else {
+                        const rows = filteredProducts.map(s => ({
+                          productName: s.productName,
+                          productId: s.productId,
+                          quantity: s.quantity,
+                          unit: s.unit,
+                          organization: s.organizationId,
+                        }));
+                        exportToCsv(rows, 'product-stock.csv');
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+                  >
+                    {t("common.exportCsv", "Export CSV")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowExport(false); window.print(); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors border-t border-slate-100 dark:border-white/[0.05]"
+                  >
+                    {t("common.exportPdf", "Export PDF (print)")}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button type="button" onClick={openCreate} className="btn-primary">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              {t("stock.addStockItem", "Add Stock Item")}
+            </button>
+          </div>
         </div>
+
+        {repairLinksResult && (
+          <div className={`flex items-start gap-3 rounded-2xl border p-4 ${repairLinksResult.ok ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5" : "border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/5"}`}>
+            <svg className={`w-5 h-5 flex-none mt-0.5 ${repairLinksResult.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {repairLinksResult.ok
+                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />}
+            </svg>
+            <div className="flex-1">
+              {repairLinksResult.ok ? (
+                <>
+                  <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">Material links repaired</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {repairLinksResult.relinked} BOM item{repairLinksResult.relinked !== 1 ? "s" : ""} relinked.
+                    {repairLinksResult.stillBroken > 0 && <span className="text-amber-700 dark:text-amber-400 ml-1">{repairLinksResult.stillBroken} item{repairLinksResult.stillBroken !== 1 ? "s" : ""} still broken — no matching stock found.</span>}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-rose-800 dark:text-rose-300">{repairLinksResult.message}</p>
+              )}
+            </div>
+            <button type="button" onClick={() => setRepairLinksResult(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
 
         {activeTab === "materials" && lowStockCount > 0 && (
           <div className="flex items-start gap-3 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-4">
@@ -364,6 +511,7 @@ export default function StockPage() {
                           <td className="px-6 py-4">
                             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.name}</p>
                             {item.referenceCode && <p className="text-[10px] text-slate-400 mt-0.5">{item.referenceCode}</p>}
+                            {role === "ADMIN" && <p className="text-[9px] font-mono text-slate-300 dark:text-slate-600 mt-0.5 select-all" title="Stock document ID">{item.id}</p>}
                           </td>
                           <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{orgName(item.organizationId)}</td>
                           <td className="px-6 py-4">
@@ -421,6 +569,7 @@ export default function StockPage() {
                     <th className="px-6 py-4 font-bold">{t("stock.product", "Product")}</th>
                     <th className="px-6 py-4 font-bold">{t("organizations.title")}</th>
                     <th className="px-6 py-4 font-bold">{t("orders.quantity")}</th>
+                    <th className="px-6 py-4 font-bold">Production</th>
                     <th className="px-6 py-4 font-bold">{t("common.status")}</th>
                     <th className="px-6 py-4 font-bold text-right">{t("common.actions")}</th>
                   </tr>
@@ -439,7 +588,31 @@ export default function StockPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase status-emerald">{t("stock.inStock", "In Stock")}</span>
+                        {item.lastProductionId ? (
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest">From Production</p>
+                            <p className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-[120px]" title={item.lastProductionId}>
+                              {item.lastProductionId.slice(0, 8)}…
+                            </p>
+                            {item.lastProductionAt && (
+                              <p className="text-[10px] text-slate-400">
+                                {new Date(item.lastProductionAt).toLocaleDateString()}
+                              </p>
+                            )}
+                            {item.totalProduced > 0 && (
+                              <p className="text-[10px] text-slate-400">
+                                Total produced: <strong className="text-slate-600 dark:text-slate-300">{item.totalProduced} {item.unit}</strong>
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.quantity > 0 ? "status-emerald" : "status-red"}`}>
+                          {item.quantity > 0 ? t("stock.inStock", "In Stock") : t("stock.outOfStock", "Out of Stock")}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

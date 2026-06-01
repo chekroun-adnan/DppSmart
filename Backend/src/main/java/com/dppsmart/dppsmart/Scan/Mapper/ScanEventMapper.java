@@ -18,7 +18,12 @@ public class ScanEventMapper {
         dto.setLongitude(e.getLongitude());
         dto.setLocationText(e.getLocationText());
         dto.setScannedByUserEmail(e.getScannedByUserEmail());
+        dto.setSignature(e.getSignature());
+        dto.setSignatureValid(e.getSignatureValid());
+        dto.setRiskScore(e.getRiskScore());
+        dto.setAnomalyFlags(e.getAnomalyFlags());
+        dto.setFakeProduct(e.getFakeProduct());
+        dto.setSource(e.getSource());
         return dto;
     }
 }
-

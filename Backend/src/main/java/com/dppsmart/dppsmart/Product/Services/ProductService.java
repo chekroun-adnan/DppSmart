@@ -28,9 +28,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-
 import com.dppsmart.dppsmart.Product.Entities.MaterialComposition;
 import com.dppsmart.dppsmart.Audit.Services.AuditService;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 
@@ -64,6 +64,8 @@ public class ProductService {
     private ProductAiScoringService productAiScoringService;
     @Autowired
     private AuditService auditService;
+    @Autowired
+    private NotificationServiceImpl notificationService;
     private final Cloudinary cloudinary;
 
     @Value("${app.frontend.base-url:http://localhost:3000}")
@@ -85,7 +87,7 @@ public class ProductService {
         }
     }
 
-    @CacheEvict(value = {"products", "allProducts"}, allEntries = true)
+    @CacheEvict(value = {"products", "allProducts", "dpp"}, allEntries = true)
     public ProductResponseDto createProduct(CreateProductDto dto) {
 
         User user = getCurrentUser();
@@ -119,12 +121,20 @@ public class ProductService {
         saved.setDppUrl(dppUrl);
 
         String passportUrl = frontendBaseUrl + "/passport/" + saved.getId();
-        String qr = qrCodeService.generateQRCode(passportUrl);
+        String qr = qrCodeService.generateSignedQRCode(passportUrl, saved.getId(), 1);
         saved.setQrUrl(qr);
 
         saved = productRepository.save(saved);
 
         auditService.log("Product", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Product created: " + saved.getProductName());
+
+        notificationService.createNotification(
+                user.getId(),
+                "New Product Created",
+                saved.getProductName() + " has been added to the product catalog",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.ALERT,
+                "/products/" + saved.getId()
+        );
 
         return enrichWithAi(productMapper.toDto(saved), saved);
     }
@@ -150,7 +160,7 @@ public class ProductService {
         return enrichWithAi(productMapper.toDto(product), product);
     }
 
-    @CacheEvict(value = {"products", "allProducts"}, allEntries = true)
+    @CacheEvict(value = {"products", "allProducts", "dpp"}, allEntries = true)
     public ProductResponseDto updateProduct(CreateProductDto dto) {
 
         User user = getCurrentUser();
@@ -187,17 +197,26 @@ public class ProductService {
         product.setDppUrl(dppUrl);
 
         String passportUrl = frontendBaseUrl + "/passport/" + product.getId();
-        String qr = qrCodeService.generateQRCode(passportUrl);
+        String qr = qrCodeService.generateSignedQRCode(passportUrl, product.getId(),
+                product.getVersion() != null ? product.getVersion() + 1 : 1);
         product.setQrUrl(qr);
 
         Product updated = productRepository.save(product);
 
         auditService.log("Product", updated.getId(), "UPDATE", updated.getOrganizationId(), null, "Product updated: " + updated.getProductName());
 
+        notificationService.createNotification(
+                user.getId(),
+                "Product Updated",
+                updated.getProductName() + " has been updated",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.ALERT,
+                "/products/" + updated.getId()
+        );
+
         return enrichWithAi(productMapper.toDto(updated), updated);
     }
 
-    @CacheEvict(value = {"products", "allProducts"}, allEntries = true)
+    @CacheEvict(value = {"products", "allProducts", "dpp"}, allEntries = true)
     public void deleteProduct(String id) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
@@ -216,9 +235,17 @@ public class ProductService {
         productRepository.delete(product);
 
         auditService.log("Product", id, "DELETE", orgId, null, "Product deleted: " + productName);
+
+        notificationService.createNotification(
+                user.getId(),
+                "Product Deleted",
+                productName + " has been removed from the product catalog",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.ALERT,
+                "/products"
+        );
     }
 
-    @CacheEvict(value = {"products", "allProducts"}, allEntries = true)
+    @CacheEvict(value = {"products", "allProducts", "dpp"}, allEntries = true)
     public ProductResponseDto uploadProductImage(String productId, MultipartFile file) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {

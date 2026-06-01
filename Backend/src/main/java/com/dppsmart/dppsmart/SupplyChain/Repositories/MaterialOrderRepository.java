@@ -10,4 +10,5 @@ public interface MaterialOrderRepository extends MongoRepository<MaterialOrder, 
     List<MaterialOrder> findBySupplierId(String supplierId);
     List<MaterialOrder> findByOrganizationIdAndStatus(String orgId, MaterialOrderStatus status);
     List<MaterialOrder> findByOrganizationIdAndStatusIn(String orgId, List<MaterialOrderStatus> statuses);
+    List<MaterialOrder> findBySourceClientOrderId(String sourceClientOrderId);
 }

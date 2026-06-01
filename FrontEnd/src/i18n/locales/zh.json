@@ -13,7 +13,8 @@
     "settings": "设置",
     "logout": "退出登录",
     "loggingOut": "正在退出...",
-    "technicalSheets": "技术单"
+    "technicalSheets": "技术单",
+    "security": "安全"
   },
   "common": {
     "save": "保存",

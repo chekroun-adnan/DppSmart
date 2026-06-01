@@ -11,7 +11,7 @@ import {
   Users, Building2, CheckSquare, FileText, Truck, QrCode,
   ShieldCheck, UserCog, ScrollText, Settings, BarChart2,
   ChevronLeft, Sun, Moon, LogOut, SlidersHorizontal,
-  Menu,
+  Menu, Brain, ShoppingCart, RefreshCw, Layers, Shield,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -20,13 +20,17 @@ const NAV_GROUPS = [
     items: [
       { key: "dashboard",  path: "/dashboard",  roles: ["ADMIN","SUBADMIN","EMPLOYEE"], Icon: LayoutDashboard },
       { key: "analytics",  path: "/analytics",  roles: ["ADMIN","SUBADMIN"],            Icon: BarChart2 },
+      { key: "predictiveAnalytics", path: "/predictive-analytics", roles: ["ADMIN","SUBADMIN"], Icon: Brain },
     ],
   },
   {
     groupLabel: "Operations",
     items: [
-      { key: "production",  path: "/production",   roles: ["ADMIN","SUBADMIN"], Icon: Factory },
-      { key: "orders",      path: "/orders",        roles: ["ADMIN","SUBADMIN"], Icon: ClipboardList },
+      { key: "production",    path: "/production",         roles: ["ADMIN","SUBADMIN"], Icon: Factory },
+      { key: "orders",       path: "/orders",             roles: ["ADMIN","SUBADMIN"], Icon: ClipboardList },
+      { key: "orderWorkflow", path: "/order-workflow",    roles: ["ADMIN","SUBADMIN"], Icon: Layers },
+      { key: "clientOrders", path: "/client-orders", roles: ["CLIENT"],                     Icon: ShoppingCart },
+      { key: "reorder",      path: "/reorder",       roles: ["CLIENT"],                     Icon: RefreshCw },
       { key: "stock",       path: "/stock",         roles: ["ADMIN","SUBADMIN"], Icon: Archive },
       { key: "tasks",       path: "/tasks",         roles: ["ADMIN","SUBADMIN","EMPLOYEE"], Icon: CheckSquare },
       { key: "supplyChain", path: "/supply-chain",  roles: ["ADMIN","SUBADMIN"], Icon: Truck },
@@ -53,6 +57,7 @@ const NAV_GROUPS = [
   {
     groupLabel: "Account",
     items: [
+      { key: "security", path: "/security", roles: ["ADMIN","SUBADMIN","EMPLOYEE","CLIENT"], Icon: Shield },
       { key: "settings", path: "/settings", roles: ["ADMIN","SUBADMIN","EMPLOYEE","CLIENT"], Icon: Settings },
     ],
   },
@@ -60,10 +65,15 @@ const NAV_GROUPS = [
 
 function NavLabel({ navKey, t }) {
   if (navKey === "technicalSheets") return t("technicalSheets.title", "Technical Sheets");
+  if (navKey === "adminOrders")     return "Client Orders";
+  if (navKey === "clientOrders")   return "My Orders";
   if (navKey === "supplyChain")     return "Supply Chain";
   if (navKey === "qualityControl")  return "Quality Control";
   if (navKey === "auditLog")        return "Audit Log";
   if (navKey === "analytics")       return "Analytics";
+  if (navKey === "predictiveAnalytics") return "Predictive Analytics";
+  if (navKey === "reorder")       return "Reorder History";
+  if (navKey === "orderWorkflow") return "Order Workflow";
   return t(`nav.${navKey}`, navKey);
 }
 
@@ -104,8 +114,8 @@ function DashboardLayout({ children }) {
   const { unreadCount, openPanel } = useNotifications();
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0B1120] transition-colors duration-300">
-      <div className="flex min-h-screen overflow-hidden">
+    <div className="h-screen bg-[#f8fafc] dark:bg-[#0B1120] transition-colors duration-300 overflow-hidden">
+      <div className="flex h-full">
 
         {/* Mobile overlay */}
         {isSidebarOpen && (
@@ -117,15 +127,16 @@ function DashboardLayout({ children }) {
 
         {/* ── Sidebar ──────────────────────────────────────────────────── */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-[width,transform] duration-300 ease-in-out
-            lg:static lg:translate-x-0 lg:shrink-0
+          className={`h-screen shrink-0 flex flex-col transition-[width,transform] duration-300 ease-in-out overflow-hidden
+            fixed inset-y-0 left-0 z-50
+            lg:relative lg:translate-x-0
             ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
             ${sidebarWidth}
             bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-xl
             border-r border-slate-200/60 dark:border-[rgba(255,255,255,0.06)]`}
         >
           {/* Logo */}
-          <div className={`flex items-center gap-3 border-b border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "justify-center px-3 py-5" : "px-5 py-5"}`}>
+          <div className={`flex items-center gap-3 shrink-0 border-b border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "justify-center px-3 py-5" : "px-5 py-5"}`}>
             <div className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/25">
               <span className="text-xs font-extrabold tracking-tighter">IKS</span>
             </div>
@@ -138,10 +149,9 @@ function DashboardLayout({ children }) {
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5">
+          <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 min-h-0">
             {visibleGroups.map((group, gIdx) => (
               <div key={group.groupLabel}>
-                {/* Group label */}
                 {collapsed ? (
                   gIdx > 0 && <div className="my-2 mx-3 h-px bg-slate-100 dark:bg-white/[0.05]" />
                 ) : (
@@ -191,7 +201,7 @@ function DashboardLayout({ children }) {
           <button
             type="button"
             onClick={toggleCollapse}
-            className={`hidden lg:flex items-center gap-2 px-4 py-3 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors border-t border-slate-100 dark:border-white/[0.05]
+            className={`shrink-0 hidden lg:flex items-center gap-2 px-4 py-3 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors border-t border-slate-100 dark:border-white/[0.05]
               ${collapsed ? "justify-center" : "justify-end"}`}
           >
             <ChevronLeft
@@ -202,7 +212,7 @@ function DashboardLayout({ children }) {
           </button>
 
           {/* User card */}
-          <div className={`border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "p-2" : "px-3 py-3"}`}>
+          <div className={`shrink-0 border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "p-2" : "px-3 py-3"}`}>
             {collapsed ? (
               <div className="flex justify-center">
                 <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-brand-500/20">
@@ -224,10 +234,10 @@ function DashboardLayout({ children }) {
         </aside>
 
         {/* ── Main content ─────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
 
           {/* Header */}
-          <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-[rgba(255,255,255,0.06)] px-4 py-3 sm:px-6">
+          <header className="shrink-0 z-30 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-[rgba(255,255,255,0.06)] px-4 py-3 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
                 <button
@@ -243,7 +253,6 @@ function DashboardLayout({ children }) {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Theme toggle */}
                 <button
                   type="button"
                   onClick={toggleTheme}
@@ -260,16 +269,14 @@ function DashboardLayout({ children }) {
 
                 <LanguageSwitcher />
 
-                {/* Settings link */}
                 <Link
                   to="/settings"
                   className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 dark:bg-[rgba(255,255,255,0.04)] border border-slate-200 dark:border-[rgba(255,255,255,0.06)] text-slate-500 dark:text-[#94A3B8] hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-200 dark:hover:border-brand-500/30 transition-all"
                   aria-label="Settings"
                 >
-                  <SlidersHorizontal className="w-4 h-4" strokeWidth={1.75} />
+                  <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </Link>
 
-                {/* Logout */}
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -280,7 +287,6 @@ function DashboardLayout({ children }) {
                   {logoutLoading ? t("nav.loggingOut") : t("nav.logout")}
                 </button>
 
-                {/* Mobile logout icon-only */}
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -293,7 +299,7 @@ function DashboardLayout({ children }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 animate-fade-in">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-4 sm:p-6 lg:p-8 animate-fade-in">
             {children}
           </main>
         </div>

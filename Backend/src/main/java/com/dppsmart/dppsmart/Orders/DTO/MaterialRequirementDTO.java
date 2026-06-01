@@ -17,7 +17,6 @@ public class MaterialRequirementDTO {
     private Double quantityPerUnit;
     private Double requiredQuantity;
     private Integer availableStock;
-    private Integer reservedQuantity;
     private Double otherOrdersShortfall;  
     private Double missingQuantity;       
     private Double recommendedOrderQuantity; 

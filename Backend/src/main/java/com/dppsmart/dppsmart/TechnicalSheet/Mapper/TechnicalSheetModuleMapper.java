@@ -10,24 +10,15 @@ public class TechnicalSheetModuleMapper {
         d.setId(e.getId());
         d.setName(e.getName());
         d.setType(e.getType());
+        d.setStatus(e.getStatus());
+        d.setVersion(e.getVersion());
         d.setDescription(e.getDescription());
+        d.setNotes(e.getNotes());
         d.setOrganizationId(e.getOrganizationId());
         d.setProductId(e.getProductId());
+        d.setTargetQuantity(e.getTargetQuantity());
         d.setCreatedBy(e.getCreatedBy());
         d.setUpdatedBy(e.getUpdatedBy());
-        d.setCreatedAt(e.getCreatedAt());
-        d.setUpdatedAt(e.getUpdatedAt());
-        return d;
-    }
-
-    public static MaterialResponseDto toDto(Material e) {
-        MaterialResponseDto d = new MaterialResponseDto();
-        d.setId(e.getId());
-        d.setName(e.getName());
-        d.setReferenceCode(e.getReferenceCode());
-        d.setUnit(e.getUnit());
-        d.setOrganizationId(e.getOrganizationId());
-        d.setCreatedBy(e.getCreatedBy());
         d.setCreatedAt(e.getCreatedAt());
         d.setUpdatedAt(e.getUpdatedAt());
         return d;
@@ -46,15 +37,17 @@ public class TechnicalSheetModuleMapper {
         return d;
     }
 
-    public static MaterialSheetItemDto toDto(MaterialSheetItem e, String materialName, String materialReference) {
+    public static MaterialSheetItemDto toDto(MaterialSheetItem e, String materialName, String materialReference, Integer availableStock) {
         MaterialSheetItemDto d = new MaterialSheetItemDto();
         d.setId(e.getId());
         d.setMaterialId(e.getMaterialId());
-        d.setQuantity(e.getQuantity());
+        d.setQuantityPerUnit(e.getQuantityPerUnit());
         d.setUnit(e.getUnit());
+        d.setWastePercentage(e.getWastePercentage());
         d.setNotes(e.getNotes());
         d.setMaterialName(materialName);
         d.setMaterialReference(materialReference);
+        d.setAvailableStock(availableStock);
         return d;
     }
 

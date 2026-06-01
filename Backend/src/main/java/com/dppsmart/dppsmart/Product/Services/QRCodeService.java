@@ -1,16 +1,21 @@
 package com.dppsmart.dppsmart.Product.Services;
 
+import com.dppsmart.dppsmart.Scan.Services.QRCodeSigningService;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 
 @Service
+@RequiredArgsConstructor
 public class QRCodeService {
+
+    private final QRCodeSigningService signingService;
 
     public String generateQRCode(String text) {
         try {
@@ -26,5 +31,10 @@ public class QRCodeService {
         } catch (Exception e) {
             throw new RuntimeException("QR generation failed", e);
         }
+    }
+
+    public String generateSignedQRCode(String passportUrl, String productId, int version) {
+        String signedUrl = signingService.buildSignedUrl(passportUrl, productId, version);
+        return generateQRCode(signedUrl);
     }
 }

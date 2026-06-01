@@ -26,6 +26,10 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
+  #root {
+    height: 100%;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight;
   }
@@ -288,6 +292,11 @@
   .status-purple {
     @apply bg-purple-100 dark:bg-purple-500/15
            text-purple-700 dark:text-purple-300;
+  }
+  /* Teal / production completed */
+  .status-teal {
+    @apply bg-teal-100 dark:bg-teal-500/15
+           text-teal-700 dark:text-teal-300;
   }
   /* Orange */
   .status-orange {

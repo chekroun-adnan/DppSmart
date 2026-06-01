@@ -7,6 +7,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "material_stock")
 @Data
@@ -25,4 +26,7 @@ public class MaterialStock {
     private String createdBy;
     private String lastUpdatedBy;
     private LocalDateTime updatedAt;
+    private Integer inProductionQuantity;
+    private Integer reservedQuantity;
+    private List<String> alternativeRefCodes;
 }

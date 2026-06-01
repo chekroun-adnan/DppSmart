@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
 import {
@@ -65,20 +66,33 @@ function Select({ value, onChange, children, ...rest }) {
 }
 
 function Modal({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+          <div className="flex items-start justify-between mb-5">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {children}
         </div>
-        <div className="p-6 space-y-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -153,18 +167,17 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
   if (isMaterial) {
     autoTable(doc, {
       startY: propsTableTop + 4,
-      head: [["#", "MATERIAL", "REFERENCE", "QTY", "%", "UNIT", "NOTES"]],
+      head: [["#", "MATERIAL", "REFERENCE", "QTY", "UNIT", "NOTES"]],
       body: matItems.length > 0
         ? matItems.map((item, i) => [
             i + 1,
             item.materialName || item.materialId || "—",
             item.materialReference || "—",
-            item.quantity ?? "—",
-            item.percentage != null ? `${item.percentage}%` : "—",
+            item.quantityPerUnit ?? "—",
             item.unit || "—",
             item.notes || "—",
           ])
-        : [["", "No materials added", "", "", "", "", ""]],
+        : [["", "No materials added", "", "", "", ""]],
       theme: "grid",
       headStyles: {
         fillColor: [100, 116, 139],
@@ -178,16 +191,15 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { cellWidth: 10, halign: "center" },
-        1: { cellWidth: 35 },
+        1: { cellWidth: 45 },
         2: { cellWidth: 25 },
         3: { cellWidth: 15, halign: "right" },
-        4: { cellWidth: 10, halign: "right" },
-        5: { cellWidth: 15 },
+        4: { cellWidth: 15 },
       },
       margin: { left: margin, right: margin },
       styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
       foot: matItems.length > 0
-        ? [[{ content: `Total: ${matItems.length} items`, colSpan: 7, styles: { fillColor: [241, 245, 249], fontStyle: "bold", fontSize: 7 } }]]
+        ? [[{ content: `Total: ${matItems.length} items`, colSpan: 6, styles: { fillColor: [241, 245, 249], fontStyle: "bold", fontSize: 7 } }]]
         : undefined,
     });
   } else {
@@ -242,7 +254,6 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
         { term: "Material", def: "Raw material or component used in the product." },
         { term: "Reference", def: "Internal reference code or identifier for the material." },
         { term: "Qty", def: "Quantity of the material required per unit." },
-        { term: "%", def: "Percentage of total material composition." },
         { term: "Unit", def: "Measurement unit (e.g., kg, m, pcs)." },
       ]
     : [
@@ -308,7 +319,7 @@ export default function TechnicalSheetsPage() {
   const [auditModalSheet, setAuditModalSheet] = useState(null);
   const [historyId, setHistoryId] = useState(null);
 
-  const [sheetDraft, setSheetDraft] = useState({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: "", productId: "" });
+  const [sheetDraft, setSheetDraft] = useState({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: "", productId: "", targetQuantity: "" });
   const [matItems, setMatItems] = useState([]);
   const [opItems, setOpItems] = useState([]);
   const [newMaterial, setNewMaterial] = useState({ name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: "" });
@@ -401,6 +412,30 @@ export default function TechnicalSheetsPage() {
 
   useEffect(() => { load(); loadAuditTrail(); }, [load]);
 
+  const isSheetModalOpen = modal === "create" || modal === "edit" || modal === "delete";
+
+  useEffect(() => {
+    if (isSheetModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isSheetModalOpen]);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        setModal(null);
+        setError("");
+      }
+    }
+    if (isSheetModalOpen) {
+      window.addEventListener("keydown", handleEsc);
+    }
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isSheetModalOpen]);
+
   function getProductName(productId) {
     if (!productId) return null;
     const p = products.find(p => p.id === productId);
@@ -455,7 +490,7 @@ export default function TechnicalSheetsPage() {
 
   function openCreate() {
     setError("");
-    setSheetDraft({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: orgId, productId: "" });
+    setSheetDraft({ name: "", type: "MATERIAL_SHEET", description: "", organizationId: orgId, productId: "", targetQuantity: "" });
     setMatItems([]);
     setOpItems([]);
     setModal("create");
@@ -464,7 +499,7 @@ export default function TechnicalSheetsPage() {
   function openEdit(sheet) {
     setError("");
     setActiveSheet(sheet);
-    setSheetDraft({ name: sheet.name, type: sheet.type, description: sheet.description || "", organizationId: sheet.organizationId, productId: sheet.productId || "" });
+    setSheetDraft({ name: sheet.name, type: sheet.type, description: sheet.description || "", organizationId: sheet.organizationId, productId: sheet.productId || "", targetQuantity: sheet.targetQuantity ?? "" });
     setModal("edit");
   }
 
@@ -472,7 +507,27 @@ export default function TechnicalSheetsPage() {
     setActiveSheet(sheet);
     try {
       const items = await getMaterialItems(sheet.id);
-      setMatItems(Array.isArray(items) ? items.map(item => ({ ...item, percentage: item.percentage ?? "" })) : []);
+      const resolved = Array.isArray(items) ? items.map(item => {
+        let materialId = item.materialId || item.id;
+        // If the stored ID no longer matches a loaded stock doc, fall back to referenceCode → name
+        const directMatch = materials.find(m => m.id === materialId);
+        if (!directMatch) {
+          const byRef = item.referenceCode && materials.find(m => m.referenceCode && m.referenceCode.toLowerCase() === item.referenceCode.toLowerCase());
+          const byName = !byRef && item.materialName && materials.find(m => m.name && m.name.toLowerCase() === item.materialName.toLowerCase());
+          if (byRef) materialId = byRef.id;
+          else if (byName) materialId = byName.id;
+        }
+        const resolvedMat = materials.find(m => m.id === materialId);
+        return {
+          materialId,
+          materialName: resolvedMat?.name || item.materialName || "",
+          materialReference: resolvedMat?.referenceCode || item.referenceCode || "",
+          quantityPerUnit: item.quantityPerUnit ?? "",
+          unit: item.unit || "",
+          notes: item.notes || "",
+        };
+      }) : [];
+      setMatItems(resolved);
     } catch { setMatItems([]); }
     setModal("material-items");
   }
@@ -516,7 +571,7 @@ export default function TechnicalSheetsPage() {
     setSaving(true);
     try {
       if (modal === "create") {
-        const created = await createTechnicalSheet(sheetDraft);
+        const created = await createTechnicalSheet({ ...sheetDraft, targetQuantity: parseInt(sheetDraft.targetQuantity) || null });
         const sheetId = created?.id || created?.data?.id;
         if (sheetId) {
           logAuditEntry(sheetId, "CREATED", {
@@ -526,9 +581,17 @@ export default function TechnicalSheetsPage() {
             organizationId: sheetDraft.organizationId,
           });
           if (sheetDraft.type === "MATERIAL_SHEET" && matItems.length > 0) {
-            await saveMaterialItems(sheetId, matItems.map(r => ({
-              materialId: r.materialId, quantity: parseFloat(r.quantity) || 0, unit: r.unit, notes: r.notes, percentage: parseFloat(r.percentage) || 0,
-            })));
+            await saveMaterialItems(sheetId, matItems.map(r => {
+              const mat = materials.find(m => m.id === r.materialId);
+              return {
+                materialId: r.materialId,
+                materialName: r.materialName || mat?.name || "",
+                materialReference: r.materialReference || mat?.referenceCode || "",
+                quantityPerUnit: parseFloat(r.quantityPerUnit) || 0,
+                unit: r.unit,
+                notes: r.notes,
+              };
+            }));
             logAuditEntry(sheetId, "MATERIALS_ADDED", { count: matItems.length });
           } else if (sheetDraft.type === "OPERATION_SHEET" && opItems.length > 0) {
             await saveOperationItems(sheetId, opItems.map(r => ({
@@ -545,7 +608,7 @@ export default function TechnicalSheetsPage() {
         const changes = [];
         if (oldSheet.name !== sheetDraft.name) changes.push({ field: "Name", from: oldSheet.name, to: sheetDraft.name });
         if ((oldSheet.description || "") !== sheetDraft.description) changes.push({ field: "Description", from: oldSheet.description || "", to: sheetDraft.description });
-        await updateTechnicalSheet(activeSheet.id, sheetDraft);
+        await updateTechnicalSheet(activeSheet.id, { ...sheetDraft, targetQuantity: parseInt(sheetDraft.targetQuantity) || null });
         if (changes.length > 0) {
           logAuditEntry(activeSheet.id, "UPDATED", { changes });
         }
@@ -568,6 +631,7 @@ export default function TechnicalSheetsPage() {
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   }
+
 
   function handleDownloadPdf() {
     if (!pdfPreview) return;
@@ -641,11 +705,18 @@ export default function TechnicalSheetsPage() {
   }
 
   function addMatRow() {
-    setMatItems(p => [...p, { materialId: "", quantity: "", unit: "", notes: "", percentage: "" }]);
+    setMatItems(p => [...p, { materialId: "", quantityPerUnit: "", unit: "", notes: "" }]);
   }
 
   function updateMatRow(i, field, val) {
-    setMatItems(p => p.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    setMatItems(p => p.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "materialId") {
+        const mat = materials.find(m => m.id === val);
+        return { ...r, materialId: val, unit: mat?.unit || "", materialName: mat?.name || "", materialReference: mat?.referenceCode || "" };
+      }
+      return { ...r, [field]: val };
+    }));
   }
 
   function removeMatRow(i) {
@@ -654,17 +725,20 @@ export default function TechnicalSheetsPage() {
 
   async function handleSaveMatItems() {
     setError("");
-    const totalPercentage = matItems.reduce((sum, item) => sum + (parseFloat(item.percentage) || 0), 0);
-    if (Math.abs(totalPercentage - 100) > 0.01) {
-      setError("Material percentages must sum to 100%");
-      return;
-    }
     setSaving(true);
     try {
       const oldItems = await getMaterialItems(activeSheet.id).catch(() => []);
-      await saveMaterialItems(activeSheet.id, matItems.map(r => ({
-        materialId: r.materialId, quantity: parseFloat(r.quantity) || 0, unit: r.unit, notes: r.notes, percentage: parseFloat(r.percentage) || 0,
-      })));
+      await saveMaterialItems(activeSheet.id, matItems.map(r => {
+        const mat = materials.find(m => m.id === r.materialId);
+        return {
+          materialId: r.materialId,
+          materialName: r.materialName || mat?.name || "",
+          materialReference: r.materialReference || mat?.referenceCode || "",
+          quantityPerUnit: parseFloat(r.quantityPerUnit) || 0,
+          unit: r.unit,
+          notes: r.notes,
+        };
+      }));
       logAuditEntry(activeSheet.id, "MATERIALS_UPDATED", { count: matItems.length, changes: matItems.length !== oldItems.length ? "Items modified" : "Items updated" });
       setModal(null);
     } catch (e) { setError(e.message); }
@@ -909,6 +983,7 @@ export default function TechnicalSheetsPage() {
                     {t("technicalSheets.type")} {sortField === "type" && (sortDirection === "asc" ? "↑" : "↓")}
                   </th>
                   <th className="px-4 py-3 text-left">Product</th>
+                  <th className="px-4 py-3 text-left">Target Qty</th>
                   <th className="px-4 py-3 text-left cursor-pointer select-none" onClick={() => handleSort("date")}>
                     Date {sortField === "date" && (sortDirection === "asc" ? "↑" : "↓")}
                   </th>
@@ -946,6 +1021,13 @@ export default function TechnicalSheetsPage() {
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                      {sheet.targetQuantity != null ? (
+                        <span className="inline-flex items-center rounded-md bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:text-brand-300">
+                          {sheet.targetQuantity} units
+                        </span>
+                      ) : <span className="text-slate-400 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                       {sheet.createdAt ? new Date(sheet.createdAt).toLocaleDateString() : "—"}
@@ -1016,193 +1098,218 @@ export default function TechnicalSheetsPage() {
       </div>
 
       {/* ── Create / Edit Sheet Modal ── */}
-      {(modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] px-6 py-4">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {modal === "create" ? t("technicalSheets.createSheet") : t("technicalSheets.editSheet")}
-              </h2>
-              <button onClick={() => { setError(""); setModal(null); }} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {(modal === "create" || modal === "edit") && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setError(""); setModal(null); }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                  {modal === "create" ? t("technicalSheets.createSheet") : t("technicalSheets.editSheet")}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setModal(null); }}
+                  className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-            <div className="p-6 space-y-6">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-4 w-1 rounded-full bg-brand-500" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Sheet Information</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <FieldGroup label={t("technicalSheets.name")}>
-                      <Input value={sheetDraft.name} onChange={e => setSheetDraft(p => ({ ...p, name: e.target.value }))} placeholder={t("technicalSheets.namePlaceholder")} />
-                    </FieldGroup>
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-4 w-1 rounded-full bg-brand-500" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Sheet Information</span>
                   </div>
-                  {modal === "create" && (
-                    <>
-                      <FieldGroup label={t("technicalSheets.type")}>
-                        <Select value={sheetDraft.type} onChange={e => {
-                          setSheetDraft(p => ({ ...p, type: e.target.value }));
-                          setMatItems([]);
-                          setOpItems([]);
-                        }}>
-                          <option value="MATERIAL_SHEET">{t("technicalSheets.materialSheet")}</option>
-                          <option value="OPERATION_SHEET">{t("technicalSheets.operationSheet")}</option>
-                        </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <FieldGroup label={t("technicalSheets.name")}>
+                        <Input value={sheetDraft.name} onChange={e => setSheetDraft(p => ({ ...p, name: e.target.value }))} placeholder={t("technicalSheets.namePlaceholder")} />
                       </FieldGroup>
-                      <FieldGroup label={t("common.organization")}>
-                        <Select value={sheetDraft.organizationId} onChange={e => setSheetDraft(p => ({ ...p, organizationId: e.target.value }))}>
-                          <option value="">— Select organization —</option>
-                          {orgs.map(org => (
-                            <option key={org.id} value={org.id}>{org.name || org.id}</option>
-                          ))}
-                        </Select>
-                      </FieldGroup>
-                      <div className="col-span-2">
-                        <FieldGroup label="Product">
-                          <Select value={sheetDraft.productId} onChange={e => setSheetDraft(p => ({ ...p, productId: e.target.value }))}>
-                            <option value="">— Select product (optional) —</option>
-                            {products.map(prod => (
-                              <option key={prod.id} value={prod.id}>
-                                {prod.productName || prod.variantName || prod.id}
-                                {prod.sku ? ` · ${prod.sku}` : ""}
-                              </option>
+                    </div>
+                    {modal === "create" && (
+                      <>
+                        <FieldGroup label={t("technicalSheets.type")}>
+                          <Select value={sheetDraft.type} onChange={e => {
+                            setSheetDraft(p => ({ ...p, type: e.target.value }));
+                            setMatItems([]);
+                            setOpItems([]);
+                          }}>
+                            <option value="MATERIAL_SHEET">{t("technicalSheets.materialSheet")}</option>
+                            <option value="OPERATION_SHEET">{t("technicalSheets.operationSheet")}</option>
+                          </Select>
+                        </FieldGroup>
+                        <FieldGroup label={t("common.organization")}>
+                          <Select value={sheetDraft.organizationId} onChange={e => setSheetDraft(p => ({ ...p, organizationId: e.target.value }))}>
+                            <option value="">— Select organization —</option>
+                            {orgs.map(org => (
+                              <option key={org.id} value={org.id}>{org.name || org.id}</option>
                             ))}
                           </Select>
                         </FieldGroup>
-                      </div>
-                    </>
-                  )}
-                  <div className="col-span-2">
-                    <FieldGroup label={t("technicalSheets.description")}>
-                      <textarea value={sheetDraft.description} onChange={e => setSheetDraft(p => ({ ...p, description: e.target.value }))}
-                        rows={2} placeholder={t("technicalSheets.descriptionPlaceholder")}
-                        className="w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 dark:focus:bg-slate-800/80 focus:ring-4 focus:ring-brand-500/10 resize-none" />
-                    </FieldGroup>
+                        <div className="col-span-2">
+                          <FieldGroup label="Product">
+                            <Select value={sheetDraft.productId} onChange={e => setSheetDraft(p => ({ ...p, productId: e.target.value }))}>
+                              <option value="">— Select product (optional) —</option>
+                              {products.map(prod => (
+                                <option key={prod.id} value={prod.id}>
+                                  {prod.productName || prod.variantName || prod.id}
+                                  {prod.sku ? ` · ${prod.sku}` : ""}
+                                </option>
+                              ))}
+                            </Select>
+                          </FieldGroup>
+                        </div>
+                      </>
+                    )}
+                    <div className="col-span-2">
+                      <FieldGroup label={t("technicalSheets.description")}>
+                        <textarea value={sheetDraft.description} onChange={e => setSheetDraft(p => ({ ...p, description: e.target.value }))}
+                          rows={2} placeholder={t("technicalSheets.descriptionPlaceholder")}
+                          className="w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500 dark:focus:bg-slate-800/80 focus:ring-4 focus:ring-brand-500/10 resize-none" />
+                      </FieldGroup>
+                    </div>
+                    <div className="col-span-2">
+                      <FieldGroup label="Target Quantity to Produce">
+                        <Input type="number" min="1" step="1" value={sheetDraft.targetQuantity} onChange={e => setSheetDraft(p => ({ ...p, targetQuantity: e.target.value }))} placeholder="e.g. 500" />
+                      </FieldGroup>
+                    </div>
                   </div>
                 </div>
+
+                {modal === "create" && (
+                  sheetDraft.type === "MATERIAL_SHEET" ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-1 rounded-full bg-emerald-500" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Bill of Materials</span>
+                          <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">{matItems.length} items</span>
+                        </div>
+                        <button onClick={openNewMaterial} className="text-xs font-semibold text-brand-600 hover:underline">
+                          + {t("technicalSheets.newMaterial")}
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {matItems.length === 0 && (
+                          <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
+                            No materials yet — click "+ Add Material" to begin
+                          </p>
+                        )}
+                        {matItems.length > 0 && (
+                          <div className="grid grid-cols-12 gap-2 px-3">
+                            <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
+                            <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Qty / Unit</div>
+                            <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
+                            <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+                          </div>
+                        )}
+                        {matItems.map((row, i) => (
+                          <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5 p-3">
+                            <div className="col-span-4">
+                              <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
+                                <option value="">{t("technicalSheets.selectMaterial")}</option>
+                                {materials.map(m => <option key={m.id} value={m.id}>{m.name}{m.referenceCode ? ` (${m.referenceCode})` : ""}</option>)}
+                              </Select>
+                            </div>
+                            <div className="col-span-2">
+                              <Input type="number" min="0" step="0.01" value={row.quantityPerUnit} onChange={e => updateMatRow(i, "quantityPerUnit", e.target.value)} placeholder="Qty/unit" />
+                            </div>
+                            <div className="col-span-2">
+                              <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
+                                {row.unit || <span className="italic text-slate-300">—</span>}
+                              </div>
+                            </div>
+                            <div className="col-span-3">
+                              <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <button onClick={() => removeMatRow(i)} className="text-red-400 hover:text-red-600">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={addMatRow}
+                          className="w-full rounded-xl border border-dashed border-emerald-300 py-2 text-sm text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
+                          + {t("technicalSheets.addMaterial")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-1 rounded-full bg-blue-500" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Production Routing</span>
+                          <span className="rounded-full bg-blue-100 dark:bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-400">{opItems.length} steps</span>
+                        </div>
+                        <button onClick={openNewOperation} className="text-xs font-semibold text-brand-600 hover:underline">
+                          + {t("technicalSheets.newOperation")}
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {opItems.length === 0 && (
+                          <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
+                            No steps yet — click "+ Add Step" to begin
+                          </p>
+                        )}
+                        {opItems.map((row, i) => (
+                          <div key={i} className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
+                              <div className="flex-1 grid grid-cols-2 gap-2">
+                                <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
+                                  <option value="">{t("technicalSheets.selectOperation")}</option>
+                                  {operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
+                                </Select>
+                                <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder={t("technicalSheets.duration")} />
+                              </div>
+                              <button onClick={() => removeOpRow(i)} className="text-red-400 hover:text-red-600 shrink-0">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pl-8">
+                              <Input value={row.userId} onChange={e => updateOpRow(i, "userId", e.target.value)} placeholder={t("technicalSheets.assignedUserId")} />
+                              <Input value={row.notes} onChange={e => updateOpRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={addOpRow}
+                          className="w-full rounded-xl border border-dashed border-blue-300 py-2 text-sm text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                          + {t("technicalSheets.addStep")}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
 
-              {modal === "create" && (
-                sheetDraft.type === "MATERIAL_SHEET" ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-1 rounded-full bg-emerald-500" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Bill of Materials</span>
-                        <span className="rounded-full bg-emerald-100 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">{matItems.length} items</span>
-                      </div>
-                      <button onClick={openNewMaterial} className="text-xs font-semibold text-brand-600 hover:underline">
-                        + {t("technicalSheets.newMaterial")}
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {matItems.length === 0 && (
-                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
-                          No materials yet — click "+ Add Material" to begin
-                        </p>
-                      )}
-                      {matItems.map((row, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5 p-3">
-                          <div className="col-span-3">
-                            <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
-                              <option value="">{t("technicalSheets.selectMaterial")}</option>
-                              {materials.map(m => <option key={m.id} value={m.id}>{m.name}{m.referenceCode ? ` (${m.referenceCode})` : ""}</option>)}
-                            </Select>
-                          </div>
-                          <div className="col-span-2">
-                            <Input type="number" value={row.quantity} onChange={e => updateMatRow(i, "quantity", e.target.value)} placeholder={t("technicalSheets.qty")} />
-                          </div>
-                          <div className="col-span-1">
-                            <Input type="number" value={row.percentage} onChange={e => updateMatRow(i, "percentage", e.target.value)} placeholder="%" />
-                          </div>
-                          <div className="col-span-2">
-                            <Input value={row.unit} onChange={e => updateMatRow(i, "unit", e.target.value)} placeholder={t("technicalSheets.unit")} />
-                          </div>
-                          <div className="col-span-3">
-                            <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
-                          </div>
-                          <div className="col-span-1 flex justify-end">
-                            <button onClick={() => removeMatRow(i)} className="text-red-400 hover:text-red-600">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      <button onClick={addMatRow}
-                        className="w-full rounded-xl border border-dashed border-emerald-300 py-2 text-sm text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
-                        + {t("technicalSheets.addMaterial")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-1 rounded-full bg-blue-500" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Production Routing</span>
-                        <span className="rounded-full bg-blue-100 dark:bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-400">{opItems.length} steps</span>
-                      </div>
-                      <button onClick={openNewOperation} className="text-xs font-semibold text-brand-600 hover:underline">
-                        + {t("technicalSheets.newOperation")}
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {opItems.length === 0 && (
-                        <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
-                          No steps yet — click "+ Add Step" to begin
-                        </p>
-                      )}
-                      {opItems.map((row, i) => (
-                        <div key={i} className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
-                            <div className="flex-1 grid grid-cols-2 gap-2">
-                              <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
-                                <option value="">{t("technicalSheets.selectOperation")}</option>
-                                {operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
-                              </Select>
-                              <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder={t("technicalSheets.duration")} />
-                            </div>
-                            <button onClick={() => removeOpRow(i)} className="text-red-400 hover:text-red-600 shrink-0">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 pl-8">
-                            <Input value={row.userId} onChange={e => updateOpRow(i, "userId", e.target.value)} placeholder={t("technicalSheets.assignedUserId")} />
-                            <Input value={row.notes} onChange={e => updateOpRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
-                          </div>
-                        </div>
-                      ))}
-                      <button onClick={addOpRow}
-                        className="w-full rounded-xl border border-dashed border-blue-300 py-2 text-sm text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                        + {t("technicalSheets.addStep")}
-                      </button>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.06] px-6 py-4">
-              <button onClick={() => { setError(""); setModal(null); }} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
-                {t("common.cancel")}
-              </button>
-              <button onClick={handleSaveSheet} disabled={saving}
-                className="h-10 rounded-xl bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
-                {saving ? t("common.saving") : modal === "create" ? t("common.create") : t("common.save")}
-              </button>
+              <div className="flex justify-end gap-3 mt-6">
+                <button onClick={() => { setError(""); setModal(null); }} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  {t("common.cancel")}
+                </button>
+                <button onClick={handleSaveSheet} disabled={saving}
+                  className="h-10 rounded-xl bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                  {saving ? t("common.saving") : modal === "create" ? t("common.create") : t("common.save")}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Delete Confirmation ── */}
@@ -1248,22 +1355,29 @@ export default function TechnicalSheetsPage() {
             {matItems.length === 0 && (
               <p className="text-sm text-slate-400 italic">{t("technicalSheets.noMaterialItems")}</p>
             )}
+            {matItems.length > 0 && (
+              <div className="grid grid-cols-12 gap-2 px-3">
+                <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
+                <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Qty / Unit</div>
+                <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
+                <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+              </div>
+            )}
             {matItems.map((row, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 p-3">
-                <div className="col-span-3">
+                <div className="col-span-4">
                   <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
                     <option value="">{t("technicalSheets.selectMaterial")}</option>
                     {materials.map(m => <option key={m.id} value={m.id}>{m.name} {m.referenceCode ? `(${m.referenceCode})` : ""}</option>)}
                   </Select>
                 </div>
                 <div className="col-span-2">
-                  <Input type="number" value={row.quantity} onChange={e => updateMatRow(i, "quantity", e.target.value)} placeholder={t("technicalSheets.qty")} />
-                </div>
-                <div className="col-span-1">
-                  <Input type="number" value={row.percentage} onChange={e => updateMatRow(i, "percentage", e.target.value)} placeholder="%" />
+                  <Input type="number" min="0" step="0.01" value={row.quantityPerUnit} onChange={e => updateMatRow(i, "quantityPerUnit", e.target.value)} placeholder="Qty/unit" />
                 </div>
                 <div className="col-span-2">
-                  <Input value={row.unit} onChange={e => updateMatRow(i, "unit", e.target.value)} placeholder={t("technicalSheets.unit")} />
+                  <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
+                    {row.unit || <span className="italic text-slate-300">—</span>}
+                  </div>
                 </div>
                 <div className="col-span-3">
                   <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />

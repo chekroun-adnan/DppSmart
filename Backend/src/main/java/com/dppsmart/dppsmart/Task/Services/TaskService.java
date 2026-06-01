@@ -15,6 +15,7 @@ import com.dppsmart.dppsmart.Task.Entities.TaskStatus;
 import com.dppsmart.dppsmart.Task.Mapper.TaskMapper;
 import com.dppsmart.dppsmart.Task.Repositories.TaskRepository;
 import com.dppsmart.dppsmart.Audit.Services.AuditService;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -37,6 +38,7 @@ public class TaskService {
     private final UserRepository userRepository;
     private final PermissionService permissionService;
     private final AuditService auditService;
+    private final NotificationServiceImpl notificationService;
 
     public TaskResponseDto create(CreateTaskDto dto) {
         User user = getCurrentUser();
@@ -65,6 +67,28 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
         auditService.log("Task", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Task created: " + saved.getTitle());
+
+        notificationService.createNotification(
+                user.getId(),
+                "New Task Created",
+                saved.getTitle() + " has been assigned",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
+                "/tasks/" + saved.getId()
+        );
+
+        if (saved.getAssignedEmployeeIds() != null) {
+            for (String empId : saved.getAssignedEmployeeIds()) {
+                if (empId != null && !empId.equals(user.getId())) {
+                    notificationService.createNotification(
+                            empId,
+                            "Task Assigned to You",
+                            "You have been assigned: " + saved.getTitle(),
+                            com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
+                            "/tasks/" + saved.getId()
+                    );
+                }
+            }
+        }
 
         return TaskMapper.toDto(saved);
     }
@@ -129,6 +153,14 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
         auditService.log("Task", saved.getId(), "STATUS_CHANGE", saved.getOrganizationId(), null, "Task status changed to " + saved.getStatus() + ": " + saved.getTitle());
+
+        notificationService.createNotification(
+                user.getId(),
+                "Task Status Updated",
+                saved.getTitle() + " is now " + saved.getStatus(),
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
+                "/tasks/" + saved.getId()
+        );
 
         return TaskMapper.toDto(saved);
     }

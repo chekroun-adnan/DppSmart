@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getUnreadNotifications, markNotificationRead, markAllNotificationsRead } from "../services/authService";
+import { getMyNotifications, markNotificationRead, markAllNotificationsRead } from "../services/authService";
 
 const NotificationContext = createContext(null);
 
@@ -117,12 +117,15 @@ function NotificationPanel({ notifications, onClose, onMarkRead, onMarkAllRead, 
   };
 
   const typeConfig = {
-    ORDER:      { bg: "bg-brand-500/10",    icon: "text-brand-500",    label: "Order" },
-    DELIVERY:   { bg: "bg-emerald-500/10",  icon: "text-emerald-500",  label: "Delivery" },
-    PRODUCTION: { bg: "bg-sky-500/10",      icon: "text-sky-500",      label: "Production" },
-    TASK:       { bg: "bg-purple-500/10",   icon: "text-purple-500",   label: "Task" },
-    SYSTEM:     { bg: "bg-amber-500/10",    icon: "text-amber-500",    label: "System" },
-    ALERT:      { bg: "bg-rose-500/10",     icon: "text-rose-500",     label: "Alert" },
+    ORDER:       { bg: "bg-brand-500/10",    icon: "text-brand-500",    label: "Order" },
+    DELIVERY:    { bg: "bg-emerald-500/10",  icon: "text-emerald-500",  label: "Delivery" },
+    PRODUCTION:  { bg: "bg-sky-500/10",      icon: "text-sky-500",      label: "Production" },
+    TASK:        { bg: "bg-purple-500/10",   icon: "text-purple-500",   label: "Task" },
+    SYSTEM:      { bg: "bg-amber-500/10",    icon: "text-amber-500",    label: "System" },
+    ALERT:       { bg: "bg-rose-500/10",     icon: "text-rose-500",     label: "Alert" },
+    ALLOCATION:  { bg: "bg-indigo-500/10",   icon: "text-indigo-500",   label: "Allocation" },
+    RESERVATION: { bg: "bg-cyan-500/10",     icon: "text-cyan-500",     label: "Reservation" },
+    CONFLICT:    { bg: "bg-orange-500/10",   icon: "text-orange-500",   label: "Conflict" },
   };
 
   return (
@@ -201,7 +204,7 @@ function NotificationPanel({ notifications, onClose, onMarkRead, onMarkAllRead, 
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.02 }}
-                  onClick={() => !n.read && onMarkRead(n.id)}
+                  onClick={() => onMarkRead(n.id)}
                   className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-[#111827]/40 transition-colors border-b border-slate-50 dark:border-[rgba(255,255,255,0.04)] ${
                     !n.read ? "bg-brand-500/5 dark:bg-brand-500/5" : ""
                   }`}
@@ -242,9 +245,10 @@ export function NotificationProvider({ children }) {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getUnreadNotifications();
-      setNotifications(Array.isArray(data) ? data : []);
-      setUnreadCount(Array.isArray(data) ? data.filter((n) => !n.read).length : 0);
+      const data = await getMyNotifications();
+      const list = Array.isArray(data) ? data : [];
+      setNotifications(list);
+      setUnreadCount(list.filter((n) => !n.read).length);
     } catch (e) {
       console.warn("Failed to load notifications:", e.message);
       setNotifications([]);
@@ -270,10 +274,20 @@ export function NotificationProvider({ children }) {
   }, []);
 
   const handleMarkRead = useCallback(async (id) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
-    setUnreadCount((c) => Math.max(0, c - 1));
-    try { await markNotificationRead(id); } catch {}
-  }, []);
+    setNotifications((prev) => {
+      const already = prev.find((n) => n.id === id)?.read;
+      if (already) return prev;
+      return prev.map((n) => n.id === id ? { ...n, read: true } : n);
+    });
+    setUnreadCount((c) => {
+      const already = notifications.find((n) => n.id === id)?.read;
+      return already ? c : Math.max(0, c - 1);
+    });
+    try {
+      const already = notifications.find((n) => n.id === id)?.read;
+      if (!already) await markNotificationRead(id);
+    } catch {}
+  }, [notifications]);
 
   const handleMarkAllRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -282,7 +296,7 @@ export function NotificationProvider({ children }) {
   }, []);
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, addToast, removeToast, openPanel: () => setPanelOpen(true) }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, addToast, removeToast, openPanel: () => { setPanelOpen(true); fetchNotifications(); } }}>
       {children}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <AnimatePresence>

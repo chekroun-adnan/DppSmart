@@ -79,6 +79,22 @@ Each product receives a complete DPP containing company name, product name, SKU,
 ### 📱 QR Code Traceability
 Every product gets a `qrUrl` and a `dppUrl`. Each QR scan is logged as a `ScanEvent` capturing timestamp, IP address, geolocation (latitude/longitude), user agent, referrer, and the scanning user's email if authenticated. Scan analytics are available per product and per organization.
 
+### 🔐 QR Security & Scan Intelligence
+All QR codes are cryptographically signed using HMAC-SHA256. The signature includes the product ID, version number, and an expiry timestamp. Scans are verified in real-time:
+- **Invalid QR** — signature mismatch is flagged
+- **Modified QR** — tampering triggers `INVALID_SIGNATURE`
+- **Expired QR** — signatures older than 365 days are marked `EXPIRED_QR`
+- **Unknown QR** — product ID not found in database
+
+The scan anomaly engine detects:
+- **Repeated scans** — same product + IP within 10 seconds
+- **Impossible travel** — scans from distant locations faster than 900 km/h
+- **Unusual location** — rapid geographic changes
+- **Rate abuse** — >50 scans/hour from a single IP
+- **Fake products** — 3+ anomaly flags or risk score ≥70
+
+Each `ScanEvent` stores: risk score (0–100), anomaly flags list, signature validity, and fake product indicator. Suspicious scan alerts are created automatically.
+
 ### 🏗️ Production Management
 Production orders are created against specific products and organizations with a defined quantity and status lifecycle: `PLANNED → IN_PROGRESS → COMPLETED / CANCELLED`. Each order contains ordered production steps with fields for machine, operator, duration, quality check, start/end dates, and completion state.
 

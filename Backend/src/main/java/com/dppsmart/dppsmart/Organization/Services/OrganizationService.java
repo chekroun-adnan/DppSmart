@@ -14,6 +14,7 @@ import com.dppsmart.dppsmart.Organization.Entities.OrganizationType;
 import com.dppsmart.dppsmart.Organization.Mapper.OrganizationMapper;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -34,6 +35,7 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final NotificationServiceImpl notificationService;
 
     @CacheEvict(value = {"organizations", "allMainOrganizations", "allSubOrganizations", "userOrganizations"}, allEntries = true)
     public OrganizationResponseDto createMainOrganization(CreateOrganizationDto dto) {
@@ -51,7 +53,17 @@ public class OrganizationService {
         main.setOrganizationType(OrganizationType.MAIN);
         main.setCreatedByUserId(user.getId());
 
-        return OrganizationMapper.toDto(organizationRepository.save(main));
+        Organization saved = organizationRepository.save(main);
+
+        notificationService.createNotification(
+                user.getId(),
+                "Main Organization Created",
+                dto.getName() + " has been created",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations"
+        );
+
+        return OrganizationMapper.toDto(saved);
     }
 
     public OrganizationResponseDto createSubOrganization(CreateOrganizationDto dto) {
@@ -98,6 +110,14 @@ public class OrganizationService {
                 userRepository.save(user);
             }
         }
+
+        notificationService.createNotification(
+                user.getId(),
+                "Sub Organization Created",
+                dto.getName() + " has been created under " + parent.getName(),
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations/" + savedSub.getId()
+        );
 
         return OrganizationMapper.toDto(savedSub);
     }
@@ -153,11 +173,21 @@ public class OrganizationService {
             throw new BadRequestException("Organization is not MAIN");
         }
 
-        if (dto.getName() != null && !dto.getName().isBlank()) {
+if (dto.getName() != null && !dto.getName().isBlank()) {
             main.setName(dto.getName());
         }
 
-        return OrganizationMapper.toDto(organizationRepository.save(main));
+        Organization saved = organizationRepository.save(main);
+
+        notificationService.createNotification(
+                getCurrentUser().getId(),
+                "Organization Updated",
+                main.getName() + " has been updated",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations/" + main.getId()
+        );
+
+        return OrganizationMapper.toDto(saved);
     }
 
     public OrganizationResponseDto updateSubOrganization(UpdateOrganizationDto dto) {
@@ -191,6 +221,14 @@ public class OrganizationService {
             assignDto.setSubOrganizationId(sub.getId());
             return assignSubToMain(assignDto);
         }
+
+        notificationService.createNotification(
+                user.getId(),
+                "Sub Organization Updated",
+                sub.getName() + " has been updated",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations/" + sub.getId()
+            );
 
         return OrganizationMapper.toDto(organizationRepository.save(sub));
     }
@@ -268,6 +306,14 @@ public class OrganizationService {
         }
 
         organizationRepository.deleteById(org.getId());
+
+        notificationService.createNotification(
+                user.getId(),
+                "Organization Deleted",
+                org.getName() + " has been deleted",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations"
+        );
     }
 
     public void assignUserToOrganization(AssignUserToOrganizationDto dto) {
@@ -288,6 +334,14 @@ public class OrganizationService {
         }
 
         userRepository.save(user);
+
+        notificationService.createNotification(
+                user.getId(),
+                "User Assigned to Organization",
+                dto.getUserId() + " has been assigned to " + org.getName(),
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.SYSTEM,
+                "/organizations/" + org.getId()
+            );
     }
 
     public List<OrganizationResponseDto> getOrganizationsByUser(String userId) {

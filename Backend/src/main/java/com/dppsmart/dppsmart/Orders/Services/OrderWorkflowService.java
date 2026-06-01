@@ -60,8 +60,6 @@ public class OrderWorkflowService {
     private final TechnicalSheetRepository technicalSheetRepository;
     private final MaterialSheetItemRepository materialSheetItemRepository;
     private final StockMovementService stockMovementService;
-    private final MaterialStockService materialStockService;
-    private final ProductStockService productStockService;
     private final NotificationServiceImpl notificationService;
     private final RealtimeEventService realtimeEventService;
     private final AuditService auditService;
@@ -473,6 +471,10 @@ public class OrderWorkflowService {
                     ps.setLastProductionAt(LocalDateTime.now());
                     ps.setTotalProduced(ps.getTotalProduced() + prod.getQuantity());
                     productStockRepository.save(ps);
+
+                    log.info("PRODUCTION COMPLETED — product={}, before={}, produced={}, after={}",
+                            ps.getProductName(), before, prod.getQuantity(), newQty);
+
                     stockMovementService.recordProductMovement(MovementType.PRODUCT_PRODUCED,
                             prod.getProductId(), ps.getProductName(), ps.getUnit(),
                             prod.getQuantity(), before, newQty,
@@ -619,7 +621,7 @@ public class OrderWorkflowService {
                     });
         }
 
-        boolean materialsReserved = order.isHasReservations();
+        boolean materialsReserved = false;
 
         List<MaterialsBreakdownResult.MaterialLine> lines = builders.values().stream().map(b -> {
             MaterialsBreakdownResult.MaterialLine partial = b.build();
@@ -654,91 +656,6 @@ public class OrderWorkflowService {
     }
 
 
-    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
-    public OrderResponseDto reserveMaterialsForOrder(String orderId) {
-        User user = requireAdminOrSubAdmin();
-        Orders order = getOrderWithAccess(orderId, user);
-
-        if (order.isHasReservations()) {
-            throw new BadRequestException("Materials are already reserved for this order");
-        }
-
-        for (OrderItem item : order.getItems()) {
-            int productStock = getProductStock(item.getProductId());
-            int toProduce = Math.max(0, item.getQuantity() - productStock);
-            if (toProduce == 0) continue;
-
-            technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
-                    .ifPresent(sheet -> {
-                        for (MaterialSheetItem si : materialSheetItemRepository.findByTechnicalSheetId(sheet.getId())) {
-                            if (si.getQuantityPerUnit() == null || si.getQuantityPerUnit() <= 0) continue;
-                            int toReserve = (int) Math.ceil(si.getQuantityPerUnit() * toProduce);
-                            if (toReserve > 0) {
-                                materialStockService.reserveMaterial(si.getMaterialId(), toReserve);
-                                realtimeEventService.broadcastReservationUpdated(orderId, "ACTIVE");
-                            }
-                        }
-                    });
-        }
-
-        order.setHasReservations(true);
-        order.setReservedUntil(LocalDateTime.now().plusHours(48));
-        order.setUpdatedAt(LocalDateTime.now());
-        order.setUpdatedBy(user.getEmail());
-        Orders saved = ordersRepository.save(order);
-
-        auditService.log("Order", saved.getId(), "MATERIALS_RESERVED", saved.getOrganizationId(), null,
-                "Materials reserved for order " + saved.getOrderReference() + " by " + user.getEmail());
-        notifyAdmins(saved.getOrganizationId(), "Materials Reserved",
-                "Materials reserved for order " + saved.getOrderReference(), "/orders");
-
-        OrderResponseDto dto = OrdersMapper.toDto(saved);
-        realtimeEventService.broadcastOrderUpdated(dto);
-        return dto;
-    }
-
-
-    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
-    public OrderResponseDto releaseMaterialsForOrder(String orderId) {
-        User user = requireAdminOrSubAdmin();
-        Orders order = getOrderWithAccess(orderId, user);
-
-        if (!order.isHasReservations()) {
-            throw new BadRequestException("No active material reservations found for this order");
-        }
-
-        for (OrderItem item : order.getItems()) {
-            int productStock = getProductStock(item.getProductId());
-            int toProduce = Math.max(0, item.getQuantity() - productStock);
-            if (toProduce == 0) continue;
-
-            technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
-                    .ifPresent(sheet -> {
-                        for (MaterialSheetItem si : materialSheetItemRepository.findByTechnicalSheetId(sheet.getId())) {
-                            if (si.getQuantityPerUnit() == null || si.getQuantityPerUnit() <= 0) continue;
-                            int toRelease = (int) Math.ceil(si.getQuantityPerUnit() * toProduce);
-                            if (toRelease > 0) {
-                                materialStockService.releaseMaterial(si.getMaterialId(), toRelease);
-                                realtimeEventService.broadcastReservationUpdated(orderId, "RELEASED");
-                            }
-                        }
-                    });
-        }
-
-        order.setHasReservations(false);
-        order.setReservedUntil(null);
-        order.setUpdatedAt(LocalDateTime.now());
-        order.setUpdatedBy(user.getEmail());
-        Orders saved = ordersRepository.save(order);
-
-        auditService.log("Order", saved.getId(), "MATERIALS_RELEASED", saved.getOrganizationId(), null,
-                "Material reservations released for order " + saved.getOrderReference());
-
-        OrderResponseDto dto = OrdersMapper.toDto(saved);
-        realtimeEventService.broadcastOrderUpdated(dto);
-        return dto;
-    }
-
     private List<MaterialRequirementInfo> calculateMaterialRequirements(String productId, int qty, String orgId) {
         return technicalSheetRepository.findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE)
                 .map(sheet -> {
@@ -766,11 +683,31 @@ public class OrderWorkflowService {
                         int toConsume = (int) Math.ceil(si.getQuantityPerUnit() * qty);
                         materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
                             int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
-                            int newQty = Math.max(0, before - toConsume);
+                            int reserved = ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
+                            int available = before - reserved;
+
+                            log.info("CONSUME MATERIAL — material={}, physical={}, reserved={}, available={}, requested={}, source=processOrderFull",
+                                    ms.getName(), before, reserved, available, toConsume);
+
+                            if (toConsume <= 0) return;
+                            if (toConsume > available) {
+                                log.warn("CONSUME FAILED — insufficient available for {}: need {}, have {}",
+                                        ms.getName(), toConsume, available);
+                                return;
+                            }
+
+                            int newQty = before - toConsume;
+                            int newReserved = Math.max(0, reserved - toConsume);
+
                             ms.setQuantity(newQty);
+                            ms.setReservedQuantity(newReserved);
                             ms.setLastUpdatedBy(user.getEmail());
                             ms.setUpdatedAt(LocalDateTime.now());
                             materialStockRepository.save(ms);
+
+                            log.info("CONSUME OK — material={}, beforeQty={}, afterQty={}, beforeReserved={}, afterReserved={}",
+                                    ms.getName(), before, newQty, reserved, newReserved);
+
                             stockMovementService.recordMaterialMovement(MovementType.MATERIAL_DECREASED,
                                     ms.getId(), ms.getName(), ms.getUnit(), toConsume,
                                     before, newQty, order.getId(), null,
@@ -778,17 +715,51 @@ public class OrderWorkflowService {
                             realtimeEventService.broadcastMaterialStockUpdated(ms.getId(), newQty, order.getOrganizationId());
                         });
                     }
+
+                    productionRepository.findByClientOrderId(order.getId()).stream()
+                            .filter(p -> p.getProductId().equals(productId))
+                            .filter(p -> p.getStatus() == ProductionStatus.IN_PROGRESS)
+                            .findFirst()
+                            .ifPresent(p -> {
+                                p.setMaterialsConsumed(true);
+                                productionRepository.save(p);
+                            });
                 });
     }
 
     private void deductProductStock(OrderItem item, int qty, Orders order, User user) {
+        if (qty <= 0) {
+            log.warn("DEDUCT PRODUCT SKIPPED — qty={} for product {}", qty, item.getProductId());
+            return;
+        }
+
         productStockRepository.findByProductId(item.getProductId()).stream().findFirst().ifPresent(ps -> {
             int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
-            int newQty = Math.max(0, before - qty);
+            int reserved = ps.getReservedQuantity() != null ? ps.getReservedQuantity() : 0;
+            int available = before - reserved;
+
+            log.info("DEDUCT PRODUCT — product={}, physical={}, reserved={}, available={}, requested={}, source={}",
+                    item.getProductName(), before, reserved, available, qty, "OrderWorkflow");
+
+            if (qty > available) {
+                log.warn("DEDUCT PRODUCT FAILED — insufficient stock for {}: need {}, have {}",
+                        item.getProductName(), qty, available);
+                throw new BadRequestException("Insufficient stock for " + item.getProductName()
+                        + ": need " + qty + ", available " + available);
+            }
+
+            int newQty = before - qty;
+            int newReserved = Math.max(0, reserved - qty);
+
             ps.setQuantity(newQty);
+            ps.setReservedQuantity(newReserved);
             ps.setLastUpdatedBy(user.getEmail());
             ps.setUpdatedAt(LocalDateTime.now());
             productStockRepository.save(ps);
+
+            log.info("DEDUCT PRODUCT OK — product={}, before={}, after={}, reservedReleased={}",
+                    item.getProductName(), before, newQty, Math.min(qty, reserved));
+
             stockMovementService.recordProductMovement(MovementType.PRODUCT_DECREASED,
                     item.getProductId(), item.getProductName(), item.getUnit(),
                     qty, before, newQty, order.getId(), null,

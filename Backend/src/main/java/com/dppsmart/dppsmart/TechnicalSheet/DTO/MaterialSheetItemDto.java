@@ -10,9 +10,12 @@ public class MaterialSheetItemDto {
     @NotBlank
     private String materialId;
     @Positive
-    private Double quantity;
+    private Double quantityPerUnit;
     private String unit;
+    private Double wastePercentage;
     private String notes;
+    
     private String materialName;
     private String materialReference;
+    private Integer availableStock;
 }

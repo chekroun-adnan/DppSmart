@@ -80,15 +80,52 @@ public class BulkOrderMaterialRequirementService {
         Map<String, Double> totalMatRequired = new LinkedHashMap<>();
         Map<String, MaterialStock> matStockCache = new HashMap<>();
 
+        Map<String, double[]> materialPool = new HashMap<>();
+        Set<String> allMaterialIds = new HashSet<>();
+        for (List<OrderItemEntry> productEntries : byProduct.values()) {
+            if (productEntries.isEmpty()) continue;
+            String pid = productEntries.get(0).item.getProductId();
+            technicalSheetRepository.findByProductIdAndStatus(pid, TechnicalSheetStatus.ACTIVE)
+                    .ifPresent(sheet -> {
+                        List<MaterialSheetItem> items = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                        for (MaterialSheetItem si : items) {
+                            if (si.getMaterialId() != null) allMaterialIds.add(si.getMaterialId());
+                        }
+                    });
+        }
+        for (String mid : allMaterialIds) {
+            MaterialStock ms = materialStockRepository.findById(mid).orElse(null);
+            int physQty = ms != null && ms.getQuantity() != null ? ms.getQuantity() : 0;
+            int resQty = ms != null && ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
+            double avail = Math.max(0, physQty - resQty);
+            materialPool.put(mid, new double[]{avail});
+            if (ms != null) matStockCache.put(mid, ms);
+        }
+
         for (Map.Entry<String, List<OrderItemEntry>> entry : byProduct.entrySet()) {
             String productId = entry.getKey();
             List<OrderItemEntry> entries = entry.getValue();
+
+            String productName = entries.get(0).item.getProductName();
 
             int totalRequested = entries.stream().mapToInt(e -> e.item.getQuantity()).sum();
 
             Optional<ProductStock> psOpt = productStockRepository.findByProductId(productId)
                     .stream().findFirst();
             int availableStock = psOpt.map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0).orElse(0);
+
+            String sheetId = null, sheetName = null, errorMessage = null;
+            List<MaterialSheetItem> bomItems = List.of();
+            Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
+                    .findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE);
+            if (sheetOpt.isPresent()) {
+                TechnicalSheet sheet = sheetOpt.get();
+                sheetId = sheet.getId();
+                sheetName = sheet.getName();
+                bomItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+            } else {
+                errorMessage = "No active technical sheet for: " + productName;
+            }
 
             int allocatedTotal;
             List<AffectedOrderItem> affectedOrders;
@@ -103,16 +140,7 @@ public class BulkOrderMaterialRequirementService {
                         Math.max(0, allocMap.getOrDefault(e.order.getId(), 0))
                     );
                     int toProduce = e.item.getQuantity() - alloc;
-                    affectedOrders.add(AffectedOrderItem.builder()
-                            .orderId(e.order.getId())
-                            .orderReference(e.order.getOrderReference())
-                            .orderedQuantity(e.item.getQuantity())
-                            .allocatedFromStock(alloc)
-                            .quantityToProduce(toProduce)
-                            .priority(priorityCounter++)
-                            .status(toProduce == 0 ? "FROM_STOCK"
-                                    : alloc > 0 ? "PARTIAL" : "NEEDS_PRODUCTION")
-                            .build());
+                    affectedOrders.add(buildOrderItem(e.order, e.item, alloc, toProduce, priorityCounter++, bomItems, materialPool, totalMatRequired, matStockCache).build());
                 }
                 allocatedTotal = affectedOrders.stream().mapToInt(AffectedOrderItem::getAllocatedFromStock).sum();
 
@@ -124,48 +152,14 @@ public class BulkOrderMaterialRequirementService {
                     int alloc = Math.min(e.item.getQuantity(), Math.max(0, remainingStock));
                     remainingStock -= alloc;
                     int toProduce = e.item.getQuantity() - alloc;
-                    affectedOrders.add(AffectedOrderItem.builder()
-                            .orderId(e.order.getId())
-                            .orderReference(e.order.getOrderReference())
-                            .orderedQuantity(e.item.getQuantity())
-                            .allocatedFromStock(alloc)
-                            .quantityToProduce(toProduce)
-                            .priority(priorityCounter++)
-                            .status(toProduce == 0 ? "FROM_STOCK"
-                                    : alloc > 0 ? "PARTIAL" : "NEEDS_PRODUCTION")
-                            .build());
+                    Map<String, double[]> itemPool = cloneMaterialPool(materialPool);
+                    affectedOrders.add(buildOrderItem(e.order, e.item, alloc, toProduce, priorityCounter++, bomItems, itemPool, totalMatRequired, matStockCache).build());
                 }
                 allocatedTotal = affectedOrders.stream().mapToInt(AffectedOrderItem::getAllocatedFromStock).sum();
             }
 
             int missingQtyToProduce = Math.max(0, totalRequested - allocatedTotal);
             boolean stockSufficient = missingQtyToProduce == 0;
-
-            String sheetId = null, sheetName = null, errorMessage = null;
-            if (missingQtyToProduce > 0) {
-                Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                        .findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE);
-                if (sheetOpt.isEmpty()) {
-                    errorMessage = "No active technical sheet for: "
-                            + entries.get(0).item.getProductName();
-                } else {
-                    TechnicalSheet sheet = sheetOpt.get();
-                    sheetId = sheet.getId();
-                    sheetName = sheet.getName();
-                    List<MaterialSheetItem> sheetItems =
-                            materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
-                    for (MaterialSheetItem si : sheetItems) {
-                        double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
-                        double needed = round2(qpu * missingQtyToProduce);
-                        if (needed <= 0) continue;
-                        totalMatRequired.merge(si.getMaterialId(), needed, (a, b) -> round2(a + b));
-                        if (!matStockCache.containsKey(si.getMaterialId())) {
-                            materialStockRepository.findById(si.getMaterialId())
-                                    .ifPresent(ms -> matStockCache.put(ms.getId(), ms));
-                        }
-                    }
-                }
-            }
 
             productSummaries.add(ProductSummary.builder()
                     .productId(productId)
@@ -227,4 +221,112 @@ public class BulkOrderMaterialRequirementService {
     private record OrderItemEntry(Orders order, OrderItem item) {}
 
     private double round2(double v) { return Math.round(v * 100.0) / 100.0; }
+
+    private Map<String, double[]> cloneMaterialPool(Map<String, double[]> pool) {
+        Map<String, double[]> clone = new HashMap<>();
+        for (Map.Entry<String, double[]> e : pool.entrySet()) {
+            clone.put(e.getKey(), new double[]{e.getValue()[0]});
+        }
+        return clone;
+    }
+
+    private AffectedOrderItem.AffectedOrderItemBuilder buildOrderItem(
+            Orders order, OrderItem item, int alloc, int toProduce, int priority,
+            List<MaterialSheetItem> bomItems,
+            Map<String, double[]> materialPool,
+            Map<String, Double> totalMatRequired,
+            Map<String, MaterialStock> matStockCache) {
+
+        List<MaterialRequirement> itemMats = new ArrayList<>();
+        int producibleQty = toProduce;
+        String prodStatus = "NO_BOM";
+
+        if (toProduce > 0 && !bomItems.isEmpty()) {
+            for (MaterialSheetItem si : bomItems) {
+                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                double waste = si.getWastePercentage() != null ? si.getWastePercentage() : 0.0;
+                double needed = round2(toProduce * qpu * (1.0 + waste / 100.0));
+                if (needed <= 0) continue;
+
+                double[] poolEntry = materialPool.get(si.getMaterialId());
+                double poolAvail = poolEntry != null ? poolEntry[0] : 0.0;
+
+                int maxFromThisMat = qpu > 0
+                    ? (int) Math.floor(poolAvail / qpu)
+                    : 0;
+                producibleQty = Math.min(producibleQty, maxFromThisMat);
+            }
+
+            for (MaterialSheetItem si : bomItems) {
+                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                double waste = si.getWastePercentage() != null ? si.getWastePercentage() : 0.0;
+                double needed = round2(toProduce * qpu * (1.0 + waste / 100.0));
+                if (needed <= 0) continue;
+
+                double[] poolEntry = materialPool.get(si.getMaterialId());
+                double poolAvail = poolEntry != null ? poolEntry[0] : 0.0;
+
+                double willConsume = round2(producibleQty * qpu * (1.0 + waste / 100.0));
+                double availableAfter = Math.max(0, poolAvail - willConsume);
+                double missingForFullOrder = Math.max(0, needed - poolAvail);
+                boolean enough = poolAvail >= needed;
+
+                MaterialStock ms = matStockCache.get(si.getMaterialId());
+                if (ms == null) {
+                    ms = materialStockRepository.findById(si.getMaterialId()).orElse(null);
+                    if (ms != null) matStockCache.put(si.getMaterialId(), ms);
+                }
+                String matName = ms != null ? ms.getName() : si.getMaterialName();
+                String matUnit = ms != null ? ms.getUnit() : si.getUnit();
+                String refCode = ms != null ? ms.getReferenceCode() : "—";
+                int initialAvail = ms != null ? Math.max(0, (ms.getQuantity() != null ? ms.getQuantity() : 0)
+                        - (ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0)) : 0;
+
+                if (poolEntry != null) {
+                    poolEntry[0] = availableAfter;
+                }
+
+                itemMats.add(MaterialRequirement.builder()
+                        .materialId(si.getMaterialId())
+                        .materialName(matName)
+                        .referenceCode(refCode)
+                        .unit(matUnit)
+                        .quantityPerUnit(qpu)
+                        .totalRequiredQuantity(needed)
+                        .availableStock(initialAvail)
+                        .remainingAfter(availableAfter)
+                        .missingQuantity(missingForFullOrder)
+                        .status(enough ? "AVAILABLE" : "INSUFFICIENT")
+                        .willConsumeIfChosen(willConsume)
+                        .availableBefore(poolAvail)
+                        .availableAfterSimulation(availableAfter)
+                        .build());
+
+                totalMatRequired.merge(si.getMaterialId(), needed, (a, a2) -> round2(a + a2));
+            }
+
+            if (producibleQty >= toProduce) prodStatus = "READY_FOR_PRODUCTION";
+            else if (producibleQty > 0)      prodStatus = "PARTIALLY_PRODUCIBLE";
+            else                              prodStatus = "MATERIALS_MISSING";
+
+        } else if (toProduce > 0 && bomItems.isEmpty()) {
+            prodStatus = "NO_BOM";
+        }
+
+        String statusLabel = toProduce == 0 ? "FROM_STOCK"
+                : alloc > 0 ? "PARTIAL" : "NEEDS_PRODUCTION";
+
+        return AffectedOrderItem.builder()
+                .orderId(order.getId())
+                .orderReference(order.getOrderReference())
+                .orderedQuantity(item.getQuantity())
+                .allocatedFromStock(alloc)
+                .quantityToProduce(toProduce)
+                .priority(priority)
+                .status(statusLabel)
+                .materialRequirements(itemMats)
+                .productionStatus(prodStatus)
+                .producibleQuantityNow(producibleQty)
+                .canStartProduction(producibleQty > 0);
+    }
 }

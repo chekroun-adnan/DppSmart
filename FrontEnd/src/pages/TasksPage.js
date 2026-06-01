@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
 import OrgSelector from "../components/OrgSelector";
@@ -119,6 +120,30 @@ export default function TasksPage() {
     load();
     return () => { mounted = false; };
   }, []);
+
+  const isModalOpen = modal === "create" || modal === "edit" || modal === "delete";
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        setModal(null);
+        setActionError("");
+      }
+    }
+    if (isModalOpen) {
+      window.addEventListener("keydown", handleEsc);
+    }
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isModalOpen]);
 
   const empName = (id) => employees.find((e) => e.id === id)?.fullName || id; // eslint-disable-line no-unused-vars
   const orgName = (id) => orgs.find((o) => o.id === id)?.name || id;
@@ -443,23 +468,40 @@ export default function TasksPage() {
       </div>
 
       {/* ── CREATE / EDIT MODAL ─────────────────────────────────────────────── */}
-      {canManage && (modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 py-6 animate-fade-in">
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{modal === "create" ? t("tasks.newTask", "New Task") : t("tasks.editTask", "Edit Task")}</h2>
-            </div>
-            <div className="overflow-y-auto flex-1 px-7 py-5">{FormBody}</div>
-            {actionError && <p className="px-7 text-sm text-rose-600">{actionError}</p>}
-            <div className="px-7 py-5 border-t border-slate-100 dark:border-white/[0.06] flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
-              <button type="button" onClick={modal === "create" ? handleCreate : handleEdit} disabled={saving} className="btn-primary py-2 px-5 text-sm">
-                {saving ? t("tasks.saving", "Saving...") : modal === "create" ? t("tasks.createTask", "Create Task") : t("tasks.saveChanges", "Save Changes")}
-              </button>
+      {canManage && (modal === "create" || modal === "edit") && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setModal(null); setActionError(""); }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{modal === "create" ? t("tasks.newTask", "New Task") : t("tasks.editTask", "Edit Task")}</h2>
+                <button
+                  type="button"
+                  onClick={() => { setModal(null); setActionError(""); }}
+                  className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {FormBody}
+              {actionError && <p className="mt-4 text-sm text-rose-600">{actionError}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
+                <button type="button" onClick={modal === "create" ? handleCreate : handleEdit} disabled={saving} className="btn-primary py-2 px-5 text-sm">
+                  {saving ? t("tasks.saving", "Saving...") : modal === "create" ? t("tasks.createTask", "Create Task") : t("tasks.saveChanges", "Save Changes")}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── DETAIL MODAL ────────────────────────────────────────────────────── */}
       {modal === "detail" && detailTask && (() => {
@@ -575,21 +617,40 @@ export default function TasksPage() {
       })()}
 
       {/* ── DELETE MODAL ────────────────────────────────────────────────────── */}
-      {canManage && modal === "delete" && pendingDelete && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t("tasks.deleteTask", "Delete Task")}</h2>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{t("tasks.deleteConfirm", `Delete "${pendingDelete.title}"? This cannot be undone.`)}</p>
-            {actionError && <p className="mt-3 text-sm text-rose-600">{actionError}</p>}
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
-              <button type="button" onClick={handleDelete} disabled={saving} className="py-2 px-5 text-sm font-semibold rounded-full bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 transition-colors">
-                {saving ? t("tasks.deleting", "Deleting...") : t("tasks.delete", "Delete")}
-              </button>
+      {canManage && modal === "delete" && pendingDelete && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setModal(null); setActionError(""); }}
+        >
+          <div
+            className="relative w-full max-w-md max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{t("tasks.deleteTask", "Delete Task")}</h2>
+                <button
+                  type="button"
+                  onClick={() => { setModal(null); setActionError(""); }}
+                  className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{t("tasks.deleteConfirm", `Delete "${pendingDelete.title}"? This cannot be undone.`)}</p>
+              {actionError && <p className="mt-3 text-sm text-rose-600">{actionError}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("tasks.cancel", "Cancel")}</button>
+                <button type="button" onClick={handleDelete} disabled={saving} className="py-2 px-5 text-sm font-semibold rounded-full bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 transition-colors">
+                  {saving ? t("tasks.deleting", "Deleting...") : t("tasks.delete", "Delete")}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <AuditHistoryModal entityType="Task" entityId={historyId} onClose={() => setHistoryId(null)} />
     </DashboardLayout>

@@ -12,6 +12,7 @@ import com.dppsmart.dppsmart.Employee.Mapper.EmployeesMapper;
 import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Audit.Services.AuditService;
+import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
@@ -34,6 +35,7 @@ public class EmployeesService {
     private final PermissionService permissionService;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final NotificationServiceImpl notificationService;
 
     public EmployeeResponseDto create(CreateEmployeeDto dto) {
         User user = getCurrentUser();
@@ -76,6 +78,14 @@ public class EmployeesService {
 
         Employees saved = employeesRepository.save(employee);
         auditService.log("Employee", saved.getId(), "CREATE", saved.getOrganizationId(), null, "Employee created: " + saved.getFullName());
+
+        notificationService.createNotification(
+                user.getId(),
+                "New Employee Created",
+                saved.getFullName() + " has been added as " + saved.getRole(),
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
+                "/employees/" + saved.getId()
+        );
 
         return EmployeesMapper.toDto(saved);
     }
@@ -214,6 +224,14 @@ public class EmployeesService {
             if (u.getRole() == Roles.EMPLOYEE) userRepository.delete(u);
         });
         auditService.log("Employee", id, "DELETE", orgId, null, "Employee deleted: " + fullName);
+
+        notificationService.createNotification(
+                user.getId(),
+                "Employee Deleted",
+                fullName + " has been removed from the team",
+                com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
+                "/employees"
+        );
     }
 
     private User getCurrentUser() {

@@ -60,9 +60,17 @@ function RegisterPage() {
         password: form.password,
       });
       storeAuthSession(authResponse);
-      navigate("/dashboard");
+      navigate(authResponse.role === "CLIENT" ? "/client-orders" : "/dashboard");
     } catch (requestError) {
-      setError(requestError.message || t("auth.registerFailed", "Registration failed. Please try again."));
+      if (requestError.status === 429) {
+        const wait = requestError.retryAfter || 60;
+        setError(`Too many registration attempts. Please wait ${wait} seconds before trying again.`);
+      } else if (requestError.fieldErrors) {
+        const msgs = Object.values(requestError.fieldErrors).join(" ");
+        setError(msgs || requestError.message);
+      } else {
+        setError(requestError.message || t("auth.registerFailed", "Registration failed. Please try again."));
+      }
     } finally {
       setLoading(false);
     }

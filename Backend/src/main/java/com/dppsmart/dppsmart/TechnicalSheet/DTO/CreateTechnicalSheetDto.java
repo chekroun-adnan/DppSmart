@@ -12,7 +12,9 @@ public class CreateTechnicalSheetDto {
     @NotNull
     private TechnicalSheetType type;
     private String description;
+    private String notes;
     @NotBlank
     private String organizationId;
     private String productId;
+    private Integer targetQuantity;
 }

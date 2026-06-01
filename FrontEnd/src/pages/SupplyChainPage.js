@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
@@ -10,9 +10,13 @@ import {
   processReturn,
   getMyOrganizations, getMainOrganizations, getSubOrganizations,
 } from "../services/authService";
+import { useNotifications } from "../context/NotificationContext";
 import AuditHistoryModal from "../components/AuditHistoryModal";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import TrackingMap from "../components/maps/TrackingMap";
+import MapPicker from "../components/maps/MapPicker";
+import SupplierMap from "../components/maps/SupplierMap";
+import PlacesAutocomplete from "../components/maps/PlacesAutocomplete";
+import { useDeliveryTracking } from "../hooks/useDeliveryTracking";
 
 const ROLE = () => (localStorage.getItem("userRole") || "").toUpperCase();
 const canEdit = () => ["ADMIN", "SUBADMIN"].includes(ROLE());
@@ -46,6 +50,7 @@ const emptyOrderItem = { materialId: "", materialName: "", materialReference: ""
 
 export default function SupplyChainPage() {
   const { t } = useTranslation();
+  const { addToast } = useNotifications();
   const [activeTab, setActiveTab] = useState("suppliers");
   const [loading, setLoading] = useState(true);
   const [suppliers, setSuppliers] = useState([]);
@@ -75,19 +80,41 @@ export default function SupplyChainPage() {
   const [returnOrderId, setReturnOrderId] = useState(null);
   const [returnForm, setReturnForm] = useState({ itemId: "", returnQuantity: "", rejectionReason: "", notes: "" });
 
-  // Tracking map
-  const mapContainer = useRef(null);
-  const map = useRef(null);
+  // Inline supplier assignment for auto-generated POs
+  const [configuringOrderId, setConfiguringOrderId] = useState(null);
+  const [configForm, setConfigForm] = useState({ supplierId: "", expectedDeliveryDate: "" });
+  const [configSaving, setConfigSaving] = useState(false);
 
-  // Modal picker map
-  const pickerMapContainer = useRef(null);
-  const pickerMap = useRef(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
-
-  // Supplier location viewer
   const [viewSupplierLocation, setViewSupplierLocation] = useState(null);
-  const locationMapContainer = useRef(null);
-  const locationMap = useRef(null);
+
+  const { livePosition, connected } = useDeliveryTracking(selectedOrder?.id);
+
+  const isSupplierModalOpen = modal === "supplier";
+
+  useEffect(() => {
+    if (isSupplierModalOpen || pendingDelete || showMapPicker || viewSupplierLocation) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isSupplierModalOpen, pendingDelete, showMapPicker, viewSupplierLocation]);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        if (pendingDelete) { setPendingDelete(null); return; }
+        if (modal === "supplier") { setModal(null); setActionError(""); return; }
+        if (showMapPicker) { setShowMapPicker(false); return; }
+        if (viewSupplierLocation) { setViewSupplierLocation(null); return; }
+      }
+    }
+    if (isSupplierModalOpen || pendingDelete || showMapPicker || viewSupplierLocation) {
+      window.addEventListener("keydown", handleEsc);
+    }
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isSupplierModalOpen, pendingDelete, showMapPicker, viewSupplierLocation, modal]);
 
   const loadOrgs = () => {
     const r = ROLE();
@@ -115,115 +142,6 @@ export default function SupplyChainPage() {
   };
 
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Body scroll lock for location viewer modal
-  useEffect(() => {
-    document.body.style.overflow = viewSupplierLocation ? "hidden" : "auto";
-    return () => { document.body.style.overflow = "auto"; };
-  }, [viewSupplierLocation]);
-
-  const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-
-  // Picker map (modal)
-  useEffect(() => {
-    if (!showMapPicker || !pickerMapContainer.current || modal !== "supplier") return;
-
-    if (pickerMap.current) {
-      pickerMap.current.remove();
-      pickerMap.current = null;
-    }
-
-    const lat = supplierForm.latitude ? parseFloat(supplierForm.latitude) : 48.85;
-    const lng = supplierForm.longitude ? parseFloat(supplierForm.longitude) : 2.35;
-
-    pickerMap.current = new maplibregl.Map({
-      container: pickerMapContainer.current,
-      style: MAP_STYLE,
-      center: [lng, lat],
-      zoom: 8,
-    });
-
-    pickerMap.current.addControl(new maplibregl.NavigationControl(), "top-right");
-
-    const marker = new maplibregl.Marker({ color: "#10b981", draggable: true })
-      .setLngLat([lng, lat])
-      .addTo(pickerMap.current);
-
-    marker.on("dragend", () => {
-      const ll = marker.getLngLat();
-      setSupplierForm(p => ({ ...p, latitude: ll.lat.toFixed(6), longitude: ll.lng.toFixed(6) }));
-    });
-
-    pickerMap.current.on("click", (e) => {
-      const { lng, lat } = e.lngLat;
-      marker.setLngLat([lng, lat]);
-      setSupplierForm(p => ({ ...p, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
-    });
-
-    return () => { if (pickerMap.current) { pickerMap.current.remove(); pickerMap.current = null; } };
-  }, [showMapPicker, modal]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Supplier location viewer map
-  useEffect(() => {
-    if (!viewSupplierLocation || !locationMapContainer.current) return;
-
-    if (locationMap.current) {
-      locationMap.current.remove();
-      locationMap.current = null;
-    }
-
-    locationMap.current = new maplibregl.Map({
-      container: locationMapContainer.current,
-      style: MAP_STYLE,
-      center: [viewSupplierLocation.longitude, viewSupplierLocation.latitude],
-      zoom: 12,
-    });
-
-    locationMap.current.addControl(new maplibregl.NavigationControl(), "top-right");
-
-    new maplibregl.Marker({ color: "#6366f1" })
-      .setLngLat([viewSupplierLocation.longitude, viewSupplierLocation.latitude])
-      .setPopup(new maplibregl.Popup().setHTML(`
-        <div style="min-width:180px;font-family:system-ui;">
-          <p style="font-weight:700;font-size:13px;margin:0 0 4px;">${viewSupplierLocation.companyName || viewSupplierLocation.name}</p>
-          <p style="font-size:11px;color:#64748b;margin:0;">${viewSupplierLocation.address || ""}</p>
-          <p style="font-size:11px;color:#64748b;margin:2px 0 0;">${viewSupplierLocation.city || ""}${viewSupplierLocation.city && viewSupplierLocation.country ? ", " : ""}${viewSupplierLocation.country || ""}</p>
-        </div>
-      `))
-      .addTo(locationMap.current);
-
-    return () => { if (locationMap.current) { locationMap.current.remove(); locationMap.current = null; } };
-  }, [viewSupplierLocation]);
-
-  // Tracking map initialization
-  useEffect(() => {
-    if (activeTab !== "tracking" || !selectedOrder || !mapContainer.current) return;
-
-    if (map.current) {
-      map.current.remove();
-      map.current = null;
-    }
-
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: MAP_STYLE,
-      center: [2.35, 48.85],
-      zoom: 2,
-    });
-
-    map.current.addControl(new maplibregl.NavigationControl(), "top-right");
-
-    // Add supplier marker
-    const supplier = suppliers.find(s => s.id === selectedOrder.supplierId);
-    if (supplier && supplier.latitude && supplier.longitude) {
-      new maplibregl.Marker({ color: "#6366f1" })
-        .setLngLat([supplier.longitude, supplier.latitude])
-        .setPopup(new maplibregl.Popup().setHTML(`<b>${supplier.companyName || supplier.name}</b>`))
-        .addTo(map.current);
-    }
-
-    return () => { if (map.current) { map.current.remove(); map.current = null; } };
-  }, [activeTab, selectedOrder, suppliers]);
 
   // Supplier CRUD
   const openCreateSupplier = () => {
@@ -365,13 +283,18 @@ export default function SupplyChainPage() {
       decision: "",
       notes: "",
       rejectionReason: "",
-      itemDecisions: order.items?.map(item => ({
-        itemId: item.id,
-        approvedQuantity: item.orderedQuantity,
-        rejectedQuantity: 0,
-        conditionStatus: "good",
-        notes: "",
-      })) || [],
+      itemDecisions: order.items?.map(item => {
+        const ordered = item.orderedQuantity || 0;
+        const remaining = item.remainingQuantity != null ? item.remainingQuantity : ordered;
+        return {
+          itemId: item.id,
+          receivedQuantity: remaining,
+          approvedQuantity: remaining,
+          rejectedQuantity: 0,
+          conditionStatus: "good",
+          notes: "",
+        };
+      }) || [],
     });
     setModal("reception");
   };
@@ -379,7 +302,23 @@ export default function SupplyChainPage() {
   const updateItemDecision = (idx, field, value) => {
     setReceptionForm(prev => {
       const itemDecisions = [...prev.itemDecisions];
-      itemDecisions[idx] = { ...itemDecisions[idx], [field]: value };
+      const updated = { ...itemDecisions[idx], [field]: value };
+      if (field === "receivedQuantity") {
+        const received = parseInt(value) || 0;
+        updated.approvedQuantity = received;
+        updated.rejectedQuantity = 0;
+      }
+      if (field === "approvedQuantity") {
+        const approved = parseInt(value) || 0;
+        const received = parseInt(prev.itemDecisions[idx].receivedQuantity) || 0;
+        updated.rejectedQuantity = Math.max(0, received - approved);
+      }
+      if (field === "rejectedQuantity") {
+        const rejected = parseInt(value) || 0;
+        const received = parseInt(prev.itemDecisions[idx].receivedQuantity) || 0;
+        updated.approvedQuantity = Math.max(0, received - rejected);
+      }
+      itemDecisions[idx] = updated;
       return { ...prev, itemDecisions };
     });
   };
@@ -388,9 +327,32 @@ export default function SupplyChainPage() {
     setActionError("");
     setSaving(true);
     try {
-      await validateReception(receptionOrderId, receptionForm);
+      const result = await validateReception(receptionOrderId, receptionForm);
       setModal(null);
       await reload();
+
+      // Show per-item stock toasts
+      if (result?.stockResults?.length) {
+        result.stockResults.forEach(r => {
+          if (!r) return;
+          const nameByMatch = {
+            MATERIAL_ID: null,
+            MATERIAL_NAME_UNIT: "matched by name/unit — refCode was different",
+            REFERENCE_CODE: null,
+            NO_MATCH: null,
+          };
+          const matchNote = nameByMatch[r.matchedBy];
+          const mainMsg = r.action === "CREATED_NEW_STOCK"
+            ? `New stock created: ${r.materialName} ${r.receivedQuantity} ${r.newQuantity ? `(qty: ${r.newQuantity})` : ""}`
+            : `Stock updated: ${r.materialName} +${r.receivedQuantity}. New quantity: ${r.newQuantity}`;
+          addToast({ type: r.action === "CREATED_NEW_STOCK" ? "info" : "success", message: mainMsg });
+          if (matchNote) {
+            addToast({ type: "warning", message: `${r.materialName}: ${matchNote}` });
+          }
+        });
+      } else {
+        addToast({ type: "success", message: "Reception validated successfully." });
+      }
     } catch (err) {
       setActionError(err.message || "Failed to validate reception");
     } finally {
@@ -419,6 +381,29 @@ export default function SupplyChainPage() {
     }
   };
 
+  const handleSaveOrderConfig = async (orderId) => {
+    if (!configForm.supplierId) {
+      setActionError("Please select a supplier before confirming.");
+      return;
+    }
+    setConfigSaving(true);
+    setActionError("");
+    try {
+      await updateMaterialOrder(orderId, {
+        supplierId: configForm.supplierId,
+        expectedDeliveryDate: configForm.expectedDeliveryDate || undefined,
+        status: "APPROVED",
+      });
+      setConfiguringOrderId(null);
+      await reload();
+      addToast({ type: "success", title: "Order Confirmed", message: "Supplier assigned and order approved." });
+    } catch (err) {
+      setActionError(err.message || "Failed to update order");
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
   const tabs = [
     { key: "suppliers", label: t("supplyChain.suppliers") },
     { key: "orders", label: t("supplyChain.orders") },
@@ -427,7 +412,7 @@ export default function SupplyChainPage() {
     { key: "returns", label: t("supplyChain.returns") },
   ];
 
-  const pendingOrders = orders.filter(o => !["APPROVED", "DECLINED", "RETURNED"].includes(o.status));
+  const pendingOrders = orders.filter(o => !["COMPLETED", "RETURNED"].includes(o.status));
   const returnedOrders = orders.filter(o => o.status === "RETURNED" || (o.items?.some(i => i.conditionStatus === "returned")));
 
   return (
@@ -558,17 +543,65 @@ export default function SupplyChainPage() {
               </div>
             ) : (
                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {orders.map(order => (
-                  <div key={order.id} className="glass-card p-5 space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{order.orderNumber}</p>
-                        <p className="text-xs text-slate-500 dark:text-[#64748B] mt-0.5">{order.supplierName || "—"}</p>
+                {orders.map(order => {
+                  const isAutoPO = !!order.sourceClientOrderId;
+                  const needsConfig = isAutoPO && order.status === "PENDING";
+                  const isConfiguring = configuringOrderId === order.id;
+                  return (
+                  <div key={order.id} className={`glass-card p-5 space-y-3 ${needsConfig ? "ring-2 ring-amber-400/50 dark:ring-amber-500/30" : ""}`}>
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{order.orderNumber}</p>
+                          {isAutoPO && (
+                            <span className="rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide">Auto-Generated</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-[#64748B] mt-0.5">{order.supplierName || (needsConfig ? "No supplier assigned" : "—")}</p>
                       </div>
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS_COLORS[order.status] || "bg-slate-100 dark:bg-slate-500/10 text-slate-700 dark:text-slate-400"}`}>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS_COLORS[order.status] || "bg-slate-100 dark:bg-slate-500/10 text-slate-700 dark:text-slate-400"}`}>
                         {t(`supplyChain.${order.status.toLowerCase()}`, order.status)}
                       </span>
                     </div>
+
+                    {/* Inline config panel for auto-generated POs needing supplier assignment */}
+                    {needsConfig && isConfiguring && (
+                      <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-3 space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Assign Supplier & Confirm</p>
+                        <select
+                          value={configForm.supplierId}
+                          onChange={e => setConfigForm(prev => ({ ...prev, supplierId: e.target.value }))}
+                          className="premium-select w-full text-sm"
+                        >
+                          <option value="">— Select supplier —</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.companyName || s.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          value={configForm.expectedDeliveryDate}
+                          onChange={e => setConfigForm(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
+                          className="premium-input w-full text-sm"
+                          placeholder="Expected delivery date"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSaveOrderConfig(order.id)}
+                            disabled={configSaving || !configForm.supplierId}
+                            className="flex-1 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                          >
+                            {configSaving ? "Saving…" : "Confirm Order"}
+                          </button>
+                          <button
+                            onClick={() => setConfiguringOrderId(null)}
+                            className="rounded-lg bg-slate-100 dark:bg-[#1E293B] text-slate-600 dark:text-[#94A3B8] text-xs font-semibold px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-[#334155] transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-lg bg-slate-50 dark:bg-[#111827]/40 p-2">
@@ -577,7 +610,7 @@ export default function SupplyChainPage() {
                       </div>
                       <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/5 p-2">
                         <p className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">{t("supplyChain.totalApproved")}</p>
-                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{order.totalApprovedQuantity || 0}</p>
+                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{order.totalAcceptedQuantity || 0}</p>
                       </div>
                       <div className="rounded-lg bg-rose-50 dark:bg-rose-500/5 p-2">
                         <p className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">{t("supplyChain.totalRejected")}</p>
@@ -589,11 +622,31 @@ export default function SupplyChainPage() {
                       <p className="text-xs text-slate-500 dark:text-[#64748B]">{t("supplyChain.expectedDelivery")}: {new Date(order.expectedDeliveryDate).toLocaleDateString()}</p>
                     )}
 
-                    <div className="flex gap-2 pt-2">
+                    {/* Materials list for auto-generated POs */}
+                    {isAutoPO && order.items?.length > 0 && (
+                      <div className="rounded-lg bg-slate-50 dark:bg-[#111827]/40 p-2 space-y-1">
+                        {order.items.map(item => (
+                          <div key={item.id} className="flex justify-between text-xs">
+                            <span className="text-slate-700 dark:text-[#94A3B8] truncate mr-2">{item.materialName}</span>
+                            <span className="shrink-0 font-semibold text-slate-900 dark:text-[#F8FAFC]">{item.orderedQuantity} {item.unit || ""}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2 flex-wrap">
+                      {needsConfig && !isConfiguring && canEdit() && (
+                        <button
+                          onClick={() => { setConfiguringOrderId(order.id); setConfigForm({ supplierId: "", expectedDeliveryDate: "" }); }}
+                          className="flex-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+                        >
+                          Assign Supplier
+                        </button>
+                      )}
                       <button onClick={() => { setSelectedOrder(order); setActiveTab("tracking"); }} className="flex-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300">{t("supplyChain.tracking")}</button>
-                      {order.status === "ARRIVED" || order.status === "IN_TRANSIT" ? (
+                      {(order.status === "SHIPPED" || order.status === "APPROVED") && (
                         <button onClick={() => openReception(order)} className="flex-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">{t("supplyChain.validateReception")}</button>
-                      ) : null}
+                      )}
                       {(order.status === "APPROVED" || order.status === "PARTIALLY_APPROVED") && canEdit() && (
                         <button onClick={() => openReturn(order)} className="flex-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300">{t("supplyChain.processReturn")}</button>
                       )}
@@ -602,7 +655,8 @@ export default function SupplyChainPage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -644,8 +698,13 @@ export default function SupplyChainPage() {
                 </div>
 
                 {/* Map */}
-                <div className="glass-card overflow-hidden">
-                  <div ref={mapContainer} className="w-full h-80" />
+                <div className="glass-card overflow-hidden p-4">
+                  <TrackingMap
+                    order={selectedOrder}
+                    supplier={suppliers.find(s => s.id === selectedOrder.supplierId)}
+                    livePosition={livePosition}
+                    connected={connected}
+                  />
                 </div>
 
                 {/* Status actions */}
@@ -653,7 +712,7 @@ export default function SupplyChainPage() {
                   <div className="glass-card p-5 space-y-3">
                     <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{t("supplyChain.updateLocation")}</p>
                     <div className="flex flex-wrap gap-2">
-                      {["CONFIRMED_BY_SUPPLIER", "IN_TRANSIT", "ARRIVED"].map(status => (
+                      {["PENDING", "APPROVED", "SHIPPED", "PARTIALLY_RECEIVED", "RECEIVED", "DISPUTED", "COMPLETED"].map(status => (
                         <button key={status} onClick={() => handleUpdateTracking(status)} disabled={saving}
                           className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all disabled:opacity-50 ${selectedOrder.status === status ? "bg-brand-600 text-white" : "bg-slate-100 dark:bg-[#111827]/40 text-slate-700 dark:text-[#94A3B8] hover:bg-slate-200 dark:hover:bg-[#1E293B]"}`}>
                           {t(`supplyChain.${status.toLowerCase()}`, status)}
@@ -719,7 +778,7 @@ export default function SupplyChainPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-[#64748B]">{order.items?.length || 0} {t("supplyChain.items")}</p>
-                    {order.status === "ARRIVED" || order.status === "IN_TRANSIT" || order.status === "ORDERED" || order.status === "CONFIRMED_BY_SUPPLIER" ? (
+                    {order.status === "SHIPPED" || order.status === "PARTIALLY_RECEIVED" || order.status === "PENDING" || order.status === "APPROVED" ? (
                       <button onClick={() => openReception(order)} className="w-full btn-primary text-sm">{t("supplyChain.validateReception")}</button>
                     ) : null}
                   </div>
@@ -798,78 +857,110 @@ export default function SupplyChainPage() {
       </div>
 
       {/* SUPPLIER MODAL */}
-      {modal === "supplier" && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-[rgba(255,255,255,0.06)] shrink-0">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-[#F8FAFC]">{editingSupplier ? t("supplyChain.editSupplier") : t("supplyChain.createSupplier")}</h2>
-            </div>
-            <div className="overflow-y-auto flex-1 px-7 py-5 space-y-4">
-              <FieldGroup label={t("supplyChain.companyName")}>
-                <input className={INPUT} value={supplierForm.companyName} onChange={e => setSupplierForm(p => ({ ...p, companyName: e.target.value }))} />
-              </FieldGroup>
-              <FieldGroup label={t("supplyChain.supplierName")}>
-                <input className={INPUT} value={supplierForm.name} onChange={e => setSupplierForm(p => ({ ...p, name: e.target.value }))} />
-              </FieldGroup>
-              <div className="grid grid-cols-2 gap-3">
-                <FieldGroup label={t("supplyChain.email")}>
-                  <input className={INPUT} type="email" value={supplierForm.email} onChange={e => setSupplierForm(p => ({ ...p, email: e.target.value }))} />
-                </FieldGroup>
-                <FieldGroup label={t("supplyChain.phone")}>
-                  <input className={INPUT} value={supplierForm.phone} onChange={e => setSupplierForm(p => ({ ...p, phone: e.target.value }))} />
-                </FieldGroup>
-              </div>
-              <FieldGroup label={t("supplyChain.address")}>
-                <input className={INPUT} value={supplierForm.address} onChange={e => setSupplierForm(p => ({ ...p, address: e.target.value }))} />
-              </FieldGroup>
-              <div className="grid grid-cols-2 gap-3">
-                <FieldGroup label={t("supplyChain.city")}>
-                  <input className={INPUT} value={supplierForm.city} onChange={e => setSupplierForm(p => ({ ...p, city: e.target.value }))} />
-                </FieldGroup>
-                <FieldGroup label={t("supplyChain.country")}>
-                  <input className={INPUT} value={supplierForm.country} onChange={e => setSupplierForm(p => ({ ...p, country: e.target.value }))} />
-                </FieldGroup>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <FieldGroup label={t("supplyChain.latitude")}>
-                  <input className={INPUT} type="number" step="any" value={supplierForm.latitude} onChange={e => setSupplierForm(p => ({ ...p, latitude: e.target.value }))} />
-                </FieldGroup>
-                <FieldGroup label={t("supplyChain.longitude")}>
-                  <input className={INPUT} type="number" step="any" value={supplierForm.longitude} onChange={e => setSupplierForm(p => ({ ...p, longitude: e.target.value }))} />
-                </FieldGroup>
-              </div>
-              <div>
-                <button type="button" onClick={() => setShowMapPicker(true)} className="flex items-center gap-2 text-xs font-semibold text-brand-600 hover:text-brand-700">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+      {modal === "supplier" && ReactDOM.createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => { setModal(null); setActionError(""); }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{editingSupplier ? t("supplyChain.editSupplier") : t("supplyChain.createSupplier")}</h2>
+                <button
+                  type="button"
+                  onClick={() => { setModal(null); setActionError(""); }}
+                  className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  {t("supplyChain.location", "Pick on Map")}
                 </button>
               </div>
-              <FieldGroup label={t("common.organization")}>
-                <select className={SELECT} value={supplierForm.organizationId} onChange={e => setSupplierForm(p => ({ ...p, organizationId: e.target.value }))}>
-                  <option value="">— Select —</option>
-                  {orgs.map(org => <option key={org.id} value={org.id}>{org.name || org.id}</option>)}
-                </select>
-              </FieldGroup>
-            </div>
-            {actionError && <p className="px-7 text-sm text-rose-600 dark:text-rose-400">{actionError}</p>}
-            <div className="px-7 py-5 border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] flex justify-end gap-3 shrink-0">
-              <button onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("common.cancel")}</button>
-              <button onClick={handleSaveSupplier} disabled={saving} className="btn-primary py-2 px-5 text-sm">{saving ? t("common.saving") : t("common.save")}</button>
+              <div className="space-y-4">
+                <FieldGroup label={t("supplyChain.companyName")}>
+                  <input className={INPUT} value={supplierForm.companyName} onChange={e => setSupplierForm(p => ({ ...p, companyName: e.target.value }))} />
+                </FieldGroup>
+                <FieldGroup label={t("supplyChain.supplierName")}>
+                  <input className={INPUT} value={supplierForm.name} onChange={e => setSupplierForm(p => ({ ...p, name: e.target.value }))} />
+                </FieldGroup>
+                <div className="grid grid-cols-2 gap-3">
+                  <FieldGroup label={t("supplyChain.email")}>
+                    <input className={INPUT} type="email" value={supplierForm.email} onChange={e => setSupplierForm(p => ({ ...p, email: e.target.value }))} />
+                  </FieldGroup>
+                  <FieldGroup label={t("supplyChain.phone")}>
+                    <input className={INPUT} value={supplierForm.phone} onChange={e => setSupplierForm(p => ({ ...p, phone: e.target.value }))} />
+                  </FieldGroup>
+                </div>
+                <FieldGroup label={t("supplyChain.address")}>
+                  <PlacesAutocomplete
+                    value={supplierForm.address}
+                    onChange={(val) => setSupplierForm(p => ({ ...p, address: val }))}
+                    onPlaceSelected={({ address, lat, lng, city, country }) =>
+                      setSupplierForm(p => ({
+                        ...p,
+                        address,
+                        latitude: lat.toFixed(6),
+                        longitude: lng.toFixed(6),
+                        city: city || p.city,
+                        country: country || p.country,
+                      }))
+                    }
+                    placeholder="Search address (auto-fills lat/lng)..."
+                  />
+                </FieldGroup>
+                <div className="grid grid-cols-2 gap-3">
+                  <FieldGroup label={t("supplyChain.city")}>
+                    <input className={INPUT} value={supplierForm.city} onChange={e => setSupplierForm(p => ({ ...p, city: e.target.value }))} />
+                  </FieldGroup>
+                  <FieldGroup label={t("supplyChain.country")}>
+                    <input className={INPUT} value={supplierForm.country} onChange={e => setSupplierForm(p => ({ ...p, country: e.target.value }))} />
+                  </FieldGroup>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FieldGroup label={t("supplyChain.latitude")}>
+                    <input className={INPUT} type="number" step="any" value={supplierForm.latitude} onChange={e => setSupplierForm(p => ({ ...p, latitude: e.target.value }))} />
+                  </FieldGroup>
+                  <FieldGroup label={t("supplyChain.longitude")}>
+                    <input className={INPUT} type="number" step="any" value={supplierForm.longitude} onChange={e => setSupplierForm(p => ({ ...p, longitude: e.target.value }))} />
+                  </FieldGroup>
+                </div>
+                <div>
+                  <button type="button" onClick={() => setShowMapPicker(true)} className="flex items-center gap-2 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    {t("supplyChain.location", "Pick on Map")}
+                  </button>
+                </div>
+                <FieldGroup label={t("common.organization")}>
+                  <select className={SELECT} value={supplierForm.organizationId} onChange={e => setSupplierForm(p => ({ ...p, organizationId: e.target.value }))}>
+                    <option value="">— Select —</option>
+                    {orgs.map(org => <option key={org.id} value={org.id}>{org.name || org.id}</option>)}
+                  </select>
+                </FieldGroup>
+              </div>
+              {actionError && <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">{actionError}</p>}
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setModal(null)} className="btn-secondary py-2 px-5 text-sm">{t("common.cancel")}</button>
+                <button onClick={handleSaveSupplier} disabled={saving} className="btn-primary py-2 px-5 text-sm">{saving ? t("common.saving") : t("common.save")}</button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MAP PICKER MODAL (portal) */}
       {showMapPicker && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setShowMapPicker(false)}>
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] overflow-hidden flex flex-col max-h-[90vh] z-[9999]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full max-w-3xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] overflow-hidden flex flex-col" style={{ height: "80vh" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-[rgba(255,255,255,0.06)] shrink-0 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-[#F8FAFC]">{t("supplyChain.location", "Pick Location")}</h2>
-                <p className="text-xs text-slate-500 dark:text-[#64748B] mt-1">{t("supplyChain.subtitle", "Click on the map or drag the marker to set the supplier's location.")}</p>
+                <p className="text-xs text-slate-500 dark:text-[#64748B] mt-1">Click on the map or drag the marker to set the supplier's location.</p>
               </div>
               <button onClick={() => setShowMapPicker(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-[#94A3B8]">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -877,14 +968,16 @@ export default function SupplyChainPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 min-h-0">
-              <div ref={pickerMapContainer} className="w-full h-96" />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <MapPicker
+                lat={supplierForm.latitude ? parseFloat(supplierForm.latitude) : 48.85}
+                lng={supplierForm.longitude ? parseFloat(supplierForm.longitude) : 2.35}
+                onLocationChange={({ lat, lng }) =>
+                  setSupplierForm(p => ({ ...p, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }))
+                }
+              />
             </div>
-            <div className="px-7 py-4 border-t border-slate-100 shrink-0 flex justify-between items-center">
-              <div className="flex gap-3 text-xs text-slate-500 dark:text-[#64748B]">
-                <span>Lat: <strong className="text-slate-900 dark:text-[#F8FAFC]">{supplierForm.latitude || "—"}</strong></span>
-                <span>Lng: <strong className="text-slate-900 dark:text-[#F8FAFC]">{supplierForm.longitude || "—"}</strong></span>
-              </div>
+            <div className="px-7 py-4 border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] shrink-0 flex justify-end">
               <button onClick={() => setShowMapPicker(false)} className="btn-primary py-2 px-5 text-sm">{t("common.done", "Done")}</button>
             </div>
           </div>
@@ -988,17 +1081,59 @@ export default function SupplyChainPage() {
 
               {receptionForm.itemDecisions.map((item, idx) => {
                 const origItem = orders.find(o => o.id === receptionOrderId)?.items?.[idx];
+                const ordered = origItem?.orderedQuantity || 0;
+                const remaining = origItem?.remainingQuantity != null ? origItem.remainingQuantity : ordered;
+                const received = item.receivedQuantity || 0;
+                const approved = item.approvedQuantity || 0;
+                const rejected = item.rejectedQuantity || 0;
+                const diff = received - ordered;
                 return (
                   <div key={idx} className="rounded-xl border border-slate-200 dark:border-[rgba(255,255,255,0.06)] bg-slate-50 dark:bg-[#111827]/40 p-4 space-y-3">
-                    <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{origItem?.materialName || `Item ${idx + 1}`}</p>
-                    <p className="text-xs text-slate-500 dark:text-[#64748B]">{t("supplyChain.orderedQuantity")}: {origItem?.orderedQuantity || 0} {origItem?.unit || ""}</p>
+                    <div className="flex items-start justify-between">
+                      <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{origItem?.materialName || `Item ${idx + 1}`}</p>
+                      {diff !== 0 && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400"}`}>
+                          {diff > 0 ? `+${diff} extra` : `${diff} missing`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-slate-100 dark:bg-[#1E293B] p-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">{t("supplyChain.orderedQuantity")}</p>
+                        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-200">{ordered}</p>
+                      </div>
+                      <div className="rounded-lg bg-blue-50 dark:bg-blue-950/40 p-2">
+                        <p className="text-[10px] font-bold uppercase text-blue-500">{t("supplyChain.receivedQuantity")} *</p>
+                        <input className="w-full text-center text-sm font-extrabold bg-transparent border-none outline-none text-blue-700 dark:text-blue-300" type="number" min="0"
+                          value={received} onChange={e => updateItemDecision(idx, "receivedQuantity", parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div className="rounded-lg bg-slate-100 dark:bg-[#1E293B] p-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">{t("supplyChain.remaining")}</p>
+                        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-200">{remaining}</p>
+                      </div>
+                    </div>
+                    {diff !== 0 && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-lg px-3 py-2">
+                        {diff > 0
+                          ? `You received ${diff} more than ordered. Accept only ${ordered} and return ${diff}, or accept all ${received}.`
+                          : `You received ${Math.abs(diff)} less than ordered. Accept what you got (${received}), or create a dispute.`}
+                      </p>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
-                      <FieldGroup label={t("supplyChain.approvedQuantity")}>
-                        <input className={INPUT} type="number" value={item.approvedQuantity} onChange={e => updateItemDecision(idx, "approvedQuantity", parseInt(e.target.value) || 0)} />
+                      <FieldGroup label={t("supplyChain.accept")}>
+                        <input className={INPUT} type="number" min="0" value={approved} onChange={e => updateItemDecision(idx, "approvedQuantity", parseInt(e.target.value) || 0)} />
                       </FieldGroup>
-                      <FieldGroup label={t("supplyChain.rejectedQuantity")}>
-                        <input className={INPUT} type="number" value={item.rejectedQuantity} onChange={e => updateItemDecision(idx, "rejectedQuantity", parseInt(e.target.value) || 0)} />
+                      <FieldGroup label={t("supplyChain.reject")}>
+                        <input className={INPUT} type="number" min="0" value={rejected} onChange={e => updateItemDecision(idx, "rejectedQuantity", parseInt(e.target.value) || 0)} />
                       </FieldGroup>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-slate-400 dark:text-[#64748B]">
+                        Accepted + Rejected = <span className={approved + rejected !== received && received > 0 ? "text-rose-500 font-bold" : "text-slate-600 dark:text-slate-300"}>{approved + rejected}</span> / Received: {received}
+                      </p>
+                      {approved + rejected !== received && received > 0 && (
+                        <span className="text-[10px] text-amber-500 font-bold">⚠ Mismatch</span>
+                      )}
                     </div>
                     <FieldGroup label={t("supplyChain.conditionStatus")}>
                       <select className={SELECT} value={item.conditionStatus} onChange={e => updateItemDecision(idx, "conditionStatus", e.target.value)}>
@@ -1083,8 +1218,8 @@ export default function SupplyChainPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 min-h-0">
-              <div ref={locationMapContainer} className="w-full h-[32rem]" />
+            <div className="flex-1 min-h-0 h-[32rem]">
+              <SupplierMap supplier={viewSupplierLocation} />
             </div>
           </div>
         </div>,
@@ -1092,23 +1227,41 @@ export default function SupplyChainPage() {
       )}
 
       {/* DELETE CONFIRMATION */}
-      {pendingDelete && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setPendingDelete(null)}>
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-7 pt-7 pb-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-[#F8FAFC]">{t("common.confirmDelete")}</h2>
-              <p className="text-sm text-slate-500 dark:text-[#64748B] mt-2">
+      {pendingDelete && ReactDOM.createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div
+            className="relative w-full max-w-md max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
+              <div className="flex items-start justify-between mb-5">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{t("common.confirmDelete")}</h2>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(null)}
+                  className="ml-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-colors shrink-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 {pendingDelete.type === "order"
                   ? `Delete order "${pendingDelete.orderNumber}"?`
                   : `Delete supplier "${pendingDelete.companyName || pendingDelete.name}"?`}
               </p>
-            </div>
-            <div className="px-7 py-5 border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] flex justify-end gap-3">
-              <button onClick={() => setPendingDelete(null)} className="btn-secondary py-2 px-5 text-sm">{t("common.cancel")}</button>
-              <button onClick={() => pendingDelete.type === "order" ? handleDeleteOrder(pendingDelete.id) : handleDeleteSupplier(pendingDelete.id)} className="btn-primary py-2 px-5 text-sm bg-rose-600 hover:bg-rose-700">{t("common.delete")}</button>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setPendingDelete(null)} className="btn-secondary py-2 px-5 text-sm">{t("common.cancel")}</button>
+                <button onClick={() => pendingDelete.type === "order" ? handleDeleteOrder(pendingDelete.id) : handleDeleteSupplier(pendingDelete.id)} className="btn-primary py-2 px-5 text-sm bg-rose-600 hover:bg-rose-700">{t("common.delete")}</button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* AUDIT MODAL */}

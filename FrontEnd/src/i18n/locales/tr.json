@@ -13,7 +13,8 @@
     "settings": "Ayarlar",
     "logout": "Çıkış Yap",
     "loggingOut": "Çıkış yapılıyor...",
-    "technicalSheets": "Teknik Formlar"
+    "technicalSheets": "Teknik Formlar",
+    "security": "Güvenlik"
   },
   "common": {
     "save": "Kaydet",

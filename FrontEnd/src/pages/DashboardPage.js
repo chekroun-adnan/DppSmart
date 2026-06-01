@@ -162,7 +162,7 @@ function KpiCard({ label, value, sub, tone = "brand", icon: Icon, sparkline, isP
         {sub && <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">{sub}</p>}
         {sparkline && (
           <div className="flex items-center gap-2 mt-2">
-            <div className="flex-1 h-8">
+            <div className="flex-1 h-12 min-h-[48px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sparkline}>
                   <Line type="monotone" dataKey="v" stroke={lineColor[tone]} strokeWidth={1.5} dot={false} />
@@ -445,7 +445,7 @@ function EmployeeDashboard({ tasks, t }) {
           <SectionHeader title={t("dashboard.statusBreakdown", "Status Breakdown")} />
           {taskDonutData.length > 0 ? (
             <>
-              <div className="flex justify-center my-2">
+              <div className="flex justify-center my-2" style={{ minHeight: 160 }}>
                 <ResponsiveContainer width={160} height={160}>
                   <PieChart>
                     <Pie data={taskDonutData} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={2} dataKey="value" strokeWidth={0}>
@@ -500,30 +500,66 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
   const filteredTasks  = selectedOrgId ? tasks.filter((t) => t.organizationId === selectedOrgId)  : tasks;
   const filteredEmps   = selectedOrgId ? employees.filter((e) => e.organizationId === selectedOrgId) : employees;
 
-  // Production
-  const prodByStatus = [
-    { label: t("dashboard.planned", "Planned"),     value: filteredProds.filter((p) => p.status === "PLANNED").length,     color: "bg-slate-400", badge: "status-slate",   fill: PROD_COLORS.PLANNED },
-    { label: t("dashboard.inProgress","In Progress"),value: filteredProds.filter((p) => p.status === "IN_PROGRESS").length, color: "bg-blue-500",  badge: "status-blue",    fill: PROD_COLORS.IN_PROGRESS },
-    { label: t("dashboard.completed", "Completed"), value: filteredProds.filter((p) => p.status === "COMPLETED").length,   color: "bg-emerald-500",badge:"status-emerald",  fill: PROD_COLORS.COMPLETED },
-    { label: t("dashboard.cancelled", "Cancelled"), value: filteredProds.filter((p) => p.status === "CANCELLED").length,   color: "bg-red-400",   badge: "status-red",     fill: PROD_COLORS.CANCELLED },
-  ];
+  // Production — use real API data from dashboard.kpis.productionsByStatus if available
+  const apiProdsByStatus = dashboard?.kpis?.productionsByStatus || {};
+  const PROD_STATUS_META = {
+    PLANNED:     { color: "bg-slate-400", badge: "status-slate",   fill: PROD_COLORS.PLANNED,     label: t("dashboard.planned","Planned") },
+    IN_PROGRESS: { color: "bg-blue-500",  badge: "status-blue",    fill: PROD_COLORS.IN_PROGRESS,  label: t("dashboard.inProgress","In Progress") },
+    COMPLETED:   { color: "bg-emerald-500",badge:"status-emerald", fill: PROD_COLORS.COMPLETED,    label: t("dashboard.completed","Completed") },
+    CANCELLED:   { color: "bg-red-400",   badge: "status-red",     fill: PROD_COLORS.CANCELLED,    label: t("dashboard.cancelled","Cancelled") },
+  };
+  const prodByStatus = Object.keys(apiProdsByStatus).length > 0
+    ? Object.entries(apiProdsByStatus).map(([status, count]) => ({
+        label: (PROD_STATUS_META[status] || {}).label || status,
+        value: count,
+        color: (PROD_STATUS_META[status] || {}).color || "bg-slate-400",
+        badge: (PROD_STATUS_META[status] || {}).badge || "status-slate",
+        fill:  (PROD_STATUS_META[status] || {}).fill  || PROD_COLORS.PLANNED,
+      }))
+    : [
+        { label: t("dashboard.planned","Planned"),     value: filteredProds.filter((p) => p.status === "PLANNED").length,     color: "bg-slate-400", badge: "status-slate",   fill: PROD_COLORS.PLANNED },
+        { label: t("dashboard.inProgress","In Progress"),value: filteredProds.filter((p) => p.status === "IN_PROGRESS").length, color: "bg-blue-500",  badge: "status-blue",    fill: PROD_COLORS.IN_PROGRESS },
+        { label: t("dashboard.completed","Completed"), value: filteredProds.filter((p) => p.status === "COMPLETED").length,   color: "bg-emerald-500",badge:"status-emerald",  fill: PROD_COLORS.COMPLETED },
+        { label: t("dashboard.cancelled","Cancelled"), value: filteredProds.filter((p) => p.status === "CANCELLED").length,   color: "bg-red-400",   badge: "status-red",     fill: PROD_COLORS.CANCELLED },
+      ];
   const maxProd = Math.max(...prodByStatus.map((p) => p.value), 1);
   const prodCompletion = filteredProds.length
     ? Math.round((filteredProds.filter((p) => p.status === "COMPLETED").length / filteredProds.length) * 100)
     : 0;
 
-  // Orders
-  const orderByStatus = [
-    { label: t("dashboard.pending","Pending"),       value: filteredOrders.filter((o) => o.status === "PENDING").length },
-    { label: t("dashboard.confirmed","Confirmed"),    value: filteredOrders.filter((o) => o.status === "CONFIRMED").length },
-    { label: t("dashboard.processing","Processing"),  value: filteredOrders.filter((o) => o.status === "PROCESSING").length },
-    { label: t("dashboard.shipped","Shipped"),        value: filteredOrders.filter((o) => o.status === "SHIPPED").length },
-    { label: t("dashboard.completed","Completed"),    value: filteredOrders.filter((o) => o.status === "COMPLETED").length },
-    { label: t("dashboard.cancelled","Cancelled"),    value: filteredOrders.filter((o) => o.status === "CANCELLED").length },
-  ];
+  // Orders — use real API statuses from dashboard.kpis.ordersByStatus if available
+  const ORDER_STATUS_COLORS = {
+    PENDING_REVIEW:                 { color: "bg-amber-400",  label: "Pending Review" },
+    READY_FOR_CONFIRMATION:         { color: "bg-sky-400",    label: "Ready for Conf." },
+    IN_PRODUCTION:                  { color: "bg-blue-500",   label: "In Production" },
+    DELIVERED:                      { color: "bg-slate-400",  label: "Delivered" },
+    BLOCKED_INSUFFICIENT_STOCK:     { color: "bg-red-500",    label: "Blocked (Stock)" },
+    BLOCKED_INSUFFICIENT_MATERIALS: { color: "bg-red-500",    label: "Blocked (Mat.)" },
+    BLOCKED_NO_BOM:                 { color: "bg-red-400",    label: "Blocked (BOM)" },
+    CONFIRMED:                      { color: "bg-emerald-500",label: "Confirmed" },
+    DATE_CHANGE_REQUESTED:          { color: "bg-sky-500",    label: "Date Change" },
+    READY:                          { color: "bg-emerald-400",label: "Ready" },
+    CANCELLED:                      { color: "bg-slate-400",  label: "Cancelled" },
+    REJECTED:                       { color: "bg-rose-400",   label: "Rejected" },
+  };
+  const apiOrdersByStatus = dashboard?.kpis?.ordersByStatus || {};
+  const orderByStatus = Object.keys(apiOrdersByStatus).length > 0
+    ? Object.entries(apiOrdersByStatus).map(([status, count]) => ({
+        label: (ORDER_STATUS_COLORS[status] || {}).label || status,
+        value: count,
+        color: (ORDER_STATUS_COLORS[status] || {}).color || "bg-slate-400",
+      }))
+    : [
+        { label: "Pending Review",  value: filteredOrders.filter((o) => ["PENDING_REVIEW","READY_FOR_CONFIRMATION"].includes(o.status)).length, color: "bg-amber-400" },
+        { label: "Confirmed",       value: filteredOrders.filter((o) => o.status === "CONFIRMED").length, color: "bg-emerald-500" },
+        { label: "In Production",   value: filteredOrders.filter((o) => o.status === "IN_PRODUCTION").length, color: "bg-blue-500" },
+        { label: "Ready",           value: filteredOrders.filter((o) => o.status === "READY").length, color: "bg-emerald-400" },
+        { label: "Delivered",       value: filteredOrders.filter((o) => o.status === "DELIVERED").length, color: "bg-slate-400" },
+        { label: "Cancelled",       value: filteredOrders.filter((o) => o.status === "CANCELLED").length, color: "bg-red-400" },
+      ];
   const maxOrder = Math.max(...orderByStatus.map((o) => o.value), 1);
   const orderFulfillment = filteredOrders.length
-    ? Math.round((filteredOrders.filter((o) => ["COMPLETED","SHIPPED"].includes(o.status)).length / filteredOrders.length) * 100)
+    ? Math.round((filteredOrders.filter((o) => ["DELIVERED","READY"].includes(o.status)).length / filteredOrders.length) * 100)
     : 0;
 
   // Tasks
@@ -652,6 +688,27 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         />
       </section>
 
+      {/* ── Low Stock Alert ────────────────────────────────────────────── */}
+      {(dashboard?.kpis?.lowStockItems ?? 0) > 0 && (
+        <section className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" strokeWidth={2} />
+            <div>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                {dashboard.kpis.lowStockItems} item{dashboard.kpis.lowStockItems !== 1 ? "s" : ""} below minimum stock threshold
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Replenish materials to avoid production delays.</p>
+            </div>
+          </div>
+          <Link
+            to="/stock"
+            className="shrink-0 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-4 py-2 rounded-xl hover:bg-amber-200 dark:hover:bg-amber-500/30 transition-colors"
+          >
+            View Stock →
+          </Link>
+        </section>
+      )}
+
       {/* ── Production Throughput Banner ────────────────────────────────── */}
       {filteredProds.length > 0 && (
         <section className="glass-card p-6">
@@ -667,7 +724,8 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
               <Link to="/production" className="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-wide">{t("common.viewAll","View all →")}</Link>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={160}>
+          <div style={{ height: 160 }}>
+            <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={productionFlowData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
               <defs>
                 <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
@@ -680,8 +738,9 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
               <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...TOOLTIP_STYLE} />
               <Area type="monotone" dataKey="count" stroke={CHART_COLORS.brand} strokeWidth={2} fill="url(#prodGrad)" dot={{ r: 4, fill: CHART_COLORS.brand, strokeWidth: 0 }} activeDot={{ r: 6, fill: CHART_COLORS.brand }} />
-            </AreaChart>
-          </ResponsiveContainer>
+</AreaChart>
+            </ResponsiveContainer>
+            </div>
         </section>
       )}
 
@@ -703,7 +762,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
             ))}
           </div>
           {prodDonutData.length > 0 && (
-            <div className="flex justify-center pt-3 border-t border-slate-100 dark:border-white/[0.05]">
+            <div className="flex justify-center pt-3 border-t border-slate-100 dark:border-white/[0.05]" style={{ minHeight: 120 }}>
               <ResponsiveContainer width={120} height={120}>
                 <PieChart>
                   <Pie data={prodDonutData} cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} dataKey="value" strokeWidth={0}>
@@ -731,16 +790,17 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
             icon={ClipboardList}
             badge={`${orderFulfillment}% fulfilled`}
             badgeTone={orderFulfillment >= 60 ? "emerald" : "amber"}
-            action={<Link to="/orders" className="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-wide">{t("common.viewAll","View all →")}</Link>}
+            action={<Link to="/client-orders" className="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-wide">{t("common.viewAll","View all →")}</Link>}
           />
           <div className="space-y-3">
-            {orderByStatus.slice(0, 4).map((row, i) => (
-              <BarRow key={row.label} label={row.label} value={row.value} max={maxOrder} color={`bg-[${ORDER_COLORS[i]}]`} />
+            {orderByStatus.slice(0, 6).map((row) => (
+              <BarRow key={row.label} label={row.label} value={row.value} max={maxOrder} color={row.color || "bg-brand-500"} />
             ))}
           </div>
           {orderBarData.some((d) => d.value > 0) && (
             <div className="pt-3 border-t border-slate-100 dark:border-white/[0.05]">
-              <ResponsiveContainer width="100%" height={90}>
+              <div style={{ height: 90 }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={orderBarData} layout="vertical" margin={{ left: 0, right: 4, top: 0, bottom: 0 }}>
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 9, fill: "#94A3B8" }} width={28} axisLine={false} tickLine={false} />
@@ -750,6 +810,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
             </div>
           )}
           {filteredOrders.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">No order data.</p>}
@@ -766,7 +827,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           />
           {/* DPP radial gauge */}
           <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
+            <div className="relative shrink-0" style={{ minHeight: 100 }}>
               <ResponsiveContainer width={100} height={100}>
                 <RadialBarChart cx="50%" cy="50%" innerRadius={32} outerRadius={48} data={radialData} startAngle={220} endAngle={-40}>
                   <RadialBar dataKey="value" cornerRadius={6} background={{ fill: "rgba(148,163,184,0.1)" }} />

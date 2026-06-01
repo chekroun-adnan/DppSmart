@@ -44,7 +44,7 @@ public class AuditService {
             log.setDescription(description);
             auditLogRepository.save(log);
         } catch (Exception e) {
-            // Never let audit logging break the main operation
+
         }
     }
 

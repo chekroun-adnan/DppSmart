@@ -1,10 +1,12 @@
 package com.dppsmart.dppsmart.Security;
 
+import com.dppsmart.dppsmart.Security.Session.SessionService;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.Token;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.TokenRepository;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import com.dppsmart.dppsmart.Email.Services.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
     private final JwtService jwtService;
+    private final EmailService emailService;
+    private final SessionService sessionService;
+
+    private static final long ACCESS_TOKEN_MINUTES = 15;
 
     @Value("${app.frontend.base-url:http://localhost:3000}")
     private String frontendBaseUrl;
@@ -41,7 +47,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String googleId  = oAuth2User.getAttribute("sub");
         String avatarUrl = oAuth2User.getAttribute("picture");
 
+        boolean[] isNewUser = {false};
         User user = userRepository.findByEmail(email).orElseGet(() -> {
+            isNewUser[0] = true;
             User newUser = new User();
             newUser.setEmail(email);
             newUser.setName(name);
@@ -51,6 +59,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             newUser.setCreatedAt(LocalDateTime.now());
             return userRepository.save(newUser);
         });
+
+        if (isNewUser[0]) {
+            emailService.sendWelcomeEmail(email, name != null ? name : email, true);
+        }
 
         if (user.getGoogleId() == null || !user.getGoogleId().equals(googleId)) {
             user.setGoogleId(googleId);
@@ -70,7 +82,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         token.setToken(accessToken);
         token.setRevoked(false);
         token.setExpired(false);
-        tokenRepository.save(token);
+        Token savedToken = tokenRepository.save(token);
+
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(ACCESS_TOKEN_MINUTES);
+        sessionService.createSession(user.getId(), savedToken.getId(), accessToken, request, expiresAt);
 
         String redirectUrl = frontendBaseUrl + "/oauth2/callback"
                 + "?token="        + accessToken

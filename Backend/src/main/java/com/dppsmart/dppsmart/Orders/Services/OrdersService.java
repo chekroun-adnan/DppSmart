@@ -30,6 +30,8 @@ import com.dppsmart.dppsmart.Production.Entities.ProductionStatus;
 import com.dppsmart.dppsmart.Production.Repositories.ProductionRepository;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
+import com.dppsmart.dppsmart.SecurityAlert.Services.RuleDetectionService;
+import com.dppsmart.dppsmart.SecurityAlert.Services.SecurityAnalysisService;
 import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
 import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomCalculationResultDto;
@@ -43,6 +45,7 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
@@ -55,6 +58,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrdersService {
 
     private final OrdersRepository ordersRepository;
@@ -76,8 +80,10 @@ public class OrdersService {
     private final MaterialSheetItemRepository materialSheetItemRepository;
     private final MaterialOrderRepository materialOrderRepository;
     private final SupplierRepository supplierRepository;
+    private final SecurityAnalysisService securityAnalysisService;
+    private final RuleDetectionService ruleDetectionService;
 
-    
+
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
@@ -190,19 +196,11 @@ public class OrdersService {
 
         Orders saved = ordersRepository.save(order);
 
-        if (saved.getStatus() == ClientOrderStatus.PENDING_REVIEW) {
-            for (OrderItem item : saved.getItems()) {
-                if (item.getStatus() == OrderItemStatus.AVAILABLE || item.getStatus() == OrderItemStatus.PARTIAL) {
-                    int toReserve = Math.min(item.getQuantity(), item.getAvailableStock());
-                    if (toReserve > 0) productStockService.reserveProduct(item.getProductId(), toReserve);
-                }
-                if (item.getRequiredMaterials() != null) {
-                    for (BomMaterialLineDto mat : item.getRequiredMaterials()) {
-                        int toReserve = (int) Math.ceil(mat.getRequiredQuantity());
-                        if (toReserve > 0) materialStockService.reserveMaterial(mat.getMaterialId(), toReserve);
-                    }
-                }
-            }
+        var orderAlert = ruleDetectionService.detectOrderAnomaly(
+                saved.getId(), totalQty, false, "Order",
+                resolvedOrgId, user.getEmail());
+        if (orderAlert != null) {
+            securityAnalysisService.analyzeAndAlert(orderAlert);
         }
 
         auditService.log("Order", saved.getId(), "CREATE", saved.getOrganizationId(), null,
@@ -271,15 +269,25 @@ public class OrdersService {
                 productStockRepository.findByProductId(plan.item().getProductId()).stream().findFirst()
                         .ifPresent(ps -> {
                             int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
-                            int newQty = Math.max(0, before - plan.item().getQuantity());
+                            int toDeduct = plan.item().getQuantity();
+
+                            if (toDeduct <= 0) return;
+                            if (toDeduct > before) {
+                                log.warn("DEDUCT FAILED (OrdersService) — insufficient {}: need {}, have {}",
+                                        plan.item().getProductName(), toDeduct, before);
+                                throw new BadRequestException("Insufficient stock for " + plan.item().getProductName());
+                            }
+
+                            int newQty = before - toDeduct;
                             ps.setQuantity(newQty);
                             ps.setLastUpdatedBy(user.getEmail());
                             ps.setUpdatedAt(LocalDateTime.now());
                             productStockRepository.save(ps);
+
                             stockMovementService.recordProductMovement(
                                     MovementType.PRODUCT_DECREASED, plan.item().getProductId(),
                                     plan.item().getProductName(), plan.item().getUnit(),
-                                    plan.item().getQuantity(), before, newQty,
+                                    toDeduct, before, newQty,
                                     order.getId(), null, order.getOrganizationId(), user.getEmail());
                         });
             }
@@ -368,11 +376,20 @@ public class OrdersService {
                     productStockRepository.findByProductId(plan.item().getProductId()).stream().findFirst()
                             .ifPresent(ps -> {
                                 int before = ps.getQuantity() != null ? ps.getQuantity() : 0;
-                                int newQty = Math.max(0, before - fromStockFinal);
+
+                                if (fromStockFinal <= 0) return;
+                                if (fromStockFinal > before) {
+                                    log.warn("DEDUCT FAILED (OrdersService/allMats) — insufficient {}: need {}, have {}",
+                                            plan.item().getProductName(), fromStockFinal, before);
+                                    throw new BadRequestException("Insufficient stock for " + plan.item().getProductName());
+                                }
+
+                                int newQty = before - fromStockFinal;
                                 ps.setQuantity(newQty);
                                 ps.setLastUpdatedBy(user.getEmail());
                                 ps.setUpdatedAt(LocalDateTime.now());
                                 productStockRepository.save(ps);
+
                                 stockMovementService.recordProductMovement(
                                         MovementType.PRODUCT_DECREASED, plan.item().getProductId(),
                                         plan.item().getProductName(), plan.item().getUnit(), fromStockFinal,
@@ -383,6 +400,7 @@ public class OrdersService {
 
                 if (plan.toProduce() > 0) {
                     final int toProduceFinal = plan.toProduce();
+
                     technicalSheetRepository.findByProductIdAndStatus(
                             plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
                             .ifPresent(sheet -> {
@@ -394,14 +412,18 @@ public class OrdersService {
                                     if (needed <= 0) continue;
                                     materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
                                         int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
-                                        int newQty = Math.max(0, before - (int) Math.ceil(needed));
-                                        ms.setQuantity(newQty);
+                                        int toConsume = (int) Math.ceil(needed);
+                                        if (toConsume <= 0 || toConsume > before) {
+                                            log.warn("CONSUME SKIPPED — {} need={}, available={}", ms.getName(), toConsume, before);
+                                            return;
+                                        }
+                                        ms.setQuantity(before - toConsume);
                                         ms.setLastUpdatedBy(user.getEmail());
                                         ms.setUpdatedAt(LocalDateTime.now());
                                         materialStockRepository.save(ms);
                                         stockMovementService.recordMaterialMovement(
                                                 MovementType.MATERIAL_DECREASED, ms.getId(), ms.getName(),
-                                                ms.getUnit(), needed, before, newQty,
+                                                ms.getUnit(), toConsume, before, ms.getQuantity(),
                                                 order.getId(), null, order.getOrganizationId(), user.getEmail());
                                     });
                                 }
@@ -417,6 +439,7 @@ public class OrdersService {
                             .steps(Collections.emptyList())
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
+                            .materialsConsumed(true)
                             .build();
                     Production savedProduction = productionRepository.save(production);
                     productionIds.add(savedProduction.getId());
@@ -1299,21 +1322,6 @@ public class OrdersService {
             throw new ForbiddenException("Access denied");
         if (order.getStatus() == ClientOrderStatus.IN_PRODUCTION || order.getStatus() == ClientOrderStatus.DELIVERED)
             throw new BadRequestException("Cannot cancel an order that is already in production or delivered");
-
-        if (order.getStatus() == ClientOrderStatus.READY_FOR_CONFIRMATION || order.getStatus() == ClientOrderStatus.PENDING_REVIEW) {
-            for (OrderItem item : order.getItems()) {
-                if (item.getStatus() == OrderItemStatus.AVAILABLE || item.getStatus() == OrderItemStatus.PARTIAL) {
-                    int toRelease = Math.min(item.getQuantity(), item.getAvailableStock());
-                    if (toRelease > 0) productStockService.releaseProduct(item.getProductId(), toRelease);
-                }
-                if (item.getRequiredMaterials() != null) {
-                    for (BomMaterialLineDto mat : item.getRequiredMaterials()) {
-                        int toRelease = (int) Math.ceil(mat.getRequiredQuantity());
-                        if (toRelease > 0) materialStockService.releaseMaterial(mat.getMaterialId(), toRelease);
-                    }
-                }
-            }
-        }
 
         order.setStatus(ClientOrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());

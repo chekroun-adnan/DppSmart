@@ -15,6 +15,12 @@ async function parseJsonResponse(response, fallbackMessage) {
     const message = data?.message || data?.error || fallbackMessage;
     const error = new Error(message);
     error.status = response.status;
+    error.code = data?.code || null;
+    error.fieldErrors = data?.fieldErrors || null;
+    // Carry retry-after for 429 responses
+    if (response.status === 429) {
+      error.retryAfter = parseInt(response.headers.get("Retry-After") || data?.retryAfter || "60", 10);
+    }
     throw error;
   }
 
@@ -321,6 +327,11 @@ export async function getOrders() {
   return unwrapList(data);
 }
 
+export async function getMyOrders() {
+  const data = await authorizedRequest("/api/orders/my", { method: "GET" }, "Failed to load your orders.");
+  return unwrapList(data);
+}
+
 export async function getOrderById(id) {
   const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load order.");
   return unwrapItem(data);
@@ -335,12 +346,118 @@ export async function createOrder(payload) {
   return authJsonRequest("/api/orders", "POST", payload, "Failed to create order.");
 }
 
-export async function updateOrder(payload) {
-  return authJsonRequest("/api/orders", "PUT", payload, "Failed to update order.");
+export async function adminConfirmOrder(payload) {
+  return authJsonRequest("/api/orders/admin/confirm", "POST", payload, "Failed to confirm order.");
+}
+
+export async function adminProposeDate(payload) {
+  return authJsonRequest("/api/orders/admin/propose-date", "POST", payload, "Failed to propose new date.");
+}
+
+export async function clientAcceptOrder(payload) {
+  return authJsonRequest("/api/orders/client/accept", "POST", payload, "Failed to accept order.");
+}
+
+export async function clientRejectOrder(payload) {
+  return authJsonRequest("/api/orders/client/reject", "POST", payload, "Failed to reject order.");
+}
+
+export async function cancelOrder(id, reason) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/cancel`, "POST", reason ? { reason } : {}, "Failed to cancel order.");
 }
 
 export async function deleteOrder(id) {
   return authJsonRequest(`/api/orders/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete order.");
+}
+
+export async function reviewOrder(id) {
+  return authorizedRequest(`/api/orders/${encodeURIComponent(id)}/review`, { method: "GET" }, "Failed to load order review.");
+}
+
+export async function launchProductionForShortfall(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/launch-production-shortfall`, "POST", undefined, "Failed to launch production.");
+}
+
+export async function startOrderProduction(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/start-production`, "POST", undefined, "Failed to start production.");
+}
+
+export async function getOrderAvailabilityCheck(id) {
+  return authorizedRequest(`/api/orders/${encodeURIComponent(id)}/availability-check`, { method: "GET" }, "Failed to load availability check.");
+}
+
+export async function confirmOrderDelivery(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/confirm-delivery`, "POST", undefined, "Failed to confirm delivery.");
+}
+
+export async function startProductionV2(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/start-production-v2`, "POST", undefined, "Failed to start production.");
+}
+
+export async function markOrderReady(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/ready`, "POST", undefined, "Failed to mark order as ready.");
+}
+
+export async function markOrderDelivered(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/delivered`, "POST", undefined, "Failed to mark order as delivered.");
+}
+
+export async function processOrder(id, confirmedDeliveryDate) {
+  return authJsonRequest(
+    `/api/orders/${encodeURIComponent(id)}/process`,
+    "POST",
+    { orderId: id, confirmedDeliveryDate },
+    "Failed to process order."
+  );
+}
+
+// =================== ORDER WORKFLOW ===================
+
+export async function workflowConfirmOrder(id, payload) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/confirm`, "POST", payload, "Failed to confirm order.");
+}
+
+export async function workflowSetPriority(id, priority) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/set-priority`, "POST", { priority }, "Failed to set priority.");
+}
+
+export async function workflowRequestDeliveryDate(id, payload) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/request-delivery-date`, "POST", payload, "Failed to request delivery date.");
+}
+
+export async function workflowCheckStock(id) {
+  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/check-stock`, { method: "GET" }, "Failed to check stock.");
+  return data?.data || data;
+}
+
+export async function workflowSimulate(id) {
+  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/simulate`, { method: "GET" }, "Failed to simulate order.");
+  return data?.data || data;
+}
+
+export async function workflowProcessOrder(id, payload) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/process`, "POST", payload || {}, "Failed to process order.");
+}
+
+export async function workflowDeliverOrder(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/deliver`, "POST", undefined, "Failed to deliver order.");
+}
+
+export async function workflowCompleteProduction(productionId) {
+  return authJsonRequest(`/api/orders/workflow/complete-production/${encodeURIComponent(productionId)}`, "POST", undefined, "Failed to complete production.");
+}
+
+export async function workflowGetMaterials(id) {
+  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/materials`, { method: "GET" }, "Failed to load materials breakdown.");
+  return data?.data || data;
+}
+
+export async function workflowReserveMaterials(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/reserve-materials`, "POST", undefined, "Failed to reserve materials.");
+}
+
+export async function workflowReleaseMaterials(id) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/release-materials`, "POST", undefined, "Failed to release materials.");
 }
 
 // =================== EMPLOYEES ===================
@@ -382,6 +499,10 @@ export async function updateProductionStatus(id, payload) {
   return authJsonRequest(`/api/productions/${encodeURIComponent(id)}/status`, "PUT", payload, "Failed to update production status.");
 }
 
+export async function updateProduction(id, payload) {
+  return authJsonRequest(`/api/productions/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update production.");
+}
+
 export async function startProductionStep(productionId, stepIndex) {
   return authorizedRequest(
     `/api/productions/${encodeURIComponent(productionId)}/step/start/${stepIndex}`,
@@ -400,6 +521,15 @@ export async function completeProductionStep(productionId, stepIndex) {
 
 export async function deleteProduction(id) {
   return authJsonRequest(`/api/productions/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete production.");
+}
+
+export async function completeProductionBatch(id) {
+  return authJsonRequest(`/api/productions/${encodeURIComponent(id)}/complete`, "POST", undefined, "Failed to complete production.");
+}
+
+export async function getProductionMaterialConsumption(id) {
+  const data = await authorizedRequest(`/api/productions/${encodeURIComponent(id)}/material-consumption`, { method: "GET" }, "Failed to load material consumption.");
+  return data?.data ?? data;
 }
 
 // =================== TASKS ===================
@@ -466,6 +596,10 @@ export async function getLowStockMaterials(organizationId) {
   const url = organizationId ? `/api/material-stock/low-stock?organizationId=${encodeURIComponent(organizationId)}` : "/api/material-stock/low-stock";
   const data = await authorizedRequest(url, { method: "GET" }, "Failed to load low stock materials.");
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function repairMaterialLinks() {
+  return authorizedRequest("/admin/stock/repair-material-links", { method: "POST" }, "Failed to repair material links.");
 }
 
 // =================== PRODUCT STOCK ===================
@@ -609,6 +743,31 @@ export async function saveMaterialItems(sheetId, items) {
   return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(sheetId)}/material-items`, "PUT", items, "Failed to save material items.");
 }
 
+export async function getActiveTechnicalSheet(productId) {
+  return authorizedRequest(`/api/technical-sheets/product/${encodeURIComponent(productId)}/active`, { method: "GET" }, "Failed to load active technical sheet.");
+}
+
+export async function activateTechnicalSheet(id) {
+  return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(id)}/activate`, "POST", undefined, "Failed to activate technical sheet.");
+}
+
+export async function archiveTechnicalSheet(id) {
+  return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(id)}/archive`, "POST", undefined, "Failed to archive technical sheet.");
+}
+
+export async function createNewTechnicalSheetVersion(id) {
+  return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(id)}/new-version`, "POST", undefined, "Failed to create new version.");
+}
+
+export async function calculateBom(productId, quantity) {
+  return authorizedRequest(`/api/technical-sheets/bom/${encodeURIComponent(productId)}/calculate?quantity=${quantity}`, { method: "GET" }, "Failed to calculate BOM.");
+}
+
+export async function getTechnicalSheetsByProductVersioned(productId) {
+  const data = await authorizedRequest(`/api/technical-sheets/product/${encodeURIComponent(productId)}/versions`, { method: "GET" }, "Failed to load sheet versions.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
 export async function getOperationItems(sheetId) {
   const data = await authorizedRequest(`/api/technical-sheets/${encodeURIComponent(sheetId)}/operation-items`, { method: "GET" }, "Failed to load operation items.");
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
@@ -745,10 +904,104 @@ export async function getReceptions(orderId) {
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 }
 
+// =================== DELIVERIES ===================
+
+export async function createDelivery(orderId, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/deliveries`, "POST", payload, "Failed to create delivery.");
+}
+
+export async function getDeliveriesByOrder(orderId) {
+  const data = await authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/deliveries`, { method: "GET" }, "Failed to load deliveries.");
+  return unwrapList(data);
+}
+
+export async function getDelivery(deliveryId) {
+  return authorizedRequest(`/api/material-orders/deliveries/${encodeURIComponent(deliveryId)}`, { method: "GET" }, "Failed to load delivery.");
+}
+
+export async function receiveDelivery(deliveryId, payload) {
+  return authJsonRequest(`/api/material-orders/deliveries/${encodeURIComponent(deliveryId)}/receive`, "POST", payload, "Failed to receive delivery.");
+}
+
+// =================== RETURNS ===================
+
+export async function createReturnRequest(orderId, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/returns`, "POST", payload, "Failed to create return request.");
+}
+
+export async function getReturnsByOrder(orderId) {
+  const data = await authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/returns`, { method: "GET" }, "Failed to load returns.");
+  return unwrapList(data);
+}
+
+export async function getReturn(returnId) {
+  return authorizedRequest(`/api/material-orders/returns/${encodeURIComponent(returnId)}`, { method: "GET" }, "Failed to load return.");
+}
+
+export async function updateReturn(returnId, payload) {
+  return authJsonRequest(`/api/material-orders/returns/${encodeURIComponent(returnId)}`, "PUT", payload, "Failed to update return.");
+}
+
+export async function getReturnsByOrg(orgId) {
+  const data = await authorizedRequest(`/api/material-orders/returns/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load returns.");
+  return unwrapList(data);
+}
+
+// =================== DISPUTES ===================
+
+export async function createDispute(orderId, payload) {
+  return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/disputes`, "POST", payload, "Failed to create dispute.");
+}
+
+export async function getDisputesByOrder(orderId) {
+  const data = await authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/disputes`, { method: "GET" }, "Failed to load disputes.");
+  return unwrapList(data);
+}
+
+export async function getDispute(disputeId) {
+  return authorizedRequest(`/api/material-orders/disputes/${encodeURIComponent(disputeId)}`, { method: "GET" }, "Failed to load dispute.");
+}
+
+export async function updateDispute(disputeId, payload) {
+  return authJsonRequest(`/api/material-orders/disputes/${encodeURIComponent(disputeId)}`, "PUT", payload, "Failed to update dispute.");
+}
+
+export async function getDisputesByOrg(orgId) {
+  const data = await authorizedRequest(`/api/material-orders/disputes/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load disputes.");
+  return unwrapList(data);
+}
+
+// =================== PROCUREMENT ANALYTICS ===================
+
+export async function getProcurementAnalytics(orgId) {
+  return authorizedRequest(`/api/material-orders/analytics/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load analytics.");
+}
+
+export async function getSupplierPerformance(supplierId, orgId) {
+  return authorizedRequest(`/api/material-orders/analytics/supplier/${encodeURIComponent(supplierId)}?orgId=${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load supplier performance.");
+}
+
 export async function processReturn(orderId, itemId, returnQuantity, rejectionReason, notes) {
   const params = new URLSearchParams({ itemId, returnQuantity: String(returnQuantity), rejectionReason });
   if (notes) params.append("notes", notes);
   return authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/return?${params}`, { method: "POST" }, "Failed to process return.");
+}
+
+// =================== STOCK MOVEMENTS ===================
+
+export async function getStockMovementsByOrg(orgId) {
+  const data = await authorizedRequest(`/api/stock-movements/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load stock movements.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getStockMovementsByOrder(orderId) {
+  const data = await authorizedRequest(`/api/stock-movements/order/${encodeURIComponent(orderId)}`, { method: "GET" }, "Failed to load stock movements.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getStockMovementsByProduction(productionId) {
+  const data = await authorizedRequest(`/api/stock-movements/production/${encodeURIComponent(productionId)}`, { method: "GET" }, "Failed to load stock movements.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 }
 
 // =================== NOTIFICATIONS ===================
@@ -786,6 +1039,36 @@ export async function deleteNotification(id) {
   return authorizedRequest(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete notification.");
 }
 
+// =================== ORDER MATERIAL REQUIREMENTS ===================
+
+export async function getOrderItemRequirements(orderId, itemIndex) {
+  return authorizedRequest(`/api/orders/${encodeURIComponent(orderId)}/items/${itemIndex}/requirements`, { method: "GET" }, "Failed to load material requirements.");
+}
+
+export async function getBulkOrderRequirements(orderIds) {
+  return authorizedRequest("/api/orders/bulk-requirements", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(orderIds),
+  }, "Failed to load bulk requirements.");
+}
+
+export async function calculateBulkRequirements(orderIds) {
+  return authorizedRequest("/api/orders/bulk/requirements", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(orderIds),
+  }, "Failed to calculate bulk requirements.");
+}
+
+export async function recalculateBulkRequirements(payload) {
+  return authorizedRequest("/api/orders/bulk/requirements/recalculate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }, "Failed to recalculate bulk requirements.");
+}
+
 // =================== PUBLIC / CONTACT ===================
 
 export async function submitContact(payload) {
@@ -795,4 +1078,171 @@ export async function submitContact(payload) {
     body: JSON.stringify(payload),
   });
   return parseJsonResponse(response, "Failed to submit contact form.");
+}
+
+// =================== PRODUCTION STEPS ===================
+
+export async function assignProductionStep(productionId, stepIndex, employeeName) {
+  return authorizedRequest(
+    `/api/productions/${encodeURIComponent(productionId)}/step/${stepIndex}/assign?employeeName=${encodeURIComponent(employeeName)}`,
+    { method: 'PUT' },
+    'Failed to assign step.'
+  );
+}
+
+// =================== CLIENT ORDER PRODUCTIONS ===================
+
+export async function getProductionByOrderId(orderId) {
+  return authJsonRequest(`/api/productions/by-order/${encodeURIComponent(orderId)}`, 'GET', undefined, 'Failed to load productions by order.');
+}
+
+// =================== ALLOCATION WORKFLOW ===================
+
+export async function getAllocationReview(orderIds) {
+  return authJsonRequest("/api/orders/allocation-review", "POST", orderIds, "Failed to load allocation review.");
+}
+
+export async function recalculateAllocation(payload) {
+  return authJsonRequest("/api/orders/recalculate-allocation", "POST", payload, "Failed to recalculate allocation.");
+}
+
+export async function previewAllocationImpact(sessionId) {
+  return authJsonRequest("/api/orders/preview-impact", "POST", { sessionId }, "Failed to preview impact.");
+}
+
+export async function confirmAllocation(sessionId) {
+  return authJsonRequest("/api/orders/allocation/confirm", "POST", { sessionId }, "Failed to confirm allocation.");
+}
+
+export async function reserveStockForOrder(orderId) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/reserve-stock`, "POST", {}, "Failed to reserve stock.");
+}
+
+export async function releaseReservations(orderId) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/release-reservations`, "POST", {}, "Failed to release reservations.");
+}
+
+export async function sendToDelivery(orderId, partialItems) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/send-to-delivery`, "POST", partialItems || null, "Failed to send to delivery.");
+}
+
+export async function cancelAllocation(orderId) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/cancel-allocation`, "POST", {}, "Failed to cancel allocation.");
+}
+
+export async function getProductionAllocation(orderIds) {
+  return authJsonRequest("/api/orders/production-allocation", "POST", orderIds, "Failed to load production allocation.");
+}
+
+export async function startProductionForItem(orderId, productId, quantityToProduce) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(productId)}/start-production`, "POST", { quantityToProduce }, "Failed to start production.");
+}
+
+export async function calculateRequirements() {
+  return authJsonRequest("/api/orders/calculate-requirements", "POST", {}, "Failed to calculate requirements.");
+}
+
+export async function confirmDeliveryDate(orderId, confirmedDeliveryDate) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/confirm-delivery-date`, "POST", { confirmedDeliveryDate }, "Failed to confirm delivery date.");
+}
+
+export async function checkProductionCapacity(requiredUnits, organizationId) {
+  return authorizedRequest(`/api/orders/production/capacity-check?requiredUnits=${requiredUnits}&organizationId=${encodeURIComponent(organizationId)}`, { method: "GET" }, "Failed to check capacity.");
+}
+
+export async function getDeliveryLogs(orderId) {
+  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(orderId)}/delivery-logs`, { method: "GET" }, "Failed to load delivery logs.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function acquireOrderLock(orderId) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/lock`, "POST", {}, "Failed to acquire lock.");
+}
+
+export async function releaseOrderLock(orderId) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/unlock`, "POST", {}, "Failed to release lock.");
+}
+
+export async function getOrderLockStatus(orderId) {
+  return authorizedRequest(`/api/orders/${encodeURIComponent(orderId)}/lock-status`, { method: "GET" }, "Failed to get lock status.");
+}
+
+export async function getPredictiveAnalysis(organizationId, scope = "ORG") {
+  const token = localStorage.getItem("accessToken");
+  const params = new URLSearchParams();
+  if (organizationId) params.append("organizationId", organizationId);
+  params.append("scope", scope);
+  const response = await fetch(`${API_BASE_URL}/api/ai/predictive?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return parseJsonResponse(response, "Failed to fetch predictive analysis.");
+}
+
+// =================== SESSION MANAGEMENT ===================
+
+export async function getActiveSessions() {
+  const data = await authorizedRequest("/api/sessions", { method: "GET" }, "Failed to load sessions.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function revokeSession(sessionId) {
+  return authorizedRequest(
+    `/api/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE" },
+    "Failed to revoke session."
+  );
+}
+
+export async function revokeAllOtherSessions() {
+  return authorizedRequest("/api/sessions", { method: "DELETE" }, "Failed to revoke all sessions.");
+}
+
+export async function logoutAllDevices() {
+  return authorizedRequest("/auth/logout-all", { method: "POST" }, "Failed to logout all devices.");
+}
+
+export async function getSuspiciousSessions() {
+  const data = await authorizedRequest("/api/sessions/suspicious", { method: "GET" }, "Failed to load suspicious sessions.");
+  return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+}
+
+export async function getRecentFailedAttempts() {
+  const data = await authorizedRequest("/auth/security/failed-attempts", { method: "GET" }, "Failed to load security info.");
+  return data?.data ?? data;
+}
+
+// ── API error utilities ───────────────────────────────────────────────────────
+
+/**
+ * Converts an API error thrown by authorizedRequest / request into a
+ * human-readable string suitable for display in a UI component.
+ *
+ * Handles: 429 rate-limit, validation field errors, Spring Security errors,
+ * and generic server messages.
+ */
+export function apiErrorMessage(error, fallback = "An error occurred. Please try again.") {
+  if (!error) return fallback;
+
+  if (error.status === 429) {
+    const wait = error.retryAfter || 60;
+    return `Too many requests. Please wait ${wait} seconds before trying again.`;
+  }
+
+  if (error.status === 401 || error.code === "AUTHENTICATION_FAILED" || error.code === "INVALID_CREDENTIALS") {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (error.status === 403 || error.code === "ACCESS_DENIED") {
+    return "You do not have permission to perform this action.";
+  }
+
+  if (error.fieldErrors && typeof error.fieldErrors === "object") {
+    return Object.values(error.fieldErrors).filter(Boolean).join(" ") || error.message || fallback;
+  }
+
+  if (error.code === "VALIDATION_ERROR") {
+    return error.message || "Some fields are invalid. Please check your input.";
+  }
+
+  return error.message || fallback;
 }

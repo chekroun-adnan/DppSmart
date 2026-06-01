@@ -209,7 +209,7 @@ export default function ClientNotificationsPage() {
                     <p className="text-xs text-white/50 mt-0.5 truncate">{n.body}</p>
                     {n.orderId && (
                       <Link
-                        to="/orders"
+                        to="/client-orders"
                         onClick={(e) => e.stopPropagation()}
                         className="text-xs text-brand-primary hover:underline mt-1 inline-block"
                       >

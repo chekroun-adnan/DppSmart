@@ -6,6 +6,7 @@ import java.util.List;
 @Data
 public class UpdateMaterialOrderDTO {
     private String status;
+    private String supplierId;
     private String expectedDeliveryDate;
     private String notes;
     private String shipmentTrackingNumber;

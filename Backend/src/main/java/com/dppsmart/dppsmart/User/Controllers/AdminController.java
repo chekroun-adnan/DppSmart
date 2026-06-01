@@ -1,26 +1,29 @@
 package com.dppsmart.dppsmart.User.Controllers;
 
 
+import com.dppsmart.dppsmart.MaterialStock.Services.MaterialStockService;
 import com.dppsmart.dppsmart.User.DTO.AdminCreateUserDto;
 import com.dppsmart.dppsmart.User.DTO.AdminUpdateUserDto;
 import com.dppsmart.dppsmart.User.DTO.PasswordUpdateRequest;
 import com.dppsmart.dppsmart.User.DTO.UserDto;
 import com.dppsmart.dppsmart.User.Services.AdminService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/admin")
+@RequiredArgsConstructor
 public class AdminController {
 
-    @Autowired
-    private AdminService adminService;
+    private final AdminService adminService;
+    private final MaterialStockService materialStockService;
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('ADMIN')")
@@ -66,4 +69,15 @@ public class AdminController {
         UserDto updatedUser = adminService.updateUserPassword(id, request.getPassword());
         return ResponseEntity.ok(updatedUser);
     }
+
+    @PostMapping("/stock/repair-material-links")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> repairMaterialLinks() {
+        MaterialStockService.RepairMaterialLinksResult result = materialStockService.repairMaterialLinks();
+        return ResponseEntity.ok(Map.of(
+                "relinked", result.relinked(),
+                "stillBroken", result.stillBroken()
+        ));
+    }
+
 }

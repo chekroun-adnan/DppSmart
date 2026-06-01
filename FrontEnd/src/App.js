@@ -32,9 +32,15 @@ import OAuth2CallbackPage from "./pages/OAuth2CallbackPage";
 import QualityControlPage from "./pages/QualityControlPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import AuditLogPage from "./pages/AuditLogPage";
+import ClientOrdersPage from "./pages/ClientOrdersPage";
 import ClientSupportPage from "./pages/ClientSupportPage";
 import ClientNotificationsPage from "./pages/ClientNotificationsPage";
 import SupplyChainPage from "./pages/SupplyChainPage";
+import PredictiveAnalyticsPage from "./pages/PredictiveAnalyticsPage";
+import ReorderPage from "./pages/ReorderPage";
+import AllocationReviewPage from "./pages/AllocationReviewPage";
+import OrderWorkflowPage from "./pages/OrderWorkflowPage";
+import SecuritySessionPage from "./pages/SecuritySessionPage";
 import { isAuthenticated } from "./services/authService";
 import ChatbotWidget from "./components/ChatbotWidget";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -50,7 +56,7 @@ function PrivateRoute({ children }) {
 function NonClientRoute({ children }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const role = (localStorage.getItem("userRole") || "").toUpperCase();
-  return role === "CLIENT" ? <Navigate to="/products" replace /> : children;
+  return role === "CLIENT" ? <Navigate to="/client-orders" replace /> : children;
 }
 
 function LandingPage() {
@@ -114,6 +120,7 @@ function App() {
         <Route path="/dashboard" element={<NonClientRoute><DashboardPage /></NonClientRoute>} />
         <Route path="/products" element={<PrivateRoute><ProductsPage /></PrivateRoute>} />
         <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
+        <Route path="/client-orders" element={<PrivateRoute><ClientOrdersPage /></PrivateRoute>} />
         <Route path="/employees" element={<PrivateRoute><EmployeesPage /></PrivateRoute>} />
         <Route path="/production" element={<PrivateRoute><ProductionPage /></PrivateRoute>} />
         <Route path="/stock" element={<PrivateRoute><StockPage /></PrivateRoute>} />
@@ -130,6 +137,11 @@ function App() {
         <Route path="/audit-log" element={<PrivateRoute><AuditLogPage /></PrivateRoute>} />
         <Route path="/support" element={<PrivateRoute><ClientSupportPage /></PrivateRoute>} />
         <Route path="/notifications" element={<PrivateRoute><ClientNotificationsPage /></PrivateRoute>} />
+        <Route path="/predictive-analytics" element={<PrivateRoute><PredictiveAnalyticsPage /></PrivateRoute>} />
+        <Route path="/reorder" element={<PrivateRoute><ReorderPage /></PrivateRoute>} />
+        <Route path="/allocation-review" element={<NonClientRoute><AllocationReviewPage /></NonClientRoute>} />
+        <Route path="/order-workflow" element={<NonClientRoute><OrderWorkflowPage /></NonClientRoute>} />
+        <Route path="/security" element={<PrivateRoute><SecuritySessionPage /></PrivateRoute>} />
         <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
       </Routes>
       <ChatbotWidget />
