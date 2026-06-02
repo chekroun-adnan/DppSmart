@@ -4,6 +4,7 @@ import com.dppsmart.dppsmart.Orders.DTO.BulkOrderRequirementRequestDTO;
 import com.dppsmart.dppsmart.Orders.DTO.BulkOrderRequirementResponseDTO;
 import com.dppsmart.dppsmart.Orders.DTO.BulkRequirementsResponseDTO;
 import com.dppsmart.dppsmart.Orders.DTO.OrderItemRequirementResponse;
+import com.dppsmart.dppsmart.Orders.DTO.SequentialAllocationResponse;
 import com.dppsmart.dppsmart.Orders.DTO.SupplyChainOrderRequestDTO;
 import com.dppsmart.dppsmart.Orders.Services.BulkOrderMaterialRequirementService;
 import com.dppsmart.dppsmart.Orders.Services.OrderMaterialRequirementService;
@@ -50,6 +51,13 @@ public class OrderMaterialRequirementController {
     public ResponseEntity<BulkOrderRequirementResponseDTO> recalculateBulkRequirements(
             @RequestBody BulkOrderRequirementRequestDTO req) {
         return ResponseEntity.ok(bulkService.recalculate(req));
+    }
+
+    @PostMapping("/bulk/requirements/sequential")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUBADMIN')")
+    public ResponseEntity<SequentialAllocationResponse> calculateSequential(
+            @RequestBody List<String> orderIds) {
+        return ResponseEntity.ok(bulkService.calculateSequential(orderIds));
     }
 
     @PostMapping("/{orderId}/items/{itemIndex}/supply-order")

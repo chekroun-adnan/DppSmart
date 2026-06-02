@@ -5,6 +5,7 @@ import DashboardLayout from "../components/DashboardLayout";
 import OrgPicker from "../components/OrgPicker";
 import OrgSelector from "../components/OrgSelector";
 import {
+  cancelProduction,
   completeProductionBatch,
   completeProductionStep,
   createProduction,
@@ -365,6 +366,9 @@ export default function ProductionPage() {
   const [historyId, setHistoryId] = useState(null);
   const [stepsModalProd, setStepsModalProd] = useState(null);
   const [completingId, setCompletingId] = useState(null);
+  const [cancelProd, setCancelProd] = useState(null);
+  const [cancelAction, setCancelAction] = useState(null);
+  const [cancelMessage, setCancelMessage] = useState("");
   const refreshTimerRef = useRef(null);
 
   const loadProductions = useCallback(async () => {
@@ -546,6 +550,36 @@ export default function ProductionPage() {
     }
   };
 
+  const handleCancelProduction = async () => {
+    if (!cancelProd) return;
+    if (!cancelAction) { setActionError("Please select an action."); return; }
+    if (cancelAction === "cancel" && !cancelMessage.trim()) { setActionError("Please provide a message."); return; }
+    setSaving(true); setActionError("");
+    try {
+      const orderId = cancelProd.clientOrderId;
+      if (orderId) {
+        await cancelProduction(orderId, cancelAction, cancelMessage);
+      } else {
+        await updateProductionStatus(cancelProd.id, { status: "CANCELLED" });
+      }
+      setCancelProd(null);
+      setCancelAction(null);
+      setCancelMessage("");
+      addToast({
+        type: "success",
+        title: "Production Cancelled",
+        message: cancelAction === "return"
+          ? "Production cancelled. Order returned to confirmed list."
+          : "Production cancelled. Order has been cancelled.",
+      });
+      setTimeout(() => loadProductions(), 1000);
+    } catch (e) {
+      setActionError(e.message || "Failed to cancel production.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async () => {
     setSaving(true); setActionError("");
     try {
@@ -686,6 +720,18 @@ export default function ProductionPage() {
                             </button>
                           )}
 
+                          {/* Cancel Production button — only for productions linked to an order */}
+                          {!isCompleted && !isCancelled && prod.clientOrderId && (
+                            <button
+                              type="button"
+                              onClick={() => { setCancelProd(prod); setCancelAction(null); setCancelMessage(""); setActionError(""); }}
+                              className="text-xs font-semibold px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              Cancel Production
+                            </button>
+                          )}
+
                           {/* Status dropdown — completed productions show as read-only */}
                           {isCompleted ? (
                             <span className="h-9 inline-flex items-center px-3 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-xs font-bold text-emerald-700 dark:text-emerald-400">
@@ -698,7 +744,7 @@ export default function ProductionPage() {
                               disabled={isCancelled}
                               className="h-9 appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/50 pl-3 pr-8 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.5rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.5rem_center]"
                             >
-                              {STATUSES.filter((s) => s !== "COMPLETED").map((s) => <option key={s} value={s}>{s}</option>)}
+                              {STATUSES.filter((s) => s !== "COMPLETED" && s !== "CANCELLED").map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
                           )}
 
@@ -902,6 +948,58 @@ export default function ProductionPage() {
           </div>
         </div>
       , document.body)}
+
+      {/* Cancel Production modal */}
+      {cancelProd && createPortal(
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in" onClick={() => { setCancelProd(null); setCancelAction(null); setCancelMessage(""); setActionError(""); }}>
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Cancel Production</h2>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Production for <strong className="text-slate-700 dark:text-slate-200">{cancelProd.productId ? productName(cancelProd.productId) : "—"}</strong>
+              {cancelProd.clientOrderId && " is linked to an order."}
+            </p>
+            <div className="flex gap-3 mb-4">
+              <button onClick={() => setCancelAction("return")}
+                className={`flex-1 p-3 rounded-xl border-2 text-xs font-bold transition-all text-left ${
+                  cancelAction === "return"
+                    ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                    : "border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"
+                }`}>
+                <p className="text-sm font-bold mb-1">↩ Return to orders list</p>
+                <p className="text-[10px] font-normal opacity-70">Cancel production, order goes back to CONFIRMED status.</p>
+              </button>
+              <button onClick={() => setCancelAction("cancel")}
+                className={`flex-1 p-3 rounded-xl border-2 text-xs font-bold transition-all text-left ${
+                  cancelAction === "cancel"
+                    ? "border-rose-500 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                    : "border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"
+                }`}>
+                <p className="text-sm font-bold mb-1">✕ Cancel order</p>
+                <p className="text-[10px] font-normal opacity-70">Cancel both production and the entire order.</p>
+              </button>
+            </div>
+            {cancelAction === "cancel" && (
+              <textarea value={cancelMessage} onChange={e => setCancelMessage(e.target.value)} rows={2}
+                className="w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-900/60 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 resize-none mb-4"
+                placeholder="Reason for cancelling the order..." />
+            )}
+            {actionError && <p className="text-sm text-rose-600 mb-4 font-medium">{actionError}</p>}
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => { setCancelProd(null); setCancelAction(null); setCancelMessage(""); setActionError(""); }} className="btn-secondary py-2 px-5 text-sm">Back</button>
+              <button type="button" onClick={handleCancelProduction} disabled={saving || !cancelAction}
+                className="py-2 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                {saving ? "Processing..." : cancelAction === "return" ? "Return to Orders" : "Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Delete modal */}
       {modal === "delete" && pendingDelete && (

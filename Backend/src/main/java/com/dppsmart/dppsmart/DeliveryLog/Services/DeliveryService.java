@@ -58,6 +58,11 @@ public class DeliveryService {
                     && order.getStatus() != ClientOrderStatus.READY_FOR_DELIVERY) {
                 throw new BadRequestException("Order cannot be delivered in status: " + order.getStatus());
             }
+            boolean hasMissingItems = order.getItems().stream()
+                    .anyMatch(i -> i.getMissingQuantity() != null && i.getMissingQuantity() > 0);
+            if (hasMissingItems) {
+                throw new BadRequestException("Order cannot be sent to delivery because required products/materials are missing.");
+            }
         }
 
         reservationService.consumeProductReservations(orderId);

@@ -48,6 +48,7 @@ public class Orders {
     private String supplyChainOrderId;
     private LocalDateTime stockCheckedAt;
     private LocalDateTime productionStartedAt;
+    private String productionStartedBy;
     private LocalDateTime productionCompletedAt;
     private LocalDateTime deliveryReadyAt;
     private String confirmedBy;

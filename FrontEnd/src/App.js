@@ -141,7 +141,7 @@ function App() {
         <Route path="/reorder" element={<PrivateRoute><ReorderPage /></PrivateRoute>} />
         <Route path="/allocation-review" element={<NonClientRoute><AllocationReviewPage /></NonClientRoute>} />
         <Route path="/order-workflow" element={<NonClientRoute><OrderWorkflowPage /></NonClientRoute>} />
-        <Route path="/security" element={<PrivateRoute><SecuritySessionPage /></PrivateRoute>} />
+        <Route path="/security" element={<NonClientRoute><SecuritySessionPage /></NonClientRoute>} />
         <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
       </Routes>
       <ChatbotWidget />

@@ -536,6 +536,77 @@ public class OrderWorkflowService {
 
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto cancelProduction(String orderId, String action, String message) {
+        User user = requireAdminOrSubAdmin();
+        Orders order = getOrderWithAccess(orderId, user);
+
+        if (order.getStatus() != ClientOrderStatus.IN_PRODUCTION) {
+            throw new BadRequestException("Order must be IN_PRODUCTION to cancel its production");
+        }
+
+        List<String> prodIds = order.getRelatedProductionIds();
+        if (prodIds != null) {
+            for (String pid : prodIds) {
+                productionRepository.findById(pid).ifPresent(prod -> {
+                    if (prod.getStatus() != ProductionStatus.CANCELLED && prod.getStatus() != ProductionStatus.COMPLETED) {
+                        prod.setStatus(ProductionStatus.CANCELLED);
+                        prod.setUpdatedAt(LocalDateTime.now());
+                        productionRepository.save(prod);
+                        auditService.log("Production", prod.getId(), "CANCELLED", prod.getOrganizationId(), null,
+                                "Production cancelled due to order " + action + " by " + user.getEmail());
+                    }
+                });
+            }
+        }
+
+        if ("return".equals(action)) {
+            order.setStatus(ClientOrderStatus.CONFIRMED);
+            order.setRelatedProductionIds(null);
+            order.setProductionStartedAt(null);
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setUpdatedBy(user.getEmail());
+            Orders saved = ordersRepository.save(order);
+
+            notifyClient(saved, "Production Cancelled — Order Returned",
+                    "Production for order " + saved.getOrderReference() + " has been cancelled. The order has been returned to the confirmed orders queue.");
+            notifyAdmins(saved.getOrganizationId(), "Production Cancelled",
+                    "Order " + saved.getOrderReference() + " production cancelled — returned to queue.", "/orders");
+
+            OrderResponseDto dto = OrdersMapper.toDto(saved);
+            realtimeEventService.broadcastOrderStatusChanged(saved.getId(), saved.getStatus().name(), dto);
+            auditService.log("Order", saved.getId(), "PRODUCTION_RETURNED", saved.getOrganizationId(), null,
+                    "Production cancelled, order returned to CONFIRMED. By: " + user.getEmail());
+            return dto;
+
+        } else if ("cancel".equals(action)) {
+            order.setStatus(ClientOrderStatus.CANCELLED);
+            order.setAdminMessage(message);
+            order.setRelatedProductionIds(null);
+            order.setProductionStartedAt(null);
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setUpdatedBy(user.getEmail());
+            Orders saved = ordersRepository.save(order);
+
+            String reason = message != null && !message.isBlank() ? message : "Order cancelled during production by admin.";
+
+            notifyClient(saved, "Order Cancelled During Production",
+                    "Order " + saved.getOrderReference() + " has been cancelled during production. " + reason);
+            notifyAdmins(saved.getOrganizationId(), "Order Cancelled During Production",
+                    "Order " + saved.getOrderReference() + " — cancelled during production. Reason: " + reason, "/orders");
+
+            OrderResponseDto dto = OrdersMapper.toDto(saved);
+            realtimeEventService.broadcastOrderStatusChanged(saved.getId(), saved.getStatus().name(), dto);
+            auditService.log("Order", saved.getId(), "CANCELLED_DURING_PRODUCTION", saved.getOrganizationId(), null,
+                    "Cancelled during production by " + user.getEmail() + " | " + reason);
+            return dto;
+
+        } else {
+            throw new BadRequestException("Invalid action: must be 'return' or 'cancel'");
+        }
+    }
+
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto deliverOrder(String orderId) {
         User user = requireAdminOrSubAdmin();
         Orders order = getOrderWithAccess(orderId, user);

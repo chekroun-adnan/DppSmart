@@ -2,8 +2,12 @@ package com.dppsmart.dppsmart.Orders.Mapper;
 
 import com.dppsmart.dppsmart.Orders.DTO.OrderResponseDto;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
+import com.dppsmart.dppsmart.Orders.Services.OrderPriorityService;
 
 public class OrdersMapper {
+
+    private static final OrderPriorityService priorityService = new OrderPriorityService();
+
     public static OrderResponseDto toDto(Orders order) {
         OrderResponseDto dto = new OrderResponseDto();
         dto.setId(order.getId());
@@ -36,6 +40,18 @@ public class OrdersMapper {
         dto.setUpdatedAt(order.getUpdatedAt());
         dto.setCreatedBy(order.getCreatedBy());
         dto.setUpdatedBy(order.getUpdatedBy());
+        dto.setProductionPriorityBadge(
+                priorityService.computeProductionBadgeForDto(
+                        order.getRequestedDeliveryDate(),
+                        order.getConfirmedDeliveryDate(),
+                        order.getProposedDeliveryDate()));
+        dto.setPriorityScore(
+                priorityService.computePriorityScoreForDto(
+                        order.getRequestedDeliveryDate(),
+                        order.getConfirmedDeliveryDate(),
+                        order.getProposedDeliveryDate(),
+                        order.getOrderPriority(),
+                        order.getCreatedAt()));
         return dto;
     }
 }

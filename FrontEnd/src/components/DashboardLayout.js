@@ -57,7 +57,7 @@ const NAV_GROUPS = [
   {
     groupLabel: "Account",
     items: [
-      { key: "security", path: "/security", roles: ["ADMIN","SUBADMIN","EMPLOYEE","CLIENT"], Icon: Shield },
+      { key: "security", path: "/security", roles: ["ADMIN","SUBADMIN","EMPLOYEE"], Icon: Shield },
       { key: "settings", path: "/settings", roles: ["ADMIN","SUBADMIN","EMPLOYEE","CLIENT"], Icon: Settings },
     ],
   },

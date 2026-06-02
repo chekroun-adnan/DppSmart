@@ -394,6 +394,10 @@ export async function startProductionV2(id) {
   return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/start-production-v2`, "POST", undefined, "Failed to start production.");
 }
 
+export async function bulkStartProduction(orderIds) {
+  return authJsonRequest("/api/orders/bulk/start-production", "POST", orderIds, "Failed to start production for some orders.");
+}
+
 export async function markOrderReady(id) {
   return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/ready`, "POST", undefined, "Failed to mark order as ready.");
 }
@@ -445,6 +449,10 @@ export async function workflowDeliverOrder(id) {
 
 export async function workflowCompleteProduction(productionId) {
   return authJsonRequest(`/api/orders/workflow/complete-production/${encodeURIComponent(productionId)}`, "POST", undefined, "Failed to complete production.");
+}
+
+export async function cancelProduction(orderId, action, message) {
+  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/cancel-production`, "POST", { action, message }, "Failed to cancel production.");
 }
 
 export async function workflowGetMaterials(id) {
@@ -1061,6 +1069,14 @@ export async function calculateBulkRequirements(orderIds) {
   }, "Failed to calculate bulk requirements.");
 }
 
+export async function calculateSequentialRequirements(orderIds) {
+  return authorizedRequest("/api/orders/bulk/requirements/sequential", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(orderIds),
+  }, "Failed to calculate sequential requirements.");
+}
+
 export async function recalculateBulkRequirements(payload) {
   return authorizedRequest("/api/orders/bulk/requirements/recalculate", {
     method: "POST",
@@ -1208,6 +1224,48 @@ export async function getSuspiciousSessions() {
 
 export async function getRecentFailedAttempts() {
   const data = await authorizedRequest("/auth/security/failed-attempts", { method: "GET" }, "Failed to load security info.");
+  return data?.data ?? data;
+}
+
+// ── MRP ──────────────────────────────────────────────────────────────────────
+
+export async function getMrpGlobalPlan() {
+  const data = await authorizedRequest("/api/mrp/global-plan", { method: "GET" }, "Failed to load MRP plan.");
+  return data?.data ?? data;
+}
+
+export async function getMrpForecast(materialId) {
+  const data = await authorizedRequest(`/api/mrp/forecast/${encodeURIComponent(materialId)}`, { method: "GET" }, "Failed to load forecast.");
+  return data?.data ?? data;
+}
+
+export async function generateMrpPurchaseRequests() {
+  const data = await authorizedRequest("/api/mrp/generate-purchase-requests", { method: "POST" }, "Failed to generate purchase requests.");
+  return data?.data ?? data;
+}
+
+export async function getMrpAlerts() {
+  const data = await authorizedRequest("/api/mrp/alerts", { method: "GET" }, "Failed to load MRP alerts.");
+  return data?.data ?? data;
+}
+
+export async function resolveMrpAlert(alertId) {
+  const data = await authorizedRequest(`/api/mrp/alerts/${encodeURIComponent(alertId)}/resolve`, { method: "PATCH" }, "Failed to resolve alert.");
+  return data?.data ?? data;
+}
+
+export async function getMrpPurchaseRequests() {
+  const data = await authorizedRequest("/api/mrp/purchase-requests", { method: "GET" }, "Failed to load purchase requests.");
+  return data?.data ?? data;
+}
+
+export async function approveMrpPurchaseRequest(prId) {
+  const data = await authorizedRequest(`/api/mrp/purchase-requests/${encodeURIComponent(prId)}/approve`, { method: "PATCH" }, "Failed to approve purchase request.");
+  return data?.data ?? data;
+}
+
+export async function rejectMrpPurchaseRequest(prId) {
+  const data = await authorizedRequest(`/api/mrp/purchase-requests/${encodeURIComponent(prId)}/reject`, { method: "PATCH" }, "Failed to reject purchase request.");
   return data?.data ?? data;
 }
 

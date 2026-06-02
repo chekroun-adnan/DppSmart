@@ -6,6 +6,7 @@ import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Email.Services.EmailService;
+import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.MaterialStock.Services.MaterialStockService;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrder;
@@ -34,6 +35,7 @@ import com.dppsmart.dppsmart.SecurityAlert.Services.RuleDetectionService;
 import com.dppsmart.dppsmart.SecurityAlert.Services.SecurityAnalysisService;
 import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
 import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheet;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomCalculationResultDto;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomMaterialLineDto;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.MaterialSheetItem;
@@ -455,11 +457,14 @@ public class OrdersService {
                 }
             }
 
-            order.setStatus(ClientOrderStatus.IN_PRODUCTION);
-            order.setRelatedProductionId(productionIds.isEmpty() ? null : productionIds.get(productionIds.size() - 1));
-            order.setUpdatedAt(LocalDateTime.now());
-            order.setUpdatedBy(user.getEmail());
-            Orders saved = ordersRepository.save(order);
+        order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+        String lastProductionId = productionIds.isEmpty() ? null : productionIds.get(productionIds.size() - 1);
+        order.setRelatedProductionId(lastProductionId);
+        order.setProductionStartedAt(LocalDateTime.now());
+        order.setProductionStartedBy(user.getEmail());
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+        Orders saved = ordersRepository.save(order);
 
             auditService.log("Order", saved.getId(), "PROCESS_PRODUCTION", saved.getOrganizationId(), null,
                     "Order processed → production started: " + saved.getOrderReference());
@@ -919,6 +924,36 @@ public class OrdersService {
         );
         if (!allowed.contains(order.getStatus())) {
             throw new BadRequestException("Order cannot start production in status: " + order.getStatus());
+        }
+
+        for (OrderItem item : order.getItems()) {
+            int stock = productStockRepository.findByProductId(item.getProductId())
+                    .stream().findFirst()
+                    .map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0)
+                    .orElse(0);
+            int toProduce = item.getQuantity() - Math.min(item.getQuantity(), stock);
+            if (toProduce > 0) {
+                Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
+                        .findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                if (sheetOpt.isEmpty()) {
+                    throw new BadRequestException("Order cannot start production: missing BOM (technical sheet) for " + item.getProductName());
+                }
+                List<MaterialSheetItem> sheetItems = materialSheetItemRepository
+                        .findByTechnicalSheetId(sheetOpt.get().getId());
+                for (MaterialSheetItem si : sheetItems) {
+                    double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                    double needed = qpu * toProduce;
+                    if (needed <= 0) continue;
+                    MaterialStock ms = materialStockRepository.findById(si.getMaterialId()).orElse(null);
+                    double avail = ms != null && ms.getQuantity() != null ? ms.getQuantity() : 0;
+                    int reserved = ms != null && ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
+                    double availableForProduction = Math.max(0, avail - reserved);
+                    if (availableForProduction < needed) {
+                        throw new BadRequestException("Order cannot start production: insufficient material " + si.getMaterialName()
+                                + " for " + item.getProductName() + ". Required: " + needed + ", Available: " + availableForProduction);
+                    }
+                }
+            }
         }
 
         String lastProductionId = null;
@@ -1386,19 +1421,39 @@ public class OrdersService {
     @Cacheable(value = "allOrders")
     public List<OrderResponseDto> getAll() {
         User user = getCurrentUser();
+        OrderPriorityService priorityService = new OrderPriorityService();
+        Set<ClientOrderStatus> excluded = Set.of(
+                ClientOrderStatus.IN_PRODUCTION,
+                ClientOrderStatus.PRODUCTION_COMPLETED,
+                ClientOrderStatus.DELIVERED,
+                ClientOrderStatus.CANCELLED
+        );
         if (user.getRole() == Roles.CLIENT) {
             return ordersRepository.findByClientId(user.getId()).stream()
-                    .map(OrdersMapper::toDto).toList();
+                    .filter(o -> !excluded.contains(o.getStatus()))
+                    .map(OrdersMapper::toDto)
+                    .sorted(Comparator.comparingLong(OrderResponseDto::getPriorityScore))
+                    .toList();
         }
         return ordersRepository.findAll().stream()
+                .filter(o -> !excluded.contains(o.getStatus()))
                 .filter(o -> permissionService.isAdmin(user)
                         || permissionService.canAccessOrganization(user, o.getOrganizationId()))
-                .map(OrdersMapper::toDto).toList();
+                .map(OrdersMapper::toDto)
+                .sorted(Comparator.comparingLong(OrderResponseDto::getPriorityScore))
+                .toList();
     }
 
     public List<OrderResponseDto> getMyOrders() {
         User user = getCurrentUser();
+        Set<ClientOrderStatus> excluded = Set.of(
+                ClientOrderStatus.IN_PRODUCTION,
+                ClientOrderStatus.PRODUCTION_COMPLETED,
+                ClientOrderStatus.DELIVERED,
+                ClientOrderStatus.CANCELLED
+        );
         return ordersRepository.findByClientId(user.getId()).stream()
+                .filter(o -> !excluded.contains(o.getStatus()))
                 .map(OrdersMapper::toDto).toList();
     }
 

@@ -11,7 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -81,6 +83,27 @@ public class OrdersController {
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<OrderResponseDto> startProductionV2(@PathVariable String id) {
         return ResponseEntity.ok(ordersService.startProductionWithMaterials(id));
+    }
+
+    @PostMapping("/bulk/start-production")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<Map<String, Object>> bulkStartProduction(@RequestBody List<String> orderIds) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        int successCount = 0;
+        for (String id : orderIds) {
+            try {
+                OrderResponseDto dto = ordersService.startProductionWithMaterials(id);
+                successCount++;
+                results.add(Map.of("orderId", id, "success", true, "orderReference", dto.getOrderReference()));
+            } catch (Exception e) {
+                results.add(Map.of("orderId", id, "success", false, "error", e.getMessage()));
+            }
+        }
+        return ResponseEntity.ok(Map.of(
+                "successCount", successCount,
+                "totalCount", orderIds.size(),
+                "results", results
+        ));
     }
 
     @PostMapping("/{id}/ready")
@@ -206,6 +229,14 @@ public class OrdersController {
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<OrderResponseDto> workflowCompleteProduction(@PathVariable String productionId) {
         return ResponseEntity.ok(orderWorkflowService.completeProduction(productionId));
+    }
+
+    @PostMapping("/{id}/cancel-production")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> cancelProduction(
+            @PathVariable String id,
+            @RequestBody @Valid CancelProductionDto dto) {
+        return ResponseEntity.ok(orderWorkflowService.cancelProduction(id, dto.getAction(), dto.getMessage()));
     }
 
     @GetMapping("/{id}/workflow/materials")

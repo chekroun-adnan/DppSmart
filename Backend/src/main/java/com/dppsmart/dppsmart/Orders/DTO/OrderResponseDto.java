@@ -33,6 +33,7 @@ public class OrderResponseDto {
     private String supplyChainOrderId;
     private LocalDateTime stockCheckedAt;
     private LocalDateTime productionStartedAt;
+    private String productionStartedBy;
     private LocalDateTime productionCompletedAt;
     private LocalDateTime deliveryReadyAt;
     private String confirmedBy;
@@ -41,4 +42,6 @@ public class OrderResponseDto {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
+    private String productionPriorityBadge;
+    private Long priorityScore;
 }
