@@ -141,19 +141,17 @@ public class AiProductionPlanningService {
             if (contentObj == null) return null;
 
             String content = contentObj.toString().trim();
-            // Strip markdown code blocks if present
+
             if (content.startsWith("```")) {
                 content = content.replaceAll("(?s)```[a-zA-Z]*\\n?", "").replaceAll("```", "").trim();
             }
 
-            // Parse the JSON content string manually
             content = content.trim();
             if (!content.startsWith("{")) {
                 log.warn("AI response content is not JSON: {}", content);
                 return null;
             }
 
-            // Simple key extraction — avoids Jackson version issues
             return ProductionPlanningDTO.AiRecommendationDTO.builder()
                     .recommendedOrderId(extractJsonString(content, "recommendedOrderId"))
                     .recommendedOrderCode(extractJsonString(content, "recommendedOrderCode"))
@@ -170,7 +168,7 @@ public class AiProductionPlanningService {
     }
 
     private String extractJsonString(String json, String key) {
-        // Matches "key": "value" patterns (handles escaped quotes inside value)
+
         String pattern = "\"" + key + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"";
         java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
         java.util.regex.Matcher m = p.matcher(json);

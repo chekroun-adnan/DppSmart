@@ -120,7 +120,7 @@ export default function PassportPage() {
 
   const inner = (
       <div className="space-y-0">
-        {/* Back button — only for logged-in users */}
+        
         {loggedIn && (
           <button
             type="button"
@@ -144,16 +144,16 @@ export default function PassportPage() {
         ) : product ? (
           <div className="space-y-6">
 
-            {/* Hero card */}
+            
             <div className="rounded-3xl overflow-hidden shadow-xl">
-              {/* Gradient header */}
+              
               <div className="relative bg-gradient-to-br from-brand-600 via-brand-700 to-slate-900 px-8 pt-10 pb-10">
-                {/* Decorative circles */}
+                
                 <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/4 pointer-events-none" />
 
                 <div className="relative flex flex-col sm:flex-row items-start gap-7">
-                  {/* Product image */}
+                  
                   <div className="shrink-0">
                     {imageUrl ? (
                       <img
@@ -171,7 +171,7 @@ export default function PassportPage() {
                     )}
                   </div>
 
-                  {/* Main info */}
+                  
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-3 flex-wrap">
                       <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">
@@ -199,7 +199,7 @@ export default function PassportPage() {
                     </div>
                   </div>
 
-                  {/* AI score meter */}
+                  
                   {!isClient && (
                     <div className="shrink-0">
                       <ScoreMeter score={product.aiScore} />
@@ -207,7 +207,7 @@ export default function PassportPage() {
                   )}
                 </div>
 
-                {/* AI summary */}
+                
                 {!isClient && product.aiSummary && (
                   <div className="relative mt-6 rounded-2xl bg-white/10 border border-white/10 p-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-brand-200 mb-1">AI Summary</p>
@@ -216,7 +216,7 @@ export default function PassportPage() {
                 )}
               </div>
 
-              {/* Quick stats strip */}
+              
               <div className="bg-slate-900 px-8 py-4 grid grid-cols-2 sm:grid-cols-4 divide-x divide-white/5">
                 {[
                   { label: t("passport.variant"), value: product.variantName || "—" },
@@ -232,13 +232,13 @@ export default function PassportPage() {
               </div>
             </div>
 
-            {/* Content grid */}
+            
             <div className="grid gap-6 lg:grid-cols-3">
 
-              {/* Left: product details + supplemental */}
+              
               <div className="lg:col-span-2 space-y-6">
 
-                {/* Core attributes */}
+                
                 <div className="glass-card p-6">
                   <h2 className="text-sm font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-4">{t("passport.productDetails")}</h2>
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -255,7 +255,7 @@ export default function PassportPage() {
                   </div>
                 </div>
 
-                {/* Materials Composition */}
+                
                 {Array.isArray(product.materialsComposition) && product.materialsComposition.length > 0 && (
                   <div className="glass-card p-6">
                     <div className="flex flex-col sm:flex-row sm:gap-10">
@@ -294,7 +294,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* End of Life Instructions */}
+                
                 {product.endOfLifeInstructions && (
                   <div className="glass-card p-6">
                     <h2 className="text-sm font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-4">{t("passport.endOfLife")}</h2>
@@ -302,7 +302,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* Extra info */}
+                
                 {suppEntries.length > 0 && (
                   <div className="glass-card p-6">
                     <h2 className="text-sm font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-4">{t("passport.extraFields")}</h2>
@@ -317,7 +317,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* Production steps */}
+                
                 {Array.isArray(product.productionSteps) && product.productionSteps.length > 0 && (
                   <div className="glass-card p-6">
                     <h2 className="text-sm font-extrabold uppercase tracking-[0.15em] text-slate-400 mb-5">{t("passport.productionSteps")}</h2>
@@ -329,7 +329,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* Missing fields */}
+                
                 {!isClient && Array.isArray(product.aiMissingFields) && product.aiMissingFields.length > 0 && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
                     <div className="flex items-center gap-2 mb-3">
@@ -347,10 +347,10 @@ export default function PassportPage() {
                 )}
               </div>
 
-              {/* Right: QR + DPP URL + identifiers */}
+              
               <div className="space-y-4">
 
-                {/* QR Code */}
+                
                 {product.qrUrl && (
                   <div className="glass-card p-6 text-center">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t("passport.qrCode")}</p>
@@ -373,7 +373,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* Passport URL */}
+                
                 {product.id && (
                   <div className="glass-card p-5">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{t("passport.passportUrl")}</p>
@@ -390,7 +390,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* Product ID */}
+                
                 {!isClient && (
                   <div className="glass-card p-5">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{t("passport.productIdentifier")}</p>
@@ -398,7 +398,7 @@ export default function PassportPage() {
                   </div>
                 )}
 
-                {/* AI Score detail */}
+                
                 {!isClient && typeof product.aiScore === "number" && (
                   <div className="glass-card p-5">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">{t("passport.aiAssessment")}</p>

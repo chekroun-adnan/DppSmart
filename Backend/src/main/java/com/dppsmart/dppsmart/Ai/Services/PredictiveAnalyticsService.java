@@ -18,6 +18,7 @@ import com.dppsmart.dppsmart.Security.Permission;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -46,13 +47,20 @@ public class PredictiveAnalyticsService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
-    private final MaterialStockRepository materialStockRepository;
-    private final OrdersRepository ordersRepository;
-    private final ProductionRepository productionRepository;
-    private final ScanEventRepository scanEventRepository;
-    private final PermissionService permissionService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private ProductRepository productRepository;
+    @Autowired
+    private MaterialStockRepository materialStockRepository;
+    @Autowired
+    private OrdersRepository ordersRepository;
+    @Autowired
+    private ProductionRepository productionRepository;
+    @Autowired
+    private ScanEventRepository scanEventRepository;
+    @Autowired
+    private PermissionService permissionService;
 
     public PredictiveAnalyticsService(
             UserRepository userRepository,

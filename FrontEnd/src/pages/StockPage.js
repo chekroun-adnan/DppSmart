@@ -352,7 +352,7 @@ export default function StockPage() {
                 {repairingLinks ? "Repairing..." : "Repair Links"}
               </button>
             )}
-            {/* Export dropdown */}
+            
             <div className="relative">
               <button
                 type="button"
@@ -647,7 +647,7 @@ export default function StockPage() {
 
       {modal && (modal === "create" || modal === "edit") && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden mobile-full-modal" onClick={(e) => e.stopPropagation()}>
             <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 {modal === "create"

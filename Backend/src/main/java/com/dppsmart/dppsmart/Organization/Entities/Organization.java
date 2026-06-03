@@ -1,6 +1,5 @@
 package com.dppsmart.dppsmart.Organization.Entities;
 
-
 import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.ProductStock.Entities.ProductStock;
 import lombok.AllArgsConstructor;

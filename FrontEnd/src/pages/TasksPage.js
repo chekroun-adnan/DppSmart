@@ -96,7 +96,7 @@ export default function TasksPage() {
   const [selectedOrgId, setSelectedOrgId] = useState(() => localStorage.getItem("orgId") || "");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [modal, setModal] = useState(null); // "create" | "edit" | "detail" | "delete"
+  const [modal, setModal] = useState(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [editingId, setEditingId] = useState("");
   const [detailTask, setDetailTask] = useState(null);
@@ -158,7 +158,7 @@ export default function TasksPage() {
 
   const counts = STATUSES.reduce((acc, s) => ({ ...acc, [s]: tasks.filter((t) => t.status === s).length }), {});
 
-  // ── CREATE ───────────────────────────────────────────────────────────────────
+  
   const openCreate = () => { setDraft(emptyDraft); setActionError(""); setModal("create"); };
 
   const validateDraft = () => {
@@ -185,7 +185,7 @@ export default function TasksPage() {
     finally { setSaving(false); }
   };
 
-  // ── EDIT ─────────────────────────────────────────────────────────────────────
+  
   const openEdit = (task) => {
     setEditingId(task.id);
     setDraft({
@@ -221,7 +221,7 @@ export default function TasksPage() {
     finally { setSaving(false); }
   };
 
-  // ── QUICK STATUS UPDATE ───────────────────────────────────────────────────────
+  
   const handleStatusChange = async (task, newStatus) => {
     const progress = newStatus === "DONE" ? 100 : newStatus === "TODO" ? 0 : task.progress;
     try {
@@ -238,10 +238,10 @@ export default function TasksPage() {
       const item = res?.data ?? res;
       setTasks((p) => p.map((t) => t.id === task.id ? { ...t, ...item } : t));
       if (detailTask?.id === task.id) setDetailTask((d) => ({ ...d, progress: newProgress }));
-    } catch (e) { /* silent */ }
+    } catch (e) {  }
   };
 
-  // ── DELETE ────────────────────────────────────────────────────────────────────
+  
   const handleDelete = async () => {
     setSaving(true); setActionError("");
     try {
@@ -317,7 +317,7 @@ export default function TasksPage() {
     <DashboardLayout>
       <div className="space-y-6">
 
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">{t("tasks.title", "Workforce")}</p>
@@ -334,7 +334,7 @@ export default function TasksPage() {
           )}
         </div>
 
-        {/* KPI strips */}
+        
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { key: "ALL", label: t("tasks.allTasks", "All Tasks"), value: tasks.length },
@@ -354,7 +354,7 @@ export default function TasksPage() {
           ))}
         </div>
 
-        {/* Filters */}
+        
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           <OrgSelector value={selectedOrgId} onChange={setSelectedOrgId} className="flex-1" />
           <div className="relative max-w-xs w-full">
@@ -365,7 +365,7 @@ export default function TasksPage() {
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
 
-        {/* Task grid */}
+        
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -388,7 +388,7 @@ export default function TasksPage() {
                   className="group glass-card p-5 cursor-pointer hover:-translate-y-0.5 hover:shadow-soft-xl transition-all"
                   onClick={() => { setDetailTask(task); setModal("detail"); }}
                 >
-                  {/* Top row */}
+                  
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${st.bg}`}>
@@ -416,11 +416,11 @@ export default function TasksPage() {
                     )}
                   </div>
 
-                  {/* Title */}
+                  
                   <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug mb-1">{task.title}</p>
                   {task.description && <p className="text-xs text-slate-400 line-clamp-2 mb-3">{task.description}</p>}
 
-                  {/* Progress */}
+                  
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-slate-400 font-semibold">{t("tasks.progress", "Progress")}</span>
@@ -432,7 +432,7 @@ export default function TasksPage() {
                     </div>
                   </div>
 
-                  {/* Footer */}
+                  
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/[0.06]">
                     <div className="flex -space-x-1.5">
                       {(task.assignedEmployeeIds || []).slice(0, 4).map((empId) => {
@@ -467,7 +467,7 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* ── CREATE / EDIT MODAL ─────────────────────────────────────────────── */}
+      
       {canManage && (modal === "create" || modal === "edit") && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
@@ -503,7 +503,7 @@ export default function TasksPage() {
         </div>
       , document.body)}
 
-      {/* ── DETAIL MODAL ────────────────────────────────────────────────────── */}
+      
       {modal === "detail" && detailTask && (() => {
         const st = STATUS_STYLE[detailTask.status] || STATUS_STYLE.TODO;
         const pri = PRIORITY_STYLE[detailTask.priority] || PRIORITY_STYLE.MEDIUM;
@@ -512,7 +512,7 @@ export default function TasksPage() {
         return (
           <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
             <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
+              
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-7 pt-7 pb-6 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -532,7 +532,7 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              {/* Body */}
+              
               <div className="overflow-y-auto flex-1 p-7 space-y-5">
                     {detailTask.description && (
                       <div>
@@ -541,14 +541,14 @@ export default function TasksPage() {
                       </div>
                     )}
 
-                {/* Live progress */}
+                
                 <ProgressBar
                   value={detailTask.progress ?? 0}
                   onChange={(v) => handleProgressChange(detailTask, v)}
                   t={t}
                 />
 
-                {/* Status quick-change */}
+                
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{t("tasks.updateStatus", "Update Status")}</p>
                   <div className="flex flex-wrap gap-2">
@@ -570,7 +570,7 @@ export default function TasksPage() {
                   </div>
                 </div>
 
-                {/* Assigned employees */}
+                
                     {assignedEmps.length > 0 && (
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{t("tasks.assignedTo", "Assigned To")}</p>
@@ -590,7 +590,7 @@ export default function TasksPage() {
                   </div>
                 )}
 
-                {/* Meta */}
+                
                 <div className="grid grid-cols-2 gap-3">
                        {detailTask.dueDate && (
                         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-white/[0.06] px-3 py-2.5">
@@ -616,7 +616,7 @@ export default function TasksPage() {
         );
       })()}
 
-      {/* ── DELETE MODAL ────────────────────────────────────────────────────── */}
+      
       {canManage && modal === "delete" && pendingDelete && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"

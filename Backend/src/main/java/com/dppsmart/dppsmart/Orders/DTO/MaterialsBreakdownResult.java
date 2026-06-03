@@ -20,13 +20,13 @@ public class MaterialsBreakdownResult {
         private String materialId;
         private String materialName;
         private String unit;
-        private double totalRequired;     // sum across all order items
-        private int availableStock;       // current stock (unreserved)
-        private int reservedStock;        // already reserved elsewhere
-        private double willConsume;       // how much this order will consume in production
-        private double remainingAfter;    // availableStock - willConsume
+        private double totalRequired;
+        private int availableStock;
+        private int reservedStock;
+        private double willConsume;
+        private double remainingAfter;
         private boolean sufficient;
-        private double shortage;          // max(0, willConsume - availableStock)
+        private double shortage;
         private boolean alreadyReservedForThisOrder;
     }
 }

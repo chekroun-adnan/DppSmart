@@ -23,7 +23,7 @@ import {
   getTasks,
 } from "../services/authService";
 
-// ─── Design tokens ──────────────────────────────────────────────────────────
+
 
 const CHART_COLORS = {
   brand:   "#4d7aff",
@@ -67,7 +67,7 @@ const TOOLTIP_STYLE = {
   cursor:      { stroke: "rgba(148,163,184,0.15)", strokeWidth: 1 },
 };
 
-// ─── Utility helpers ─────────────────────────────────────────────────────────
+
 
 function makeSparkline(endValue = 0, variance = 0.28, points = 8) {
   const result = [];
@@ -88,7 +88,7 @@ function delta(sparkline) {
   return Math.round(((last - prev) / prev) * 100);
 }
 
-// ─── Shared sub-components ───────────────────────────────────────────────────
+
 
 function SectionHeader({ title, badge, badgeTone, action, icon: Icon }) {
   const tones = {
@@ -131,7 +131,7 @@ function BarRow({ label, value, max, color = "bg-brand-500", badge }) {
   );
 }
 
-// ─── KPI Card V2 with sparkline ───────────────────────────────────────────────
+
 
 function KpiCard({ label, value, sub, tone = "brand", icon: Icon, sparkline, isPercent }) {
   const iconBg = {
@@ -163,7 +163,7 @@ function KpiCard({ label, value, sub, tone = "brand", icon: Icon, sparkline, isP
         {sparkline && (
           <div className="flex items-center gap-2 mt-2">
             <div className="flex-1 h-12 min-h-[48px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <LineChart data={sparkline}>
                   <Line type="monotone" dataKey="v" stroke={lineColor[tone]} strokeWidth={1.5} dot={false} />
                 </LineChart>
@@ -180,7 +180,7 @@ function KpiCard({ label, value, sub, tone = "brand", icon: Icon, sparkline, isP
   );
 }
 
-// ─── Production timeline ─────────────────────────────────────────────────────
+
 
 function ProductionTimeline({ productions, products, t }) {
   const recent = [...productions]
@@ -252,7 +252,7 @@ function ProductionTimeline({ productions, products, t }) {
   );
 }
 
-// ─── AI Insights / Alerts ────────────────────────────────────────────────────
+
 
 function AIInsightsCard({ dashboard, t }) {
   const notifications = dashboard?.notifications || [];
@@ -318,7 +318,7 @@ function AIInsightsCard({ dashboard, t }) {
   );
 }
 
-// ─── Live Activity card ──────────────────────────────────────────────────────
+
 
 function LiveActivityCard({ dashboard, t }) {
   const activity = dashboard?.liveActivity || [];
@@ -352,7 +352,7 @@ function LiveActivityCard({ dashboard, t }) {
   );
 }
 
-// ─── Task status donut ───────────────────────────────────────────────────────
+
 
 const TASK_STYLE = {
   TODO:        { dot: "bg-slate-400",   bg: "status-slate",   label: "To Do",       bar: "bg-slate-400",   color: CHART_COLORS.slate },
@@ -362,7 +362,7 @@ const TASK_STYLE = {
   CANCELLED:   { dot: "bg-red-400",     bg: "status-red",     label: "Cancelled",   bar: "bg-red-400",     color: CHART_COLORS.red },
 };
 
-// ─── Employee-only dashboard ──────────────────────────────────────────────────
+
 
 function EmployeeDashboard({ tasks, t }) {
   const open     = tasks.filter((t) => t.status !== "DONE" && t.status !== "CANCELLED");
@@ -388,7 +388,7 @@ function EmployeeDashboard({ tasks, t }) {
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t("dashboard.taskOverview", "Task Overview")}</h1>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
         <KpiCard label={t("dashboard.openTasks", "Open Tasks")}   value={open.length}    sub={t("dashboard.active", "Active")}                tone="brand"   icon={CheckSquare} sparkline={openSpark} />
         <KpiCard label={t("dashboard.completed", "Completed")}     value={done.length}    sub={t("dashboard.done", "Done")}                    tone="emerald" icon={CheckCircle2} sparkline={doneSpark} />
         <KpiCard label={t("dashboard.overdue", "Overdue")}         value={overdue.length} sub={overdue.length > 0 ? "Needs attention" : "On track"} tone={overdue.length > 0 ? "red" : "slate"} icon={Clock} sparkline={overdueSpark} />
@@ -396,7 +396,7 @@ function EmployeeDashboard({ tasks, t }) {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        {/* Task table */}
+        
         <article className="glass-card overflow-hidden lg:col-span-2">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06]">
             <h3 className="text-xs font-extrabold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">{t("dashboard.myTasks", "My Tasks")}</h3>
@@ -440,13 +440,13 @@ function EmployeeDashboard({ tasks, t }) {
           )}
         </article>
 
-        {/* Status donut */}
+        
         <article className="glass-card p-6 flex flex-col">
           <SectionHeader title={t("dashboard.statusBreakdown", "Status Breakdown")} />
           {taskDonutData.length > 0 ? (
             <>
               <div className="flex justify-center my-2" style={{ minHeight: 160 }}>
-                <ResponsiveContainer width={160} height={160}>
+                <ResponsiveContainer width={160} height={160} minWidth={1} minHeight={1}>
                   <PieChart>
                     <Pie data={taskDonutData} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={2} dataKey="value" strokeWidth={0}>
                       {taskDonutData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
@@ -475,7 +475,7 @@ function EmployeeDashboard({ tasks, t }) {
         </article>
       </section>
 
-      {/* Quick actions */}
+      
       <section>
         <div className="flex gap-3 flex-wrap">
           <Link to="/tasks" className="flex items-center gap-2.5 rounded-2xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/25 px-5 py-3 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-colors">
@@ -492,7 +492,7 @@ function EmployeeDashboard({ tasks, t }) {
   );
 }
 
-// ─── Admin/SubAdmin Dashboard ────────────────────────────────────────────────
+
 
 function AdminDashboard({ dashboard, productions, orders, tasks, employees, products, selectedOrgId, onOrgChange, t }) {
   const filteredProds  = selectedOrgId ? productions.filter((p) => p.organizationId === selectedOrgId) : productions;
@@ -500,7 +500,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
   const filteredTasks  = selectedOrgId ? tasks.filter((t) => t.organizationId === selectedOrgId)  : tasks;
   const filteredEmps   = selectedOrgId ? employees.filter((e) => e.organizationId === selectedOrgId) : employees;
 
-  // Production — use real API data from dashboard.kpis.productionsByStatus if available
+  
   const apiProdsByStatus = dashboard?.kpis?.productionsByStatus || {};
   const PROD_STATUS_META = {
     PLANNED:     { color: "bg-slate-400", badge: "status-slate",   fill: PROD_COLORS.PLANNED,     label: t("dashboard.planned","Planned") },
@@ -527,7 +527,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
     ? Math.round((filteredProds.filter((p) => p.status === "COMPLETED").length / filteredProds.length) * 100)
     : 0;
 
-  // Orders — use real API statuses from dashboard.kpis.ordersByStatus if available
+  
   const ORDER_STATUS_COLORS = {
     PENDING_REVIEW:                 { color: "bg-amber-400",  label: "Pending Review" },
     READY_FOR_CONFIRMATION:         { color: "bg-sky-400",    label: "Ready for Conf." },
@@ -562,7 +562,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
     ? Math.round((filteredOrders.filter((o) => ["DELIVERED","READY"].includes(o.status)).length / filteredOrders.length) * 100)
     : 0;
 
-  // Tasks
+  
   const taskByStatus = [
     { label: t("tasks.todo","To Do"),                 value: filteredTasks.filter((t) => t.status === "TODO").length,        color: "bg-slate-400" },
     { label: t("dashboard.inProgress","In Progress"),  value: filteredTasks.filter((t) => t.status === "IN_PROGRESS").length, color: "bg-blue-500" },
@@ -585,19 +585,19 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
     ? Math.round((filteredTasks.filter((t) => t.status === "DONE").length / filteredTasks.length) * 100)
     : 0;
 
-  // Quality
+  
   const certified  = products.filter((p) => typeof p.aiScore === "number" && p.aiScore >= 80).length;
   const inReview   = products.filter((p) => typeof p.aiScore === "number" && p.aiScore >= 40 && p.aiScore < 80).length;
   const hasIssues  = products.filter((p) => typeof p.aiScore === "number" && p.aiScore < 40).length;
   const activeInspections = filteredProds.filter((p) => p.status === "IN_PROGRESS").length;
   const qualityMax = Math.max(certified, inReview, hasIssues, 1);
 
-  // Workforce
+  
   const avgPerf = filteredEmps.length
     ? Math.round(filteredEmps.reduce((s, e) => s + (e.performanceScore ?? 0), 0) / filteredEmps.length)
     : 0;
 
-  // Sparklines
+  
   const prodSpark      = makeSparkline(filteredProds.length);
   const orderSpark     = makeSparkline(filteredOrders.length);
   const activeTasks    = filteredTasks.filter((t) => !["DONE","CANCELLED"].includes(t.status)).length;
@@ -608,13 +608,13 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
   const dppScore       = dashboard?.dppComplianceScore ?? 0;
   const dppSpark       = makeSparkline(dppScore, 0.1);
 
-  // Production lifecycle chart data
+  
   const productionFlowData = prodByStatus.map((p) => ({ stage: p.label, count: p.value }));
 
-  // Order bar chart data
+  
   const orderBarData = orderByStatus.map((o, i) => ({ label: o.label.slice(0, 4), value: o.value, fill: ORDER_COLORS[i] }));
 
-  // Task donut
+  
   const taskDonutData = ["TODO","IN_PROGRESS","REVIEW","DONE","CANCELLED"]
     .map((s, i) => ({
       name: TASK_STYLE[s].label,
@@ -623,12 +623,12 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
     }))
     .filter((d) => d.value > 0);
 
-  // Prod donut
+  
   const prodDonutData = prodByStatus
     .filter((p) => p.value > 0)
     .map((p) => ({ name: p.label, value: p.value, fill: p.fill }));
 
-  // Compliance radial
+  
   const radialData = [{ name: "Compliance", value: dppScore, fill: CHART_COLORS.purple }];
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -636,7 +636,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
   return (
     <div className="space-y-8 animate-fade-in">
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      
       <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">{t("dashboard.operationsCenter", "Operations Center")}</p>
@@ -648,8 +648,8 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         </div>
       </section>
 
-      {/* ── KPI Strip ──────────────────────────────────────────────────── */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      
+      <section className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard
           label={t("nav.production")}
           value={filteredProds.length}
@@ -688,7 +688,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         />
       </section>
 
-      {/* ── Low Stock Alert ────────────────────────────────────────────── */}
+      
       {(dashboard?.kpis?.lowStockItems ?? 0) > 0 && (
         <section className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-5 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -709,7 +709,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         </section>
       )}
 
-      {/* ── Production Throughput Banner ────────────────────────────────── */}
+      
       {filteredProds.length > 0 && (
         <section className="glass-card p-6">
           <div className="flex items-center justify-between mb-5">
@@ -725,7 +725,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
             </div>
           </div>
           <div style={{ height: 160 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <AreaChart data={productionFlowData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
               <defs>
                 <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
@@ -744,10 +744,10 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         </section>
       )}
 
-      {/* ── Production · Orders · Quality ──────────────────────────────── */}
+      
       <section className="grid gap-6 xl:grid-cols-3">
 
-        {/* Production card */}
+        
         <article className="glass-card p-6 space-y-4">
           <SectionHeader
             title={t("nav.production")}
@@ -763,7 +763,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           </div>
           {prodDonutData.length > 0 && (
             <div className="flex justify-center pt-3 border-t border-slate-100 dark:border-white/[0.05]" style={{ minHeight: 120 }}>
-              <ResponsiveContainer width={120} height={120}>
+              <ResponsiveContainer width={120} height={120} minWidth={1} minHeight={1}>
                 <PieChart>
                   <Pie data={prodDonutData} cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} dataKey="value" strokeWidth={0}>
                     {prodDonutData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
@@ -783,7 +783,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           </div>
         </article>
 
-        {/* Orders card */}
+        
         <article className="glass-card p-6 space-y-4">
           <SectionHeader
             title={t("dashboard.orderPipeline","Order Pipeline")}
@@ -800,7 +800,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           {orderBarData.some((d) => d.value > 0) && (
             <div className="pt-3 border-t border-slate-100 dark:border-white/[0.05]">
               <div style={{ height: 90 }}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <BarChart data={orderBarData} layout="vertical" margin={{ left: 0, right: 4, top: 0, bottom: 0 }}>
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 9, fill: "#94A3B8" }} width={28} axisLine={false} tickLine={false} />
@@ -816,7 +816,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           {filteredOrders.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">No order data.</p>}
         </article>
 
-        {/* Quality card */}
+        
         <article className="glass-card p-6 space-y-4">
           <SectionHeader
             title={t("dashboard.qualityControl","Quality Control")}
@@ -825,10 +825,10 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
             badgeTone="blue"
             action={<Link to="/quality-control" className="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-wide">Manage →</Link>}
           />
-          {/* DPP radial gauge */}
+          
           <div className="flex items-center gap-4">
             <div className="relative shrink-0" style={{ minHeight: 100 }}>
-              <ResponsiveContainer width={100} height={100}>
+              <ResponsiveContainer width={100} height={100} minWidth={1} minHeight={1}>
                 <RadialBarChart cx="50%" cy="50%" innerRadius={32} outerRadius={48} data={radialData} startAngle={220} endAngle={-40}>
                   <RadialBar dataKey="value" cornerRadius={6} background={{ fill: "rgba(148,163,184,0.1)" }} />
                 </RadialBarChart>
@@ -852,15 +852,15 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         </article>
       </section>
 
-      {/* ── Production Timeline (recent runs) ──────────────────────────── */}
+      
       {filteredProds.length > 0 && (
         <ProductionTimeline productions={filteredProds} products={products} t={t} />
       )}
 
-      {/* ── Tasks · Workforce ───────────────────────────────────────────── */}
+      
       <section className="grid gap-6 xl:grid-cols-2">
 
-        {/* Task completion */}
+        
         <article className="glass-card p-6 space-y-4">
           <SectionHeader
             title={t("dashboard.taskCompletion","Task Completion")}
@@ -870,11 +870,11 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
             action={<Link to="/tasks" className="text-[10px] font-bold text-brand-500 hover:text-brand-600 uppercase tracking-wide">{t("common.viewAll","View all →")}</Link>}
           />
 
-          {/* Task donut + stats */}
+          
           <div className="flex items-center gap-4">
             {taskDonutData.length > 0 ? (
               <div className="relative shrink-0">
-                <ResponsiveContainer width={100} height={100}>
+                <ResponsiveContainer width={100} height={100} minWidth={1} minHeight={1}>
                   <PieChart>
                     <Pie data={taskDonutData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={2} dataKey="value" strokeWidth={0}>
                       {taskDonutData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
@@ -919,7 +919,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           </div>
         </article>
 
-        {/* Workforce & scope */}
+        
         <article className="glass-card p-6 space-y-5">
           <SectionHeader title={t("dashboard.workforceScope","Workforce & Scope")} icon={Users} />
           <div className="grid grid-cols-2 gap-4">
@@ -972,12 +972,12 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
         </article>
       </section>
 
-      {/* ── AI Insights · Live Activity · Priorities ────────────────────── */}
+      
       <section className="grid gap-6 xl:grid-cols-3">
         <AIInsightsCard dashboard={dashboard} t={t} />
         <LiveActivityCard dashboard={dashboard} t={t} />
 
-        {/* Today's priorities */}
+        
         <article className="glass-card p-6">
           <SectionHeader
             title={t("dashboard.todaysPriorities","Today's Priorities")}
@@ -1015,7 +1015,7 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
   );
 }
 
-// ─── Page shell ──────────────────────────────────────────────────────────────
+
 
 export default function DashboardPage() {
   const { t } = useTranslation();

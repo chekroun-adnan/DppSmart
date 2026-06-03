@@ -20,22 +20,36 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
-        if (request instanceof ServletServerHttpRequest servletRequest) {
-            String token = servletRequest.getServletRequest().getParameter("token");
-            if (token != null && !token.isBlank()) {
-                try {
-                    String userId = jwtService.extractUserId(token);
-                    if (userId != null) {
-                        attributes.put("userId", userId);
-                        return true;
-                    }
-                } catch (Exception ignored) {}
-            }
+        String token = extractToken(request);
+        if (token != null && !token.isBlank()) {
+            try {
+                String userId = jwtService.extractUserId(token);
+                if (userId != null) {
+                    attributes.put("userId", userId);
+                }
+            } catch (Exception ignored) {}
         }
-        return false;
+        // Always allow the HTTP handshake; JWT is validated at STOMP CONNECT level
+        return true;
     }
 
     @Override
     public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                WebSocketHandler wsHandler, Exception exception) {}
+
+    private String extractToken(ServerHttpRequest request) {
+        if (request instanceof ServletServerHttpRequest servletRequest) {
+            String t = servletRequest.getServletRequest().getParameter("token");
+            if (t != null && !t.isBlank()) return t;
+        }
+        String query = request.getURI().getQuery();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                if (param.startsWith("token=")) {
+                    return param.substring(6);
+                }
+            }
+        }
+        return null;
+    }
 }

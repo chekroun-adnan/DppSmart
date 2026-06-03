@@ -10,11 +10,10 @@ import java.util.List;
 @AllArgsConstructor
 public class BulkOrderRequirementRequestDTO {
 
-    /** Order IDs to include in the analysis */
+    
     private List<String> orderIds;
 
-    /** Optional: admin-set priority allocation per product.
-     *  When present, drives the recalculate path. */
+    
     private List<ProductPriorityAllocation> priorityAllocations;
 
     @Data
@@ -22,7 +21,7 @@ public class BulkOrderRequirementRequestDTO {
     @AllArgsConstructor
     public static class ProductPriorityAllocation {
         private String productId;
-        /** Ordered list of orderId → allocatedFromStock for this product */
+        
         private List<OrderAllocation> allocations;
     }
 

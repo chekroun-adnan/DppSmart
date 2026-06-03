@@ -201,7 +201,6 @@ public class ProductionService {
         return productionMapper.toDto(saved);
     }
 
-
     public ProductionResponseDto completeProductionBatch(String id) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
@@ -226,7 +225,6 @@ public class ProductionService {
         onProductionCompleted(saved, user);
         return productionMapper.toDto(saved);
     }
-
 
     public ProductionMaterialConsumptionDto getMaterialConsumption(String productionId) {
         User user = getCurrentUser();
@@ -355,7 +353,6 @@ public class ProductionService {
         return productionMapper.toDto(saved);
     }
 
-
     private void onProductionCompleted(Production production, User user) {
         Product product = productRepository.findById(production.getProductId())
                 .orElseThrow(() -> new NotFoundException("Product not found: " + production.getProductId()));
@@ -461,7 +458,6 @@ public class ProductionService {
                 production.getQuantity() + " units of " + product.getProductName() + " added to stock",
                 NotificationType.PRODUCTION, "/production/" + production.getId());
     }
-
 
     private void consumeMaterialsFromBom(Production production, User user, Product product) {
         technicalSheetRepository.findByProductIdAndStatus(production.getProductId(), TechnicalSheetStatus.ACTIVE)

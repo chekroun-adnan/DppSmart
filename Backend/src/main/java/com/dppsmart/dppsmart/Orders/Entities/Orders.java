@@ -43,7 +43,6 @@ public class Orders {
     private Integer priority;
     private String allocationSessionId;
 
-    // workflow tracking
     private List<String> relatedProductionIds;
     private String supplyChainOrderId;
     private LocalDateTime stockCheckedAt;

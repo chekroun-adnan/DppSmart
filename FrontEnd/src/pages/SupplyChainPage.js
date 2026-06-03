@@ -64,23 +64,23 @@ export default function SupplyChainPage() {
   const [auditId, setAuditId] = useState(null);
   const [auditType, setAuditType] = useState("");
 
-  // Supplier form
+  
   const [supplierForm, setSupplierForm] = useState(emptySupplier);
   const [editingSupplier, setEditingSupplier] = useState(null);
 
-  // Order form
+  
   const [orderForm, setOrderForm] = useState({ supplierId: "", organizationId: "", expectedDeliveryDate: "", notes: "", items: [{ ...emptyOrderItem }] });
   const [editingOrder, setEditingOrder] = useState(null);
 
-  // Reception
+  
   const [receptionOrderId, setReceptionOrderId] = useState(null);
   const [receptionForm, setReceptionForm] = useState({ decision: "", notes: "", rejectionReason: "", itemDecisions: [] });
 
-  // Return
+  
   const [returnOrderId, setReturnOrderId] = useState(null);
   const [returnForm, setReturnForm] = useState({ itemId: "", returnQuantity: "", rejectionReason: "", notes: "" });
 
-  // Inline supplier assignment for auto-generated POs
+  
   const [configuringOrderId, setConfiguringOrderId] = useState(null);
   const [configForm, setConfigForm] = useState({ supplierId: "", expectedDeliveryDate: "" });
   const [configSaving, setConfigSaving] = useState(false);
@@ -143,7 +143,7 @@ export default function SupplyChainPage() {
 
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Supplier CRUD
+  
   const openCreateSupplier = () => {
     setSupplierForm({ ...emptySupplier, organizationId: orgs[0]?.id || "" });
     setEditingSupplier(null);
@@ -201,7 +201,7 @@ export default function SupplyChainPage() {
     }
   };
 
-  // Order CRUD
+  
   const openCreateOrder = () => {
     setOrderForm({ supplierId: "", organizationId: orgs[0]?.id || "", expectedDeliveryDate: "", notes: "", items: [{ ...emptyOrderItem }] });
     setEditingOrder(null);
@@ -262,7 +262,7 @@ export default function SupplyChainPage() {
     }
   };
 
-  // Tracking
+  
   const handleUpdateTracking = async (status) => {
     if (!selectedOrder) return;
     setSaving(true);
@@ -276,7 +276,7 @@ export default function SupplyChainPage() {
     }
   };
 
-  // Reception
+  
   const openReception = (order) => {
     setReceptionOrderId(order.id);
     setReceptionForm({
@@ -331,7 +331,7 @@ export default function SupplyChainPage() {
       setModal(null);
       await reload();
 
-      // Show per-item stock toasts
+      
       if (result?.stockResults?.length) {
         result.stockResults.forEach(r => {
           if (!r) return;
@@ -360,7 +360,7 @@ export default function SupplyChainPage() {
     }
   };
 
-  // Return
+  
   const openReturn = (order) => {
     setReturnOrderId(order.id);
     setReturnForm({ itemId: order.items?.[0]?.id || "", returnQuantity: "", rejectionReason: "", notes: "" });
@@ -425,7 +425,7 @@ export default function SupplyChainPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        
         <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-[#111827]/60 p-1 overflow-x-auto">
           {tabs.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -439,7 +439,7 @@ export default function SupplyChainPage() {
           <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/5 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">{actionError}</div>
         )}
 
-        {/* SUPPLIERS TAB */}
+        
         {activeTab === "suppliers" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -522,7 +522,7 @@ export default function SupplyChainPage() {
           </div>
         )}
 
-        {/* ORDERS TAB */}
+        
         {activeTab === "orders" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -564,7 +564,7 @@ export default function SupplyChainPage() {
                       </span>
                     </div>
 
-                    {/* Inline config panel for auto-generated POs needing supplier assignment */}
+                    
                     {needsConfig && isConfiguring && (
                       <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-3 space-y-2">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Assign Supplier & Confirm</p>
@@ -622,7 +622,7 @@ export default function SupplyChainPage() {
                       <p className="text-xs text-slate-500 dark:text-[#64748B]">{t("supplyChain.expectedDelivery")}: {new Date(order.expectedDeliveryDate).toLocaleDateString()}</p>
                     )}
 
-                    {/* Materials list for auto-generated POs */}
+                    
                     {isAutoPO && order.items?.length > 0 && (
                       <div className="rounded-lg bg-slate-50 dark:bg-[#111827]/40 p-2 space-y-1">
                         {order.items.map(item => (
@@ -662,7 +662,7 @@ export default function SupplyChainPage() {
           </div>
         )}
 
-        {/* TRACKING TAB */}
+        
         {activeTab === "tracking" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -697,7 +697,7 @@ export default function SupplyChainPage() {
                   </span>
                 </div>
 
-                {/* Map */}
+                
                 <div className="glass-card overflow-hidden p-4">
                   <TrackingMap
                     order={selectedOrder}
@@ -707,7 +707,7 @@ export default function SupplyChainPage() {
                   />
                 </div>
 
-                {/* Status actions */}
+                
                 {canEdit() && (
                   <div className="glass-card p-5 space-y-3">
                     <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{t("supplyChain.updateLocation")}</p>
@@ -722,7 +722,7 @@ export default function SupplyChainPage() {
                   </div>
                 )}
 
-                {/* Order items */}
+                
                 <div className="glass-card overflow-hidden">
                   <table className="min-w-full text-left">
                     <thead>
@@ -750,7 +750,7 @@ export default function SupplyChainPage() {
           </div>
         )}
 
-        {/* RECEPTION TAB */}
+        
         {activeTab === "reception" && (
           <div className="space-y-4">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-[#64748B]">{t("supplyChain.reception")}</p>
@@ -788,7 +788,7 @@ export default function SupplyChainPage() {
           </div>
         )}
 
-        {/* RETURNS TAB */}
+        
         {activeTab === "returns" && (
           <div className="space-y-4">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-[#64748B]">{t("supplyChain.returns")}</p>
@@ -831,7 +831,7 @@ export default function SupplyChainPage() {
               </div>
             )}
 
-            {/* Orders with returned items */}
+            
             <div className="mt-6">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-[#64748B] mb-3">{t("supplyChain.orders")} ({orders.length})</p>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -856,7 +856,7 @@ export default function SupplyChainPage() {
         )}
       </div>
 
-      {/* SUPPLIER MODAL */}
+      
       {modal === "supplier" && ReactDOM.createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
@@ -953,7 +953,7 @@ export default function SupplyChainPage() {
         document.body
       )}
 
-      {/* MAP PICKER MODAL (portal) */}
+      
       {showMapPicker && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setShowMapPicker(false)}>
           <div className="relative w-full max-w-3xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] overflow-hidden flex flex-col" style={{ height: "80vh" }} onClick={(e) => e.stopPropagation()}>
@@ -985,7 +985,7 @@ export default function SupplyChainPage() {
         document.body
       )}
 
-      {/* ORDER MODAL */}
+      
       {modal === "order" && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
           <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -1014,7 +1014,7 @@ export default function SupplyChainPage() {
                 <textarea className={TEXTAREA} rows={2} value={orderForm.notes} onChange={e => setOrderForm(p => ({ ...p, notes: e.target.value }))} />
               </FieldGroup>
 
-              {/* Items */}
+              
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("supplyChain.items")} ({orderForm.items.length})</p>
@@ -1062,7 +1062,7 @@ export default function SupplyChainPage() {
         </div>
       )}
 
-      {/* RECEPTION MODAL */}
+      
       {modal === "reception" && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
           <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -1168,7 +1168,7 @@ export default function SupplyChainPage() {
         </div>
       )}
 
-      {/* RETURN MODAL */}
+      
       {modal === "return" && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setModal(null)}>
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -1203,7 +1203,7 @@ export default function SupplyChainPage() {
         </div>
       )}
 
-      {/* SUPPLIER LOCATION VIEWER (portal) */}
+      
       {viewSupplierLocation && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] grid place-items-center bg-slate-900/40 px-4 py-6 animate-fade-in" onClick={() => setViewSupplierLocation(null)}>
           <div className="relative w-full max-w-5xl rounded-3xl bg-white dark:bg-[#1E293B] shadow-2xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-slate-900/10 dark:ring-[rgba(255,255,255,0.08)] overflow-hidden flex flex-col max-h-[90vh] z-[9999]" onClick={(e) => e.stopPropagation()}>
@@ -1226,7 +1226,7 @@ export default function SupplyChainPage() {
         document.body
       )}
 
-      {/* DELETE CONFIRMATION */}
+      
       {pendingDelete && ReactDOM.createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
@@ -1264,7 +1264,7 @@ export default function SupplyChainPage() {
         document.body
       )}
 
-      {/* AUDIT MODAL */}
+      
       {auditId && (
         <AuditHistoryModal entityType={auditType} entityId={auditId} onClose={() => { setAuditId(null); setAuditType(""); }} />
       )}

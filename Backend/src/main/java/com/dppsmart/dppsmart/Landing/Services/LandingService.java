@@ -27,7 +27,6 @@ public class LandingService {
     private final ContactLeadRepository contactLeadRepository;
     private final OrganizationRepository organizationRepository;
 
-
     public LandingResponseDto getLanding() {
         LandingStatsDto stats = new LandingStatsDto();
         stats.setTotalOrganizations(organizationRepository.count());

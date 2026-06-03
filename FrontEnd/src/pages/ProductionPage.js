@@ -49,7 +49,7 @@ function FieldGroup({ label, children }) {
   );
 }
 
-// ─── Material Consumption Panel ───────────────────────────────────────────────
+
 
 function MaterialConsumptionPanel({ productionId, productionStatus }) {
   const [data, setData] = useState(null);
@@ -92,7 +92,7 @@ function MaterialConsumptionPanel({ productionId, productionStatus }) {
 
   return (
     <div className="px-4 pb-4 pt-2 space-y-3">
-      {/* Summary header */}
+      
       <div className={`flex items-center justify-between rounded-xl px-4 py-2.5 ${data.allMaterialsSufficient ? "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30" : "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30"}`}>
         <div>
           <p className={`text-xs font-bold uppercase tracking-widest ${data.allMaterialsSufficient ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
@@ -110,7 +110,7 @@ function MaterialConsumptionPanel({ productionId, productionStatus }) {
         )}
       </div>
 
-      {/* Materials table */}
+      
       <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/[0.06]">
         <table className="w-full text-xs">
           <thead>
@@ -169,7 +169,7 @@ function MaterialConsumptionPanel({ productionId, productionStatus }) {
   );
 }
 
-// ─── Steps Modal ──────────────────────────────────────────────────────────────
+
 
 function StepsModal({ production, onClose, onRefreshed }) {
   const steps = Array.isArray(production.steps) ? production.steps : [];
@@ -341,7 +341,7 @@ function StepsModal({ production, onClose, onRefreshed }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+
 
 const emptyStep = { stepName: "", description: "", orderIndex: 0 };
 
@@ -361,7 +361,7 @@ export default function ProductionPage() {
   const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
-  const [expandedTab, setExpandedTab] = useState({}); // prodId → "steps" | "materials"
+  const [expandedTab, setExpandedTab] = useState({});
   const [selectedOrgId, setSelectedOrgId] = useState(() => localStorage.getItem("orgId") || "");
   const [historyId, setHistoryId] = useState(null);
   const [stepsModalProd, setStepsModalProd] = useState(null);
@@ -393,7 +393,7 @@ export default function ProductionPage() {
       }
     }
     load();
-    // Fallback polling every 45s
+    
     refreshTimerRef.current = setInterval(() => { loadProductions(); }, 45000);
     return () => {
       mounted = false;
@@ -485,7 +485,7 @@ export default function ProductionPage() {
 
   const handleStatusChange = async (prod, newStatus) => {
     if (newStatus === "COMPLETED") {
-      // Route through the proper complete endpoint
+      
       await handleCompleteProduction(prod.id);
       return;
     }
@@ -507,7 +507,7 @@ export default function ProductionPage() {
         title: "Production completed",
         message: "Stock updated and materials consumed successfully.",
       });
-      // Also refresh to pick up any order status changes
+      
       setTimeout(() => loadProductions(), 1500);
     } catch (e) {
       alert(e.message || "Failed to complete production.");
@@ -529,7 +529,7 @@ export default function ProductionPage() {
       const res = await completeProductionStep(productionId, stepIndex);
       const item = res?.data ?? res;
       setProductions((prev) => prev.map((p) => p.id === productionId ? { ...p, ...item } : p));
-      // If production became COMPLETED via last step, refresh to sync order state
+      
       if (item?.status === "COMPLETED") {
         addToast({
           type: "success",
@@ -688,7 +688,7 @@ export default function ProductionPage() {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          {/* Complete Production button — only for non-completed, non-cancelled */}
+                          
                           {!isCompleted && !isCancelled && (
                             <button
                               type="button"
@@ -720,7 +720,7 @@ export default function ProductionPage() {
                             </button>
                           )}
 
-                          {/* Cancel Production button — only for productions linked to an order */}
+                          
                           {!isCompleted && !isCancelled && prod.clientOrderId && (
                             <button
                               type="button"
@@ -732,7 +732,7 @@ export default function ProductionPage() {
                             </button>
                           )}
 
-                          {/* Status dropdown — completed productions show as read-only */}
+                          
                           {isCompleted ? (
                             <span className="h-9 inline-flex items-center px-3 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                               COMPLETED
@@ -770,10 +770,10 @@ export default function ProductionPage() {
                       </div>
                     </div>
 
-                    {/* Expanded section with tabs */}
+                    
                     {isExpanded && (
                       <div className="border-t border-slate-100 dark:border-white/[0.06]">
-                        {/* Tab switcher */}
+                        
                         <div className="flex items-center gap-1 px-5 pt-3 pb-0">
                           <button
                             onClick={() => setTab(prod.id, "steps")}
@@ -838,10 +838,10 @@ export default function ProductionPage() {
         })()}
       </div>
 
-      {/* Create modal */}
+      
       {modal === "create" && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { setModal(null); setActionError(""); }}>
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl mobile-full-modal" onClick={(e) => e.stopPropagation()}>
             <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
               <div className="flex items-start justify-between mb-5">
                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{t("production.newBatch", "New Production Batch")}</h2>
@@ -895,10 +895,10 @@ export default function ProductionPage() {
         </div>
       , document.body)}
 
-      {/* Edit modal */}
+      
       {modal === "edit" && pendingEdit && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { setModal(null); setPendingEdit(null); setActionError(""); }}>
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl mobile-full-modal" onClick={(e) => e.stopPropagation()}>
             <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
               <div className="flex items-start justify-between mb-5">
                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Edit Production Batch</h2>
@@ -949,7 +949,7 @@ export default function ProductionPage() {
         </div>
       , document.body)}
 
-      {/* Cancel Production modal */}
+      
       {cancelProd && createPortal(
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in" onClick={() => { setCancelProd(null); setCancelAction(null); setCancelMessage(""); setActionError(""); }}>
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10" onClick={e => e.stopPropagation()}>
@@ -1001,7 +1001,7 @@ export default function ProductionPage() {
         document.body
       )}
 
-      {/* Delete modal */}
+      
       {modal === "delete" && pendingDelete && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 p-7 shadow-2xl ring-1 ring-slate-900/10">

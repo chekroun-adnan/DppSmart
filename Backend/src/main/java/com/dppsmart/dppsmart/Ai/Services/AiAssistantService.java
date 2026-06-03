@@ -20,6 +20,7 @@ import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,16 +32,26 @@ import java.util.stream.Collectors;
 @Service
 public class AiAssistantService {
 
-    private final UserRepository userRepository;
-    private final OrganizationRepository organizationRepository;
-    private final ProductRepository productRepository;
-    private final MaterialStockRepository materialStockRepository;
-    private final OrdersRepository ordersRepository;
-    private final ProductionRepository productionRepository;
-    private final EmployeesRepository employeesRepository;
-    private final ScanEventRepository scanEventRepository;
-    private final PermissionService permissionService;
-    private final ProductAiScoringService productAiScoringService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private OrganizationRepository organizationRepository;
+    @Autowired
+    private ProductRepository productRepository;
+    @Autowired
+    private MaterialStockRepository materialStockRepository;
+    @Autowired
+    private OrdersRepository ordersRepository;
+    @Autowired
+    private ProductionRepository productionRepository;
+    @Autowired
+    private EmployeesRepository employeesRepository;
+    @Autowired
+    private ScanEventRepository scanEventRepository;
+    @Autowired
+    private PermissionService permissionService;
+    @Autowired
+    private ProductAiScoringService productAiScoringService;
 
     public AiAssistantService(
             UserRepository userRepository,
@@ -81,7 +92,6 @@ public class AiAssistantService {
             case CLIENT -> handleClient(user, lower);
         };
     }
-
 
     private String handleAdmin(User user, String lower) {
         if (!permissionService.hasPermission(user, Permission.AI_INSIGHTS_GLOBAL)) {
@@ -271,7 +281,6 @@ public class AiAssistantService {
         return "Production delay risk (stalled steps):\n" + String.join("\n", risky);
     }
 
-
     private String handleSubAdmin(User user, String lower) {
         if (!permissionService.hasPermission(user, Permission.AI_INSIGHTS_ORG)) {
             throw new ForbiddenException("You are not allowed to access organization AI insights");
@@ -303,8 +312,6 @@ public class AiAssistantService {
         if (containsAny(lower, "orders", "demand", "prediction")) {
             return orgOrdersInsights(scopeOrgIds);
         }
-
-
 
         if (containsAny(lower, "explain product", "product summary", "dpp coach")) {
             String productId = extractId(lower, "product");
@@ -380,8 +387,6 @@ public class AiAssistantService {
         return "Order demand (last 7 days): " + recent.size() + " orders. Status distribution: " + byStatus;
     }
 
-
-
     private String weeklyDigestOrg(List<String> orgIds) {
         LocalDateTime since = LocalDateTime.now().minusDays(7);
         long orders = ordersRepository.findAll().stream()
@@ -449,7 +454,6 @@ public class AiAssistantService {
         return "Production delay risk (stalled steps):\n" + String.join("\n", risky);
     }
 
-
     private String handleEmployee(User user, String lower) {
         if (!permissionService.hasPermission(user, Permission.AI_ASSISTANT_BASIC)) {
             throw new ForbiddenException("You are not allowed to use the AI assistant");
@@ -476,7 +480,6 @@ public class AiAssistantService {
 
         return "EMPLOYEE assistant: ask about 'scan' or 'production steps'. Task assignment features can be added when a Task module exists.";
     }
-
 
     private String handleClient(User user, String lower) {
         if (!permissionService.hasPermission(user, Permission.AI_ASSISTANT_BASIC)) {
@@ -571,7 +574,6 @@ public class AiAssistantService {
                 template
         ).trim();
     }
-
 
     private User resolveUser(String userId) {
         if (userId != null && !userId.isBlank()) {

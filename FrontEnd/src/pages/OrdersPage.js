@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useIsMobile } from "../hooks/useMediaQuery";
+import { MobileTabs } from "../components/MobileTabs";
 import {
   Calendar, CheckCircle2,
   AlertTriangle, XCircle, Download, Printer,
-  Truck, Brain, ListChecks, Play, Star,
+  Truck, Brain, ListChecks, Play, Star, ClipboardList,
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import OrgSelector from "../components/OrgSelector";
@@ -134,6 +136,9 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [acting, setActing] = useState(null);
+
+  const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState("queue");
 
   
   const [viewOrder, setViewOrder] = useState(null);
@@ -362,7 +367,19 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
             materialRequirements: ao.materialRequirements || [],
             sequentialMaterials: seqMats.filter(m => m.productId === ps.productId),
             productionStatus: ao.productionStatus,
-            producibleQuantityNow: ao.producibleQuantityNow || 0,
+            producibleQuantityNow: (() => {
+              const seqMatsForProd = seqMats.filter(m => m.productId === ps.productId);
+              if (seqMatsForProd.length === 0) return ao.producibleQuantityNow || 0;
+              const remToProduce = ao.quantityToProduce || ao.orderedQuantity;
+              if (remToProduce === 0) return 0;
+              let minRatio = 1;
+              for (const m of seqMatsForProd) {
+                if (m.requiredQuantity > 0) {
+                  minRatio = Math.min(minRatio, m.allocatedQuantity / m.requiredQuantity);
+                }
+              }
+              return Math.floor(minRatio * remToProduce);
+            })(),
             canStartProduction: ao.canStartProduction || false,
           };
         })
@@ -485,11 +502,22 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
           )}
 
           {!loading && data && (
-            <div className="flex flex-1 overflow-hidden">
-              
-              <div className="w-[46%] border-r border-slate-100 dark:border-white/[0.06] overflow-y-auto p-5 space-y-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Order production possibilities</p>
-                <p className="text-[9px] text-slate-400 leading-relaxed">Calculation is virtual. Stock is only updated after Start Production is confirmed. Higher-priority orders consume stock first; lower-priority orders see the remaining virtual stock.</p>
+            <>
+              {isMobile && (
+                <MobileTabs
+                  tabs={[
+                    { key: "queue", label: "Queue", icon: ListChecks, badge: orderSummaries.filter(({ order }) => !completed[order.id]).length },
+                    { key: "requirements", label: "Requirements", icon: ClipboardList },
+                  ]}
+                  activeTab={mobileTab}
+                  onChange={setMobileTab}
+                  className="shrink-0"
+                />
+              )}
+              <div className="flex flex-1 overflow-hidden">
+                <div className={`${isMobile && mobileTab !== "requirements" ? "hidden" : ""} w-full md:w-[46%] md:block border-r border-slate-100 dark:border-white/[0.06] overflow-y-auto p-5 space-y-4`}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Order production possibilities</p>
+                  <p className="text-[9px] text-slate-400 leading-relaxed">Calculation is virtual. Stock is only updated after Start Production is confirmed. Higher-priority orders consume stock first; lower-priority orders see the remaining virtual stock.</p>
 
                 {orderSummaries.map(({ order, products, anyError }) => {
                   const statusMeta = STATUS_STYLE[order.status] || { cls: "status-slate", label: order.status };
@@ -746,7 +774,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
               </div>
 
               
-              <div className={`flex-1 flex flex-col ${!viewOrder ? "overflow-hidden" : "overflow-y-auto p-5"}`}>
+              <div className={`${isMobile && mobileTab !== "queue" ? "hidden" : ""} flex-1 flex flex-col ${!viewOrder ? "overflow-hidden" : "overflow-y-auto p-5"}`}>
                 {!viewOrder ? (
                   <>
                     <div className="px-5 py-3 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
@@ -855,22 +883,6 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                         {a ? <Spinner cls="text-white" /> : <Play size={10} />}
                                         {a ? "Processing…" : "Start Production"}
                                       </button>
-                                    );
-                                  }
-                                  if (rStatus === "PARTIALLY_PRODUCIBLE") {
-                                    return (
-                                      <div className="flex gap-1.5 flex-1">
-                                        <div className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[9px] font-bold shadow-sm shadow-amber-500/25">
-                                          <AlertTriangle size={10} /> Partial Production
-                                        </div>
-                                        {rd.canStartPartialProduction && (
-                                          <button disabled={a} onClick={e => { e.stopPropagation(); handleOrderAction(order.id, startProductionV2, "production"); }}
-                                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[9px] font-bold transition-all shadow-sm shadow-amber-500/25">
-                                            {a ? <Spinner cls="text-white" /> : <Play size={10} />}
-                                            {a ? "Processing…" : "Start Partial"}
-                                          </button>
-                                        )}
-                                      </div>
                                     );
                                   }
                                   return (
@@ -1163,22 +1175,6 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                         </button>
                                       );
                                     }
-                                    if (rStatus === "PARTIALLY_PRODUCIBLE") {
-                                      return (
-                                        <div className="flex gap-2 flex-1">
-                                          <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-semibold shadow-sm shadow-amber-500/25">
-                                            <AlertTriangle size={13} /> Partial Production
-                                          </div>
-                                          {rd.canStartPartialProduction && (
-                                            <button disabled={a} onClick={() => handleOrderAction(viewOrder.id, startProductionV2, "production")}
-                                              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/25">
-                                              {a ? <Spinner cls="text-white" /> : <Play size={13} />}
-                                              {a ? "Processing…" : "Start Partial"}
-                                            </button>
-                                          )}
-                                        </div>
-                                      );
-                                    }
                                     return (
                                       <button onClick={() => window.location.href = "/supply-chain"}
                                         className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-rose-500/25">
@@ -1197,7 +1193,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                 )}
               </div>
             </div>
-          )}
+          </>)}
         </div>
       </div>
     </div>

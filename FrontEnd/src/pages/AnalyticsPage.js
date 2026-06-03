@@ -21,7 +21,7 @@ import {
   jsPDF } from "jspdf";
 import "jspdf-autotable";
 
-// ─── Chart Configuration ────────────────────────────────────────────────────
+
 const CHART_COLORS = {
   brand: "#4d7aff",
   emerald: "#10b981",
@@ -39,7 +39,7 @@ const DONUT_COLORS = [
   CHART_COLORS.purple, CHART_COLORS.sky, CHART_COLORS.rose,
 ];
 
-// ─── Time Range ───────────────────────────────────────────────────────────────
+
 const TIME_RANGES = [
   { key: "7d",  label: "7 Days",   days: 7   },
   { key: "30d", label: "30 Days",  days: 30  },
@@ -57,7 +57,7 @@ function filterByTimeRange(data, dateField, days) {
   });
 }
 
-// ─── Sparkline Chart ─────────────────────────────────────────────────────────
+
 function Sparkline({ data, color = CHART_COLORS.brand, width = 80, height = 32 }) {
   const points = data.slice(-14).map((v, i) => ({ v: v ?? 0, i }));
   if (points.length < 2) return <div style={{ width, height }} />;
@@ -91,7 +91,7 @@ function Sparkline({ data, color = CHART_COLORS.brand, width = 80, height = 32 }
   );
 }
 
-// ─── Animated Counter ────────────────────────────────────────────────────────
+
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -114,12 +114,12 @@ function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }) {
   );
 }
 
-// ─── Donut Chart ──────────────────────────────────────────────────────────────
+
 function DonutChart({ data, dataKey = "value", nameKey = "name", colors = DONUT_COLORS, size = 140, innerRadius = 50, outerRadius = 70 }) {
   void innerRadius;
   return (
     <div className="flex items-center gap-4">
-      <ResponsiveContainer width={size} height={size}>
+      <ResponsiveContainer width={size} height={size} minWidth={1} minHeight={1}>
         <PieChart>
           <Pie data={data} cx="50%" cy="50%" innerRadius={innerRadius} outerRadius={outerRadius}
             paddingAngle={2} dataKey={dataKey} strokeWidth={0}>
@@ -153,7 +153,7 @@ function DonutChart({ data, dataKey = "value", nameKey = "name", colors = DONUT_
   );
 }
 
-// ─── Progress Ring ────────────────────────────────────────────────────────────
+
 function ProgressRing({ value = 0, size = 80, strokeWidth = 6, color = CHART_COLORS.brand }) {
   const r = (size - strokeWidth) / 2;
   const circ = 2 * Math.PI * r;
@@ -176,7 +176,7 @@ function ProgressRing({ value = 0, size = 80, strokeWidth = 6, color = CHART_COL
   );
 }
 
-// ─── Area Chart ──────────────────────────────────────────────────────────────
+
 function AreaChartCard({ title, subtitle, data, xKey = "date", lines = [], height = 240, gradientId = "areaGrad" }) {
   return (
     <div className="glass-card p-5">
@@ -186,7 +186,7 @@ function AreaChartCard({ title, subtitle, data, xKey = "date", lines = [], heigh
           {subtitle && <p className="text-xs text-slate-400 dark:text-[#64748B] mt-0.5">{subtitle}</p>}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height} minWidth={1} minHeight={1}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <defs>
             {lines.map((l) => (
@@ -219,7 +219,7 @@ function AreaChartCard({ title, subtitle, data, xKey = "date", lines = [], heigh
   );
 }
 
-// ─── Bar Chart ───────────────────────────────────────────────────────────────
+
 function BarChartCard({ title, subtitle, data, bars = [], height = 220 }) {
   return (
     <div className="glass-card p-5">
@@ -229,7 +229,7 @@ function BarChartCard({ title, subtitle, data, bars = [], height = 220 }) {
           {subtitle && <p className="text-xs text-slate-400 dark:text-[#64748B] mt-0.5">{subtitle}</p>}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height} minWidth={1} minHeight={1}>
         <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={bars.length > 4 ? 12 : 20}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" vertical={false} />
           <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
@@ -252,7 +252,7 @@ function BarChartCard({ title, subtitle, data, bars = [], height = 220 }) {
   );
 }
 
-// ─── Line Chart Card ─────────────────────────────────────────────────────────
+
 function LineChartCard({ title, subtitle, data, xKey = "date", lines = [], height = 220 }) {
   return (
     <div className="glass-card p-5">
@@ -262,7 +262,7 @@ function LineChartCard({ title, subtitle, data, xKey = "date", lines = [], heigh
           {subtitle && <p className="text-xs text-slate-400 dark:text-[#64748B] mt-0.5">{subtitle}</p>}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height} minWidth={1} minHeight={1}>
         <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" vertical={false} />
           <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
@@ -287,7 +287,7 @@ function LineChartCard({ title, subtitle, data, xKey = "date", lines = [], heigh
   );
 }
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
+
 function KpiCard({ label, value, sub, trend, trendValue, sparkData, color = CHART_COLORS.brand, delay = 0 }) {
   const colorMap = {
     [CHART_COLORS.brand]: { bg: "bg-brand-50 dark:bg-brand-500/5", text: "text-brand-600 dark:text-brand-400", glow: "group-hover:shadow-brand-500/20" },
@@ -331,7 +331,7 @@ function KpiCard({ label, value, sub, trend, trendValue, sparkData, color = CHAR
   );
 }
 
-// ─── Section Header ──────────────────────────────────────────────────────────
+
 function SectionHeader({ title, subtitle, action }) {
   return (
     <div className="flex items-start justify-between mb-4">
@@ -344,7 +344,7 @@ function SectionHeader({ title, subtitle, action }) {
   );
 }
 
-// ─── Export Button ───────────────────────────────────────────────────────────
+
 function ExportMenu({ data, timeRange }) {
   const [open, setOpen] = useState(false);
 
@@ -410,14 +410,14 @@ function ExportMenu({ data, timeRange }) {
   );
 }
 
-// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+
 function Skeleton({ className }) {
   return (
     <div className={`animate-pulse bg-slate-100 dark:bg-[#1E293B] rounded-xl ${className}`} />
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────────────
+
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -451,7 +451,7 @@ export default function AnalyticsPage() {
           getProducts(),
         ]);
         let scanList = [];
-        try { scanList = await getScansByOrg(primaryOrgId); } catch { /* no scans */ }
+        try { scanList = await getScansByOrg(primaryOrgId); } catch {  }
         if (mounted) {
           setProductions(Array.isArray(prods) ? prods : []);
           setOrders(Array.isArray(ords) ? ords : []);
@@ -470,13 +470,13 @@ export default function AnalyticsPage() {
     return () => { mounted = false; };
   }, [selectedOrgId]);
 
-  // ── Filtered Data ──────────────────────────────────────────────────────────
+  
   const fProds = filterByTimeRange(productions, "createdAt", range.days);
   const fOrders = filterByTimeRange(orders, "createdAt", range.days);
   const fTasks = filterByTimeRange(tasks, "createdAt", range.days);
   const fScans = filterByTimeRange(scans, "scannedAt", range.days);
 
-  // ── Production Metrics ──────────────────────────────────────────────────────
+  
   const prodByStatus = ["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].map((s) => ({
     name: s.replace("_", " "),
     value: fProds.filter((p) => p.status === s).length,
@@ -485,7 +485,7 @@ export default function AnalyticsPage() {
     ? Math.round((fProds.filter((p) => p.status === "COMPLETED").length / fProds.length) * 100)
     : 0;
 
-  // ── Order Metrics ──────────────────────────────────────────────────────────
+  
   const orderByStatus = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED", "CANCELLED"].map((s) => ({
     name: s,
     value: fOrders.filter((o) => o.status === s).length,
@@ -494,7 +494,7 @@ export default function AnalyticsPage() {
     ? Math.round((fOrders.filter((o) => ["COMPLETED", "SHIPPED"].includes(o.status)).length / fOrders.length) * 100)
     : 0;
 
-  // ── Task Metrics ───────────────────────────────────────────────────────────
+  
   const taskByStatus = ["TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELLED"].map((s) => ({
     name: s.replace("_", " "),
     value: fTasks.filter((t) => t.status === s).length,
@@ -504,19 +504,19 @@ export default function AnalyticsPage() {
     ? Math.round((fTasks.filter((t) => t.status === "DONE").length / fTasks.length) * 100)
     : 0;
 
-  // ── Compliance Metrics ─────────────────────────────────────────────────────
+  
   const aiScores = products.map((p) => p.aiScore).filter((s) => typeof s === "number");
   const avgAiScore = aiScores.length ? Math.round(aiScores.reduce((s, v) => s + v, 0) / aiScores.length) : 0;
   const compliantProducts = aiScores.filter((s) => s >= 80).length;
   const reviewProducts = aiScores.filter((s) => s >= 40 && s < 80).length;
   const nonCompliantProducts = aiScores.filter((s) => s < 40).length;
 
-  // ── Workforce Metrics ──────────────────────────────────────────────────────
+  
   const avgPerf = employees.length
     ? Math.round(employees.reduce((s, e) => s + (e.performanceScore ?? 0), 0) / employees.length)
     : 0;
 
-  // ── Time-series data ───────────────────────────────────────────────────────
+  
   const productionTimeline = useMemo(() => {
     const map = {};
     [...fProds].forEach((p) => {
@@ -550,12 +550,12 @@ export default function AnalyticsPage() {
     return Object.values(map).slice(-14);
   }, [fScans]);
 
-  // ── Sparkline data ──────────────────────────────────────────────────────────
+  
   const prodSpark = productionTimeline.map((p) => p.planned + p.completed);
   const orderSpark = orderTimeline.map((o) => o.completed);
   const scanSpark = scanTimeline.map((s) => s.scans);
 
-  // ── Export data ─────────────────────────────────────────────────────────────
+  
   const exportData = useMemo(() => [
     { name: "Total Productions", value: fProds.length },
     { name: "Completed Productions", value: fProds.filter((p) => p.status === "COMPLETED").length },
@@ -579,7 +579,7 @@ export default function AnalyticsPage() {
     return Object.values(map).slice(-12);
   }, [fTasks]);
 
-  // ── Sections ────────────────────────────────────────────────────────────────
+  
   const sections = [
     { key: "overview",    label: "Overview" },
     { key: "production", label: "Production" },
@@ -592,7 +592,7 @@ export default function AnalyticsPage() {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -606,7 +606,7 @@ export default function AnalyticsPage() {
             <p className="mt-1 text-sm text-slate-400 dark:text-[#64748B]">Real-time KPIs, production intelligence, and operational insights.</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Time Range Filter */}
+            
             <div className="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-[#111827]/60 p-1">
               {TIME_RANGES.map((r) => (
                 <button key={r.key} onClick={() => setTimeRange(r.key)}
@@ -623,7 +623,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* ── Section Tabs ───────────────────────────────────────────────── */}
+        
         <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-[#111827]/60 p-1 w-fit">
           {sections.map((s) => (
             <button key={s.key} onClick={() => setActiveSection(s.key)}
@@ -653,11 +653,11 @@ export default function AnalyticsPage() {
               animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}>
 
-              {/* ── Overview ──────────────────────────────────────────────── */}
+              
               {activeSection === "overview" && (
                 <div className="space-y-6">
 
-                  {/* KPI Strip */}
+                  
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                     <KpiCard label="Productions" value={fProds.length} sub={`${prodCompletion}% completion`} sparkData={prodSpark} color={CHART_COLORS.brand} delay={0} />
                     <KpiCard label="Orders" value={fOrders.length} sub={`${orderFulfillment}% fulfilled`} sparkData={orderSpark} color={CHART_COLORS.emerald} delay={0.05} />
@@ -667,7 +667,7 @@ export default function AnalyticsPage() {
                     <KpiCard label="Workforce" value={avgPerf} suffix="/100" sub={`${employees.length} employees`} sparkData={null} color={CHART_COLORS.sky} delay={0.25} />
                   </div>
 
-                  {/* Production & Order Trends */}
+                  
                   <div className="grid gap-6 lg:grid-cols-2">
                     <AreaChartCard title="Production Trends" subtitle="Planned vs completed over time" data={productionTimeline}
                       lines={[
@@ -682,7 +682,7 @@ export default function AnalyticsPage() {
                       ]} />
                   </div>
 
-                  {/* Status Distribution */}
+                  
                   <div className="grid gap-6 xl:grid-cols-4">
                     <div className="glass-card p-5">
                       <SectionHeader title="Production Status" />
@@ -710,13 +710,13 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
 
-                  {/* Scan Activity */}
+                  
                   <LineChartCard title="Scan Activity" subtitle="DPP scans over time" data={scanTimeline}
                     lines={[{ key: "scans", color: CHART_COLORS.purple }]} />
                 </div>
               )}
 
-              {/* ── Production ─────────────────────────────────────────────── */}
+              
               {activeSection === "production" && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -777,7 +777,7 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
-              {/* ── Orders ────────────────────────────────────────────────── */}
+              
               {activeSection === "orders" && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -828,7 +828,7 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
-              {/* ── Compliance ──────────────────────────────────────────────── */}
+              
               {activeSection === "compliance" && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -892,7 +892,7 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
-              {/* ── Workforce ──────────────────────────────────────────────── */}
+              
               {activeSection === "workforce" && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

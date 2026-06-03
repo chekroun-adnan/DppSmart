@@ -11,7 +11,7 @@ import {
   getProductionByOrderId,
 } from "../services/authService";
 
-// Client-friendly labels — no internal terminology
+
 const STATUS_META = {
   PENDING_REVIEW:                { label: "Under Review",           cls: "status-amber",   Icon: Clock,         desc: "Your order has been received and is being reviewed." },
   READY_FOR_CONFIRMATION:        { label: "Under Review",           cls: "status-amber",   Icon: Clock,         desc: "Your order has been received and is being reviewed." },
@@ -73,7 +73,7 @@ function Modal({ title, onClose, children, footer }) {
   );
 }
 
-// ─── Create Order Modal ───────────────────────────────────────────────────────
+
 
 function CreateOrderModal({ products, onClose, onCreated }) {
   const [items, setItems]         = useState([{ productId: "", quantity: 1 }]);
@@ -170,7 +170,7 @@ function CreateOrderModal({ products, onClose, onCreated }) {
   );
 }
 
-// ─── Reorder Modal ────────────────────────────────────────────────────────────
+
 
 function ReorderModal({ order, products, onClose, onCreated }) {
   const [deliveryDate, setDate] = useState("");
@@ -236,10 +236,10 @@ function ReorderModal({ order, products, onClose, onCreated }) {
   );
 }
 
-// ─── Order Detail Modal ───────────────────────────────────────────────────────
+
 
 function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) {
-  const [view, setView]       = useState("detail"); // "detail" | "accept" | "reject"
+  const [view, setView]       = useState("detail");
   const [msg, setMsg]         = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -253,7 +253,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
                       .includes(order.status);
   const isDelivered = order.status === "DELIVERED";
 
-  // Load linked productions when in_production or beyond
+  
   useEffect(() => {
     if (!["IN_PRODUCTION","READY","DELIVERED"].includes(order.status)) return;
     setLoadingProds(true);
@@ -293,7 +293,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
   const fmt = d => d ? new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—";
   const meta = STATUS_META[order.status] || { label: order.status, cls: "status-slate", Icon: Clock, desc: "" };
 
-  // Progress steps for the client timeline
+  
   const TIMELINE = [
     { key: "submitted",   label: "Submitted",    statuses: ["PENDING_REVIEW","READY_FOR_CONFIRMATION","BLOCKED_INSUFFICIENT_STOCK","BLOCKED_INSUFFICIENT_MATERIALS","BLOCKED_NO_BOM","CONFIRMED","DATE_CHANGE_REQUESTED","IN_PRODUCTION","READY","DELIVERED"] },
     { key: "confirmed",   label: "Confirmed",    statuses: ["CONFIRMED","IN_PRODUCTION","READY","DELIVERED"] },
@@ -365,7 +365,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
     >
       {view === "detail" ? (
         <>
-          {/* Status banner */}
+          
           <div className={`rounded-2xl p-4 flex items-start gap-3 ${
             order.status === "READY"       ? "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20" :
             order.status === "IN_PRODUCTION" ? "bg-sky-50 dark:bg-sky-500/10 border border-sky-200/60 dark:border-sky-500/20" :
@@ -387,7 +387,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
             </div>
           </div>
 
-          {/* Timeline — only for non-terminal orders */}
+          
           {!isTerminal && (
             <div className="flex items-center gap-0">
               {TIMELINE.map((step, idx) => {
@@ -412,7 +412,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
             </div>
           )}
 
-          {/* Date grid */}
+          
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: "Requested Date", val: fmt(order.requestedDeliveryDate),  color: "text-slate-700 dark:text-slate-200" },
@@ -426,7 +426,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
             ))}
           </div>
 
-          {/* Admin message */}
+          
           {order.adminMessage && (
             <div className="rounded-2xl bg-sky-50 dark:bg-sky-500/10 border border-sky-200/60 dark:border-sky-500/20 p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-sky-500 mb-1">Message from Us</p>
@@ -434,7 +434,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
             </div>
           )}
 
-          {/* Production progress section */}
+          
           {["IN_PRODUCTION","READY","DELIVERED"].includes(order.status) && (
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1.5">
@@ -482,7 +482,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
             </div>
           )}
 
-          {/* Items — simplified for client: no stock numbers, just availability */}
+          
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
               Ordered Products ({order.totalQuantity ?? 0} units total)
@@ -554,7 +554,7 @@ function OrderDetailModal({ order, products, onClose, onRefresh, onReordered }) 
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+
 
 export default function ClientOrdersPage() {
   const [orders, setOrders]     = useState([]);
@@ -598,7 +598,7 @@ export default function ClientOrdersPage() {
     <DashboardLayout>
       <div className="px-4 sm:px-6 lg:p-8 max-w-5xl mx-auto space-y-6">
 
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
@@ -611,7 +611,7 @@ export default function ClientOrdersPage() {
           </button>
         </div>
 
-        {/* Alert banners */}
+        
         {actionNeeded.length > 0 && (
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20 p-4 flex items-start gap-3">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
@@ -635,7 +635,7 @@ export default function ClientOrdersPage() {
           </div>
         )}
 
-        {/* Content */}
+        
         {loading ? (
           <div className="glass-card rounded-3xl p-8 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -670,7 +670,7 @@ export default function ClientOrdersPage() {
                   }`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      {/* Reference + status */}
+                      
                       <div className="flex items-center gap-3 flex-wrap mb-2">
                         <span className="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">{order.orderReference}</span>
                         <StatusBadge status={order.status} />
@@ -686,7 +686,7 @@ export default function ClientOrdersPage() {
                         )}
                       </div>
 
-                      {/* Products list */}
+                      
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {(order.items || []).map((it, i) => (
                           <span key={i} className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg font-medium">
@@ -700,7 +700,7 @@ export default function ClientOrdersPage() {
                         ))}
                       </div>
 
-                      {/* Dates */}
+                      
                       <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                         <span className="flex items-center gap-1"><Calendar size={11} /> Requested: {fmt(order.requestedDeliveryDate)}</span>
                         {order.confirmedDeliveryDate && (
@@ -715,7 +715,7 @@ export default function ClientOrdersPage() {
                         )}
                       </div>
 
-                      {/* Production note */}
+                      
                       {hasProductionItems && !["DELIVERED","CANCELLED","REJECTED"].includes(order.status) && (
                         <p className="mt-1.5 text-[11px] text-sky-600 dark:text-sky-400 flex items-center gap-1">
                           <Factory size={11} /> Some items will be manufactured specifically for your order

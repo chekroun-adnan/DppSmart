@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 public class BulkOrderRequirementResponseDTO {
 
-    // ─── Per-product stock analysis ────────────────────────────────────────────
 
 @Data
 @Builder
@@ -39,10 +38,10 @@ public static class AffectedOrderItem {
     public static class ProductSummary {
         private String productId;
         private String productName;
-        private int totalRequestedQuantity;  // sum across all selected orders
+        private int totalRequestedQuantity;
         private int availableProductStock;
-        private int allocatedFromStock;      // min(totalRequested, availableStock)
-        private int missingQuantityToProduce; // max(0, totalRequested - availableStock)
+        private int allocatedFromStock;
+        private int missingQuantityToProduce;
         private boolean stockSufficient;
         private String technicalSheetId;
         private String technicalSheetName;
@@ -50,7 +49,6 @@ public static class AffectedOrderItem {
         private List<AffectedOrderItem> affectedOrders;
     }
 
-    // ─── Aggregated raw material requirements ─────────────────────────────────
 
     @Data
     @Builder
@@ -62,23 +60,22 @@ public static class AffectedOrderItem {
         private String referenceCode;
         private String unit;
         private double quantityPerUnit;
-        private double totalRequiredQuantity; // only for units needing production
+        private double totalRequiredQuantity;
         private int availableStock;
-        private double remainingAfter;        // max(0, available - totalRequired)
-        private double missingQuantity;       // max(0, totalRequired - available)
-        private String status;               // "AVAILABLE" or "INSUFFICIENT"
+        private double remainingAfter;
+        private double missingQuantity;
+        private String status;
         private double willConsumeIfChosen;
         private double availableBefore;
         private double availableAfterSimulation;
     }
 
-    // ─── Root fields ──────────────────────────────────────────────────────────
 
     private List<String> selectedOrderIds;
     private List<ProductSummary> productSummaries;
     private List<MaterialRequirement> aggregatedMaterials;
-    private boolean allStockSufficient;      // true = no production needed at all
-    private boolean priorityAllocated;       // true = admin has set priorities
+    private boolean allStockSufficient;
+    private boolean priorityAllocated;
     private String aiSummary;
     private int totalOrdersProcessed;
     private int totalProductsNeedingProduction;

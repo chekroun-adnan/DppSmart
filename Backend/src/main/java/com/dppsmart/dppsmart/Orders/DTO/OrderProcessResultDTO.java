@@ -9,9 +9,9 @@ import java.util.List;
 public class OrderProcessResultDTO {
 
     public enum Outcome {
-        DELIVERED,           // all items in finished stock — deducted and ready
-        PRODUCTION_STARTED,  // some/all items need production — materials sufficient
-        SUPPLY_ORDER_CREATED // materials missing — auto supply chain order created, awaiting admin approval
+        DELIVERED,
+        PRODUCTION_STARTED,
+        SUPPLY_ORDER_CREATED
     }
 
     private String orderId;
@@ -19,13 +19,10 @@ public class OrderProcessResultDTO {
     private Outcome outcome;
     private String message;
 
-    // populated when outcome == DELIVERED
     private String deliveryToken;
 
-    // populated when outcome == PRODUCTION_STARTED
     private List<String> productionIds;
 
-    // populated when outcome == SUPPLY_ORDER_CREATED
     private String supplyOrderId;
     private String supplyOrderNumber;
     private List<MissingMaterialLine> missingMaterials;

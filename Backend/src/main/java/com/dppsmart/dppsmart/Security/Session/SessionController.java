@@ -22,7 +22,6 @@ public class SessionController {
     private final SessionService sessionService;
     private final UserRepository userRepository;
 
-    // ─── GET /api/sessions — list all sessions for current user ──────────────
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "List all active and recent sessions for the current user")
@@ -34,7 +33,6 @@ public class SessionController {
         return ResponseEntity.ok(sessionService.getSessionsForUser(user.getId(), currentTokenId));
     }
 
-    // ─── DELETE /api/sessions/{id} — revoke one session ──────────────────────
     @DeleteMapping("/{sessionId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Revoke a specific session by its ID")
@@ -43,7 +41,6 @@ public class SessionController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── DELETE /api/sessions — revoke ALL other sessions ────────────────────
     @DeleteMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Revoke all sessions except the current one")
@@ -56,7 +53,6 @@ public class SessionController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── GET /api/sessions/suspicious — sessions flagged as suspicious ────────
     @GetMapping("/suspicious")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get suspicious sessions for the current user")
@@ -64,8 +60,6 @@ public class SessionController {
         User user = currentUser();
         return ResponseEntity.ok(sessionService.getSuspiciousSessions(user.getId()));
     }
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

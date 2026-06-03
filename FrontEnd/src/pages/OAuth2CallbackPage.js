@@ -14,7 +14,7 @@ export default function OAuth2CallbackPage() {
     const role         = params.get("role");
 
     if (!token) {
-      // Opened as popup — tell opener it failed
+      
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({ type: "OAUTH2_FAILURE" }, window.location.origin);
         window.close();
@@ -24,7 +24,7 @@ export default function OAuth2CallbackPage() {
       return;
     }
 
-    // Opened as popup — pass token back to main window and close
+    
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage(
         { type: "OAUTH2_SUCCESS", token, refreshToken, userId, email, role },
@@ -34,7 +34,7 @@ export default function OAuth2CallbackPage() {
       return;
     }
 
-    // Fallback: opened as full page (e.g. direct navigation)
+    
     storeAuthSession({ accessToken: token, refreshToken, userId, email, role });
     navigate(role === "CLIENT" ? "/client-orders" : "/dashboard", { replace: true });
   }, [navigate]);

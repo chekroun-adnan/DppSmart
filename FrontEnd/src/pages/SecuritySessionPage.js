@@ -10,7 +10,7 @@ import {
   getRecentFailedAttempts,
 } from "../services/authService";
 
-// ─── tiny helpers ─────────────────────────────────────────────────────────────
+
 
 function timeAgo(dt) {
   if (!dt) return "—";
@@ -35,7 +35,7 @@ const STATUS_PILL = {
   EXPIRED: "bg-slate-100 dark:bg-slate-500/15 text-slate-600 dark:text-slate-400",
 };
 
-// ─── Icons (inline SVG — no extra deps) ──────────────────────────────────────
+
 
 function IconMonitor() {
   return (
@@ -81,7 +81,7 @@ function IconRefresh({ spinning }) {
   );
 }
 
-// ─── Session card ─────────────────────────────────────────────────────────────
+
 
 function SessionCard({ session, onRevoke, revoking }) {
   const status = session.sessionStatus || "ACTIVE";
@@ -92,7 +92,7 @@ function SessionCard({ session, onRevoke, revoking }) {
       ${session.current ? "ring-2 ring-brand-500/40" : ""}
       ${session.suspicious ? "ring-2 ring-amber-400/50 dark:ring-amber-500/30" : ""}`}>
 
-      {/* Header row */}
+      
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className={`mt-0.5 rounded-xl p-2
@@ -131,7 +131,7 @@ function SessionCard({ session, onRevoke, revoking }) {
         </span>
       </div>
 
-      {/* Suspicious reason */}
+      
       {session.suspicious && session.suspicionReason && (
         <div className="rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20
           px-3 py-2 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
@@ -140,7 +140,7 @@ function SessionCard({ session, onRevoke, revoking }) {
         </div>
       )}
 
-      {/* Meta grid */}
+      
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <div>
           <span className="text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wide text-[10px]">IP</span>
@@ -162,7 +162,7 @@ function SessionCard({ session, onRevoke, revoking }) {
         </div>
       </div>
 
-      {/* Revoke button */}
+      
       {canRevoke && (
         <div className="pt-1">
           <button
@@ -181,7 +181,7 @@ function SessionCard({ session, onRevoke, revoking }) {
   );
 }
 
-// ─── Stat tile ────────────────────────────────────────────────────────────────
+
 
 function StatTile({ label, value, color = "slate" }) {
   const colors = {
@@ -198,7 +198,7 @@ function StatTile({ label, value, color = "slate" }) {
   );
 }
 
-// ─── Confirm dialog ───────────────────────────────────────────────────────────
+
 
 function ConfirmDialog({ message, onConfirm, onCancel, busy }) {
   return (
@@ -229,7 +229,7 @@ function ConfirmDialog({ message, onConfirm, onCancel, busy }) {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+
 
 export default function SecuritySessionPage() {
   const { addToast } = useNotifications();
@@ -240,9 +240,9 @@ export default function SecuritySessionPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [revoking, setRevoking] = useState(null);
   const [failedAttempts, setFailedAttempts] = useState(null);
-  const [confirm, setConfirm] = useState(null); // { type: "one"|"all", sessionId? }
+  const [confirm, setConfirm] = useState(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
-  const [activeTab, setActiveTab] = useState("all"); // "all" | "suspicious"
+  const [activeTab, setActiveTab] = useState("all");
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -265,7 +265,7 @@ export default function SecuritySessionPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ─── Revoke one session ──────────────────────────────────────────────────
+  
 
   const handleRevoke = (sessionId) => {
     setConfirm({ type: "one", sessionId });
@@ -288,7 +288,7 @@ export default function SecuritySessionPage() {
     }
   };
 
-  // ─── Revoke all other sessions ────────────────────────────────────────────
+  
 
   const handleRevokeAll = () => setConfirm({ type: "all" });
 
@@ -308,7 +308,7 @@ export default function SecuritySessionPage() {
     }
   };
 
-  // ─── Confirm dispatcher ───────────────────────────────────────────────────
+  
 
   const onConfirmAction = () => {
     if (confirm?.type === "one") confirmRevoke();
@@ -319,20 +319,20 @@ export default function SecuritySessionPage() {
     ? "This will sign you out from all other devices. Your current session will remain active."
     : "This will immediately terminate the selected session. The device will need to log in again.";
 
-  // ─── Derived data ─────────────────────────────────────────────────────────
+  
 
   const activeSessions    = sessions.filter(s => s.sessionStatus === "ACTIVE");
   const suspiciousSessions = sessions.filter(s => s.suspicious);
   const displayedSessions = activeTab === "suspicious" ? suspiciousSessions : sessions;
   const hasOtherActive    = activeSessions.some(s => !s.current);
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  
 
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-10">
 
-        {/* Page header */}
+        
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2.5">
@@ -370,7 +370,7 @@ export default function SecuritySessionPage() {
           </div>
         </div>
 
-        {/* Error */}
+        
         {error && (
           <div className="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50
             dark:bg-rose-500/5 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
@@ -378,7 +378,7 @@ export default function SecuritySessionPage() {
           </div>
         )}
 
-        {/* Stats row */}
+        
         {!loading && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatTile label="Total Sessions"  value={sessions.length}           color="slate"   />
@@ -389,7 +389,7 @@ export default function SecuritySessionPage() {
           </div>
         )}
 
-        {/* Brute-force warning */}
+        
         {!loading && failedAttempts > 0 && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-500/20
             bg-amber-50 dark:bg-amber-500/5 px-4 py-3">
@@ -405,7 +405,7 @@ export default function SecuritySessionPage() {
           </div>
         )}
 
-        {/* Suspicious alert banner */}
+        
         {!loading && suspiciousSessions.length > 0 && (
           <div className="flex items-start gap-3 rounded-xl border border-rose-200 dark:border-rose-500/20
             bg-rose-50 dark:bg-rose-500/5 px-4 py-3">
@@ -421,7 +421,7 @@ export default function SecuritySessionPage() {
           </div>
         )}
 
-        {/* Tab switcher */}
+        
         <div className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 p-1 w-fit">
           {[
             { key: "all",        label: `All Sessions (${sessions.length})` },
@@ -437,7 +437,7 @@ export default function SecuritySessionPage() {
           ))}
         </div>
 
-        {/* Session list */}
+        
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-brand-600 rounded-full animate-spin" />
@@ -464,7 +464,7 @@ export default function SecuritySessionPage() {
 
       </div>
 
-      {/* Confirm dialog */}
+      
       {confirm && (
         <ConfirmDialog
           message={confirmMessage}

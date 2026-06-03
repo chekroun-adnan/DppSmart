@@ -17,7 +17,7 @@ async function parseJsonResponse(response, fallbackMessage) {
     error.status = response.status;
     error.code = data?.code || null;
     error.fieldErrors = data?.fieldErrors || null;
-    // Carry retry-after for 429 responses
+    
     if (response.status === 429) {
       error.retryAfter = parseInt(response.headers.get("Retry-After") || data?.retryAfter || "60", 10);
     }
@@ -150,7 +150,7 @@ function unwrapItem(data) {
   return data;
 }
 
-// =================== AUTH ===================
+
 
 export async function loginUser(payload) {
   return request("/auth/login", payload);
@@ -206,7 +206,7 @@ export function isAuthenticated() {
   return Boolean(token && token.trim());
 }
 
-// =================== USER ===================
+
 
 export async function getCurrentUserProfile() {
   return authorizedRequest("/user/me", { method: "GET" }, "Failed to load user profile.");
@@ -216,14 +216,14 @@ export async function updateUserProfile(payload) {
   return authJsonRequest("/user/update", "PUT", payload, "Failed to update profile.");
 }
 
-// =================== DASHBOARD ===================
+
 
 export async function getDashboardData(orgId) {
   const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
   return authorizedRequest(`/api/dashboard/me${query}`, { method: "GET" }, "Failed to load dashboard data.");
 }
 
-// =================== PRODUCTS ===================
+
 
 export async function getAvailableProducts() {
   const data = await authorizedRequest("/api/products/get/all", { method: "GET" }, "Failed to load products.");
@@ -265,7 +265,7 @@ export async function importProductsFromCsv(file, organizationId) {
   return authFormRequest("/api/products/import/csv", "POST", formData, "Failed to import products from CSV.");
 }
 
-// =================== ORGANIZATIONS ===================
+
 
 export async function getMyOrganizations() {
   const data = await authorizedRequest("/organization/my", { method: "GET" }, "Failed to load organizations.");
@@ -320,7 +320,7 @@ export async function assignUserToOrganization(payload) {
   return authJsonRequest("/organization/assign-user", "POST", payload, "Failed to assign user.");
 }
 
-// =================== ORDERS ===================
+
 
 export async function getOrders() {
   const data = await authorizedRequest("/api/orders", { method: "GET" }, "Failed to load orders.");
@@ -415,7 +415,7 @@ export async function processOrder(id, confirmedDeliveryDate) {
   );
 }
 
-// =================== ORDER WORKFLOW ===================
+
 
 export async function workflowConfirmOrder(id, payload) {
   return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/confirm`, "POST", payload, "Failed to confirm order.");
@@ -468,7 +468,7 @@ export async function workflowReleaseMaterials(id) {
   return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/release-materials`, "POST", undefined, "Failed to release materials.");
 }
 
-// =================== EMPLOYEES ===================
+
 
 export async function getEmployees() {
   const data = await authorizedRequest("/api/employees", { method: "GET" }, "Failed to load employees.");
@@ -492,7 +492,7 @@ export async function deleteEmployee(id) {
   return authJsonRequest(`/api/employees/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete employee.");
 }
 
-// =================== PRODUCTION ===================
+
 
 export async function getProductions() {
   const data = await authorizedRequest("/api/productions", { method: "GET" }, "Failed to load productions.");
@@ -540,7 +540,7 @@ export async function getProductionMaterialConsumption(id) {
   return data?.data ?? data;
 }
 
-// =================== TASKS ===================
+
 
 export async function getTasks() {
   const data = await authorizedRequest("/api/tasks", { method: "GET" }, "Failed to load tasks.");
@@ -573,7 +573,7 @@ export async function deleteTask(id) {
   return authJsonRequest(`/api/tasks/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete task.");
 }
 
-// =================== MATERIAL STOCK ===================
+
 
 export async function getMaterialStocks() {
   const data = await authorizedRequest("/api/material-stock", { method: "GET" }, "Failed to load material stock.");
@@ -610,7 +610,7 @@ export async function repairMaterialLinks() {
   return authorizedRequest("/admin/stock/repair-material-links", { method: "POST" }, "Failed to repair material links.");
 }
 
-// =================== PRODUCT STOCK ===================
+
 
 export async function getProductStocks() {
   const data = await authorizedRequest("/api/product-stock", { method: "GET" }, "Failed to load product stock.");
@@ -642,7 +642,7 @@ export async function addProductFromProduction(productName, productId, quantity,
   return authJsonRequest(url, "POST", null, "Failed to add product from production.");
 }
 
-// =================== SCANS ===================
+
 
 export async function getScansByProduct(productId) {
   const data = await authorizedRequest(`/api/scans/product/${encodeURIComponent(productId)}`, { method: "GET" }, "Failed to load scans.");
@@ -654,7 +654,7 @@ export async function getScansByOrg(orgId) {
   return unwrapList(data);
 }
 
-// =================== ADMIN USER MANAGEMENT ===================
+
 
 export async function adminGetAllUsers() {
   const data = await authorizedRequest("/admin/get/all", { method: "GET" }, "Failed to load users.");
@@ -682,7 +682,7 @@ export async function adminUpdatePassword(id, payload) {
   return authJsonRequest(`/admin/update/password?id=${encodeURIComponent(id)}`, "PUT", payload, "Failed to update password.");
 }
 
-// =================== AI ===================
+
 
 export async function sendAiChat(message, productId, organizationId) {
   const payload = { message };
@@ -709,7 +709,7 @@ export async function sendAiAsk(payload) {
   return authJsonRequest("/api/ai/ask", "POST", payload, "Failed to ask AI.");
 }
 
-// =================== TECHNICAL SHEETS ===================
+
 
 export async function getTechnicalSheets() {
   const data = await authorizedRequest("/api/technical-sheets", { method: "GET" }, "Failed to load technical sheets.");
@@ -785,7 +785,7 @@ export async function saveOperationItems(sheetId, items) {
   return authJsonRequest(`/api/technical-sheets/${encodeURIComponent(sheetId)}/operation-items`, "PUT", items, "Failed to save operation items.");
 }
 
-// ─── Operations library ──────────────────────────────────────────────────────
+
 
 export async function getTsOperations() {
   const data = await authorizedRequest("/api/ts-operations", { method: "GET" }, "Failed to load operations.");
@@ -809,7 +809,7 @@ export async function deleteTsOperation(id) {
   return authorizedRequest(`/api/ts-operations/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete operation.");
 }
 
-// =================== AUDIT ===================
+
 
 export async function getAuditLogs(params = {}) {
   const qs = new URLSearchParams();
@@ -835,7 +835,7 @@ export async function getEntityAuditLogs(entityType, entityId, page = 0, size = 
   return data;
 }
 
-// =================== SUPPLY CHAIN ===================
+
 
 export async function getSuppliers() {
   const data = await authorizedRequest("/api/suppliers", { method: "GET" }, "Failed to load suppliers.");
@@ -912,7 +912,7 @@ export async function getReceptions(orderId) {
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 }
 
-// =================== DELIVERIES ===================
+
 
 export async function createDelivery(orderId, payload) {
   return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/deliveries`, "POST", payload, "Failed to create delivery.");
@@ -931,7 +931,7 @@ export async function receiveDelivery(deliveryId, payload) {
   return authJsonRequest(`/api/material-orders/deliveries/${encodeURIComponent(deliveryId)}/receive`, "POST", payload, "Failed to receive delivery.");
 }
 
-// =================== RETURNS ===================
+
 
 export async function createReturnRequest(orderId, payload) {
   return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/returns`, "POST", payload, "Failed to create return request.");
@@ -955,7 +955,7 @@ export async function getReturnsByOrg(orgId) {
   return unwrapList(data);
 }
 
-// =================== DISPUTES ===================
+
 
 export async function createDispute(orderId, payload) {
   return authJsonRequest(`/api/material-orders/${encodeURIComponent(orderId)}/disputes`, "POST", payload, "Failed to create dispute.");
@@ -979,7 +979,7 @@ export async function getDisputesByOrg(orgId) {
   return unwrapList(data);
 }
 
-// =================== PROCUREMENT ANALYTICS ===================
+
 
 export async function getProcurementAnalytics(orgId) {
   return authorizedRequest(`/api/material-orders/analytics/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load analytics.");
@@ -995,7 +995,7 @@ export async function processReturn(orderId, itemId, returnQuantity, rejectionRe
   return authorizedRequest(`/api/material-orders/${encodeURIComponent(orderId)}/return?${params}`, { method: "POST" }, "Failed to process return.");
 }
 
-// =================== STOCK MOVEMENTS ===================
+
 
 export async function getStockMovementsByOrg(orgId) {
   const data = await authorizedRequest(`/api/stock-movements/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load stock movements.");
@@ -1012,7 +1012,7 @@ export async function getStockMovementsByProduction(productionId) {
   return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
 }
 
-// =================== NOTIFICATIONS ===================
+
 
 export async function getMyNotifications(userId) {
   const userIdToUse = userId || localStorage.getItem("userId");
@@ -1047,7 +1047,7 @@ export async function deleteNotification(id) {
   return authorizedRequest(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete notification.");
 }
 
-// =================== ORDER MATERIAL REQUIREMENTS ===================
+
 
 export async function getOrderItemRequirements(orderId, itemIndex) {
   return authorizedRequest(`/api/orders/${encodeURIComponent(orderId)}/items/${itemIndex}/requirements`, { method: "GET" }, "Failed to load material requirements.");
@@ -1085,7 +1085,7 @@ export async function recalculateBulkRequirements(payload) {
   }, "Failed to recalculate bulk requirements.");
 }
 
-// =================== PUBLIC / CONTACT ===================
+
 
 export async function submitContact(payload) {
   const response = await fetch(`${API_BASE_URL}/api/public/contact`, {
@@ -1096,7 +1096,7 @@ export async function submitContact(payload) {
   return parseJsonResponse(response, "Failed to submit contact form.");
 }
 
-// =================== PRODUCTION STEPS ===================
+
 
 export async function assignProductionStep(productionId, stepIndex, employeeName) {
   return authorizedRequest(
@@ -1106,13 +1106,13 @@ export async function assignProductionStep(productionId, stepIndex, employeeName
   );
 }
 
-// =================== CLIENT ORDER PRODUCTIONS ===================
+
 
 export async function getProductionByOrderId(orderId) {
   return authJsonRequest(`/api/productions/by-order/${encodeURIComponent(orderId)}`, 'GET', undefined, 'Failed to load productions by order.');
 }
 
-// =================== ALLOCATION WORKFLOW ===================
+
 
 export async function getAllocationReview(orderIds) {
   return authJsonRequest("/api/orders/allocation-review", "POST", orderIds, "Failed to load allocation review.");
@@ -1194,7 +1194,7 @@ export async function getPredictiveAnalysis(organizationId, scope = "ORG") {
   return parseJsonResponse(response, "Failed to fetch predictive analysis.");
 }
 
-// =================== SESSION MANAGEMENT ===================
+
 
 export async function getActiveSessions() {
   const data = await authorizedRequest("/api/sessions", { method: "GET" }, "Failed to load sessions.");
@@ -1227,57 +1227,9 @@ export async function getRecentFailedAttempts() {
   return data?.data ?? data;
 }
 
-// ── MRP ──────────────────────────────────────────────────────────────────────
 
-export async function getMrpGlobalPlan() {
-  const data = await authorizedRequest("/api/mrp/global-plan", { method: "GET" }, "Failed to load MRP plan.");
-  return data?.data ?? data;
-}
 
-export async function getMrpForecast(materialId) {
-  const data = await authorizedRequest(`/api/mrp/forecast/${encodeURIComponent(materialId)}`, { method: "GET" }, "Failed to load forecast.");
-  return data?.data ?? data;
-}
 
-export async function generateMrpPurchaseRequests() {
-  const data = await authorizedRequest("/api/mrp/generate-purchase-requests", { method: "POST" }, "Failed to generate purchase requests.");
-  return data?.data ?? data;
-}
-
-export async function getMrpAlerts() {
-  const data = await authorizedRequest("/api/mrp/alerts", { method: "GET" }, "Failed to load MRP alerts.");
-  return data?.data ?? data;
-}
-
-export async function resolveMrpAlert(alertId) {
-  const data = await authorizedRequest(`/api/mrp/alerts/${encodeURIComponent(alertId)}/resolve`, { method: "PATCH" }, "Failed to resolve alert.");
-  return data?.data ?? data;
-}
-
-export async function getMrpPurchaseRequests() {
-  const data = await authorizedRequest("/api/mrp/purchase-requests", { method: "GET" }, "Failed to load purchase requests.");
-  return data?.data ?? data;
-}
-
-export async function approveMrpPurchaseRequest(prId) {
-  const data = await authorizedRequest(`/api/mrp/purchase-requests/${encodeURIComponent(prId)}/approve`, { method: "PATCH" }, "Failed to approve purchase request.");
-  return data?.data ?? data;
-}
-
-export async function rejectMrpPurchaseRequest(prId) {
-  const data = await authorizedRequest(`/api/mrp/purchase-requests/${encodeURIComponent(prId)}/reject`, { method: "PATCH" }, "Failed to reject purchase request.");
-  return data?.data ?? data;
-}
-
-// ── API error utilities ───────────────────────────────────────────────────────
-
-/**
- * Converts an API error thrown by authorizedRequest / request into a
- * human-readable string suitable for display in a UI component.
- *
- * Handles: 429 rate-limit, validation field errors, Spring Security errors,
- * and generic server messages.
- */
 export function apiErrorMessage(error, fallback = "An error occurred. Please try again.") {
   if (!error) return fallback;
 

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -17,6 +18,12 @@ import java.io.IOException;
 public class XssFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(XssFilter.class);
+    private static final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return pathMatcher.match("/ws/**", request.getRequestURI());
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

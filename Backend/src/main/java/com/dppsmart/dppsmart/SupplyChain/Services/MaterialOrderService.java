@@ -431,7 +431,6 @@ public class MaterialOrderService {
             }
         }
 
-        // If this PO was auto-created for a blocked order, re-trigger the workflow
         if (order.getSourceClientOrderId() != null && totalAccepted > 0) {
             tryUnblockSourceOrder(order.getSourceClientOrderId());
         }
@@ -452,13 +451,13 @@ public class MaterialOrderService {
         ordersRepository.findById(sourceOrderId).ifPresent(sourceOrder -> {
             if (sourceOrder.getStatus() == ClientOrderStatus.WAITING_FOR_MATERIALS) {
                 try {
-                    // Reset to a re-processable status so processOrderFull can re-evaluate stock
+
                     sourceOrder.setStatus(ClientOrderStatus.READY_FOR_CONFIRMATION);
                     sourceOrder.setUpdatedAt(LocalDateTime.now());
                     ordersRepository.save(sourceOrder);
                     orderWorkflowService.processOrderFull(sourceOrderId, sourceOrder.getConfirmedDeliveryDate());
                 } catch (Exception ignored) {
-                    // Best-effort: if re-processing fails, the order stays at READY_FOR_CONFIRMATION for admin to retry
+
                 }
             }
         });
@@ -480,30 +479,20 @@ public class MaterialOrderService {
         }).toList();
     }
 
-    /**
-     * Normalizes a material name for fuzzy matching: lowercase, trim, collapse spaces, strip accents.
-     */
+    
     private String normalizeMaterialName(String name) {
         if (name == null) return "";
         String normalized = Normalizer.normalize(name.trim().toLowerCase(), Normalizer.Form.NFD);
-        normalized = normalized.replaceAll("\\p{M}", "");   // strip accent marks
-        normalized = normalized.replaceAll("\\s+", " ");    // collapse duplicate spaces
+        normalized = normalized.replaceAll("\\p{M}", "");
+        normalized = normalized.replaceAll("\\s+", " ");
         return normalized;
     }
 
-    /**
-     * Finds an existing stock document for the given item using the priority:
-     * 1. materialId + orgId + unit
-     * 2. normalized materialName + orgId + unit
-     * 3. referenceCode + orgId + unit
-     *
-     * Returns an Optional wrapping both the stock and the match reason.
-     */
+    
     private Optional<StockMatch> findStockMatch(MaterialOrderItem item, String orgId) {
         List<MaterialStock> orgStocks = materialStockRepository.findByOrganizationId(orgId);
         String unit = item.getUnit() != null ? item.getUnit().trim().toLowerCase() : "";
 
-        // 1. materialId + unit
         if (item.getMaterialId() != null && !item.getMaterialId().isBlank()) {
             for (MaterialStock s : orgStocks) {
                 String sUnit = s.getUnit() != null ? s.getUnit().trim().toLowerCase() : "";
@@ -513,7 +502,6 @@ public class MaterialOrderService {
             }
         }
 
-        // 2. normalized name + unit
         String normName = normalizeMaterialName(item.getMaterialName());
         if (!normName.isBlank()) {
             for (MaterialStock s : orgStocks) {
@@ -524,14 +512,13 @@ public class MaterialOrderService {
             }
         }
 
-        // 3. referenceCode + unit
         if (item.getMaterialReference() != null && !item.getMaterialReference().isBlank()) {
             for (MaterialStock s : orgStocks) {
                 String sUnit = s.getUnit() != null ? s.getUnit().trim().toLowerCase() : "";
                 if (item.getMaterialReference().equalsIgnoreCase(s.getReferenceCode()) && unit.equals(sUnit)) {
                     return Optional.of(new StockMatch(s, StockReceivingResultDTO.MatchedBy.REFERENCE_CODE));
                 }
-                // also check alternativeRefCodes
+
                 if (s.getAlternativeRefCodes() != null && unit.equals(sUnit)) {
                     boolean altMatch = s.getAlternativeRefCodes().stream()
                             .anyMatch(alt -> alt.equalsIgnoreCase(item.getMaterialReference()));
@@ -561,7 +548,6 @@ public class MaterialOrderService {
             stock.setQuantity(newQty);
             stock.setUpdatedAt(LocalDateTime.now());
 
-            // Store alternative refCode if it differs from the primary
             String receivedRef = item.getMaterialReference();
             if (receivedRef != null && !receivedRef.isBlank()
                     && !receivedRef.equalsIgnoreCase(stock.getReferenceCode())) {
@@ -594,7 +580,7 @@ public class MaterialOrderService {
                     .alternativeRefCodes(stock.getAlternativeRefCodes())
                     .build();
         } else {
-            // No match — create new stock item
+
             MaterialStock newStock = new MaterialStock();
             newStock.setId(NanoIdUtils.randomNanoId());
             newStock.setName(item.getMaterialName());

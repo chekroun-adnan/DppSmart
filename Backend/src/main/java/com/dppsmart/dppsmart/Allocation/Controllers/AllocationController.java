@@ -16,6 +16,7 @@ import com.dppsmart.dppsmart.ProductionCapacity.Services.CapacityService;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -30,11 +31,16 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AllocationController {
 
-    private final AllocationService allocationService;
-    private final DeliveryService deliveryService;
-    private final CapacityService capacityService;
-    private final ConflictService conflictService;
-    private final UserRepository userRepository;
+    @Autowired
+    private AllocationService allocationService;
+    @Autowired
+    private DeliveryService deliveryService;
+    @Autowired
+    private CapacityService capacityService;
+    @Autowired
+    private ConflictService conflictService;
+    @Autowired
+    private UserRepository userRepository;
 
     @PostMapping("/allocation-review")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")

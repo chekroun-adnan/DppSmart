@@ -44,7 +44,7 @@ public class MaterialOrder {
     private String invoiceNumber;
     private String invoiceUrl;
     private List<String> deliveryProofPhotos;
-    private String sourceClientOrderId;   // set when auto-created from order workflow
+    private String sourceClientOrderId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

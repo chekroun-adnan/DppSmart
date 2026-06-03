@@ -26,6 +26,6 @@ public class LoginAttempt {
     private String browser;
     private String os;
 
-    @Indexed(expireAfterSeconds = 86400)  // auto-delete after 24 h
+    @Indexed(expireAfterSeconds = 86400)
     private LocalDateTime attemptTime;
 }

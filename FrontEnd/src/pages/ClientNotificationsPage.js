@@ -113,7 +113,7 @@ export default function ClientNotificationsPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      {/* Header */}
+      
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Notifications</h1>
@@ -131,7 +131,7 @@ export default function ClientNotificationsPage() {
         )}
       </div>
 
-      {/* Filter tabs */}
+      
       <div className="flex gap-2 mb-5">
         {[
           { key: "all", label: "All" },
@@ -153,7 +153,7 @@ export default function ClientNotificationsPage() {
         ))}
       </div>
 
-      {/* List */}
+      
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -224,7 +224,7 @@ export default function ClientNotificationsPage() {
         </div>
       )}
 
-      {/* Order timeline summary */}
+      
       {notifications.length > 0 && (
         <div className="glass-card mt-6 p-5">
           <h2 className="text-sm font-semibold text-white mb-4">Order Activity Timeline</h2>

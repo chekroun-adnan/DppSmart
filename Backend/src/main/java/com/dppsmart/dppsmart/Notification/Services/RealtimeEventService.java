@@ -29,7 +29,6 @@ public class RealtimeEventService {
     public static final String RESERVATION_UPDATED         = "RESERVATION_UPDATED";
     public static final String SIMULATION_RESULT           = "SIMULATION_RESULT";
 
-
     public void broadcastOrderUpdated(Object orderDto) {
         send("/topic/orders", event(ORDER_UPDATED, orderDto));
     }
@@ -134,7 +133,6 @@ public class RealtimeEventService {
     public void broadcastSimulationResult(String orderId, Object simulationResult) {
         send("/topic/orders/" + orderId, event(SIMULATION_RESULT, simulationResult));
     }
-
 
     private Map<String, Object> event(String type, Object data) {
         Map<String, Object> wrapper = new HashMap<>();

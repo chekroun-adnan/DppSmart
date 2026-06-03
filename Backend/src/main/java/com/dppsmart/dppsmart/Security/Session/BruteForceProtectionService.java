@@ -19,12 +19,10 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class BruteForceProtectionService {
 
-    // Per-email thresholds
     private static final int  MAX_ATTEMPTS_PER_EMAIL   = 5;
     private static final long EMAIL_WINDOW_MINUTES      = 15;
     private static final long EMAIL_LOCKOUT_MINUTES     = 30;
 
-    // Per-IP thresholds
     private static final int  MAX_ATTEMPTS_PER_IP      = 20;
     private static final long IP_WINDOW_MINUTES         = 15;
 
@@ -33,8 +31,6 @@ public class BruteForceProtectionService {
     private final NotificationServiceImpl notificationService;
     private final SecurityAnalysisService securityAnalysisService;
     private final RuleDetectionService ruleDetectionService;
-
-    // ─── Check BEFORE attempting login ────────────────────────────────────────
 
     public void checkLoginAllowed(String email, String ip) {
         LocalDateTime emailWindow = LocalDateTime.now().minusMinutes(EMAIL_WINDOW_MINUTES);
@@ -60,13 +56,9 @@ public class BruteForceProtectionService {
         }
     }
 
-    // ─── Record successful login ───────────────────────────────────────────────
-
     public void recordSuccess(String email, HttpServletRequest request) {
         record(email, request, true, null);
     }
-
-    // ─── Record failed login ──────────────────────────────────────────────────
 
     public void recordFailure(String email, HttpServletRequest request, String reason) {
         record(email, request, false, reason);
@@ -76,7 +68,6 @@ public class BruteForceProtectionService {
         long failures = loginAttemptRepository
                 .countByEmailAndSuccessFalseAndAttemptTimeAfter(email, window);
 
-        // Notify user at 3 failures and again at lockout
         if (failures == 3 || failures == MAX_ATTEMPTS_PER_EMAIL) {
             notifyUserAboutFailedAttempts(email, ip, failures);
         }
@@ -107,15 +98,11 @@ public class BruteForceProtectionService {
         loginAttemptRepository.save(attempt);
     }
 
-    // ─── Return failure count for a given email (for API response hints) ──────
-
     public long getRecentFailures(String email) {
         LocalDateTime window = LocalDateTime.now().minusMinutes(EMAIL_WINDOW_MINUTES);
         return loginAttemptRepository
                 .countByEmailAndSuccessFalseAndAttemptTimeAfter(email, window);
     }
-
-    // ─── Notifications ────────────────────────────────────────────────────────
 
     private void notifyUserAboutFailedAttempts(String email, String ip, long count) {
         userRepository.findByEmail(email).ifPresent(user -> {
@@ -139,7 +126,7 @@ public class BruteForceProtectionService {
     }
 
     private void notifyAdminIfNeeded(String email, String ip, long count) {
-        // Fire-and-forget; admins can review in audit/security log
+
         log.warn("SECURITY: Account {} locked after {} failures from IP {}", email, count, ip);
     }
 }

@@ -839,7 +839,7 @@ function ProductsPage() {
           onClick={() => { setIsCreateModalOpen(false); setActionError(""); }}
         >
           <div
-            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl mobile-full-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
@@ -1106,7 +1106,7 @@ function ProductsPage() {
           onClick={() => { setEditingProductId(""); setActionError(""); }}
         >
           <div
-            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl"
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl mobile-full-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="max-h-[calc(90vh-80px)] overflow-y-auto p-6 md:p-8">
@@ -1404,7 +1404,7 @@ function ProductsPage() {
           </div>
         </div>
       ) : null}
-      {/* QR Code Modal */}
+      
       {qrModal && (
         <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 dark:bg-black/80 px-4 animate-fade-in" onClick={() => setQrModal(null)}>
           <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -1448,7 +1448,7 @@ function ProductsPage() {
         </div>
       )}
 
-      {/* DPP Modal — full product passport */}
+      
       {dppModal && (() => {
         const dppImg = uploadedImages[dppModal.id] || readProductImageUrl(dppModal);
         const suppEntries = Object.entries(dppModal.additionalInfo || dppModal.supplementalInfo || {}).filter(([k]) => k !== "imageUrl");
@@ -1456,15 +1456,15 @@ function ProductsPage() {
         <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/60 dark:bg-black/80 px-4 py-6 animate-fade-in" onClick={() => setDppModal(null)}>
           <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/[0.06] overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
 
-            {/* Gradient header with product image */}
+            
             <div className="relative bg-gradient-to-br from-brand-600 via-brand-700 to-slate-800 px-8 pt-8 pb-7 shrink-0">
-              {/* Close */}
+              
               <button type="button" onClick={() => setDppModal(null)} className="absolute top-5 right-5 text-white/60 hover:text-white transition-colors p-1">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
 
               <div className="flex items-start gap-5">
-                {/* Product image */}
+                
                 <div className="flex-none">
                   {dppImg ? (
                     <img src={dppImg} alt={dppModal.productName} className="h-20 w-20 rounded-2xl object-cover ring-2 ring-white/30 shadow-lg" onError={(e) => { e.currentTarget.style.display = "none"; }} />
@@ -1475,7 +1475,7 @@ function ProductsPage() {
                   )}
                 </div>
 
-                {/* Title + id */}
+                
                 <div className="min-w-0 flex-1 pr-6">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-200">Digital Product Passport</p>
                   <h2 className="mt-1 text-xl font-extrabold text-white leading-snug">{dppModal.productName || "Product"}</h2>
@@ -1488,7 +1488,7 @@ function ProductsPage() {
                 </div>
               </div>
 
-              {/* AI score pill */}
+              
               {typeof dppModal.aiScore === "number" && (
                 <div className="mt-5 flex items-center gap-3">
                   <div className="h-12 w-12 rounded-xl bg-white/15 ring-1 ring-white/20 flex flex-col items-center justify-center flex-none">
@@ -1503,11 +1503,11 @@ function ProductsPage() {
               )}
             </div>
 
-            {/* Scrollable body */}
+            
             <div className="overflow-y-auto flex-1">
               <div className="p-7 space-y-6">
 
-                {/* Core attributes grid */}
+                
                 <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                   {[
                     { label: "Variant", value: dppModal.variantName },
@@ -1522,7 +1522,7 @@ function ProductsPage() {
                   ) : null)}
                 </div>
 
-                {/* Materials Composition */}
+                
                 {Array.isArray(dppModal.materialsComposition) && dppModal.materialsComposition.length > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Materials</p>
@@ -1537,7 +1537,7 @@ function ProductsPage() {
                   </div>
                 )}
 
-                {/* Extra Fields */}
+                
                 {suppEntries.length > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Extra Fields</p>
@@ -1552,7 +1552,7 @@ function ProductsPage() {
                   </div>
                 )}
 
-                {/* Passport URL */}
+                
                 {dppModal.dppUrl && (
                   <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/[0.06] p-4">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Passport URL</p>
@@ -1560,7 +1560,7 @@ function ProductsPage() {
                   </div>
                 )}
 
-                {/* Actions */}
+                
                 <div className="flex gap-3 pb-1">
                   {dppModal.dppUrl && (
                     <button

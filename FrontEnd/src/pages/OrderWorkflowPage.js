@@ -27,7 +27,7 @@ import {
 import { useOrderWorkflow } from "../hooks/useOrderWorkflow";
 import { useNotifications } from "../context/NotificationContext";
 
-// ─── constants ──────────────────────────────────────────────────────────────
+
 
 const STATUS_CONFIG = {
   PENDING_REVIEW:             { label: "Pending Review",        color: "amber",  icon: Clock },
@@ -73,7 +73,7 @@ const TIMELINE_STEPS = [
   { key: "delivered",          label: "Delivered",             icon: CheckCheck },
 ];
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+
 
 function colorCls(color, variant = "badge") {
   const map = {
@@ -120,7 +120,7 @@ function relativeTime(ts) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ─── sub-components ──────────────────────────────────────────────────────────
+
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || { label: status, color: "slate" };
@@ -260,7 +260,7 @@ function SimulationPanel({ simulation, onClose }) {
   );
 }
 
-// ─── materials table ─────────────────────────────────────────────────────────
+
 
 function MaterialsTable({ orderId, hasReservations, onReserved }) {
   const [data, setData] = useState(null);
@@ -340,7 +340,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
 
   return (
     <div className="space-y-3">
-      {/* Summary banner */}
+      
       <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl ring-1 text-sm font-medium
         ${allOk
           ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-200/60 dark:ring-emerald-500/20"
@@ -356,7 +356,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
         )}
       </div>
 
-      {/* Table */}
+      
       <div className="rounded-xl border border-slate-200 dark:border-white/[0.08] overflow-hidden">
         <table className="w-full text-xs">
           <thead>
@@ -377,7 +377,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
               const ok = mat.sufficient;
               return (
                 <tr key={i} className={`transition-colors ${ok ? "hover:bg-slate-50/60 dark:hover:bg-white/[0.02]" : "bg-rose-50/40 dark:bg-rose-500/5 hover:bg-rose-50/70 dark:hover:bg-rose-500/10"}`}>
-                  {/* Material name */}
+                  
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0
@@ -391,11 +391,11 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
                     </div>
                   </td>
 
-                  {/* Available */}
+                  
                   <td className="px-3 py-2.5 text-right">
                     <span className="font-semibold text-slate-700 dark:text-slate-200">{mat.availableStock}</span>
                     <span className="text-slate-400 ml-1">{mat.unit}</span>
-                    {/* Mini usage bar */}
+                    
                     <div className="mt-1 flex justify-end">
                       <div className="w-16 h-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                         <div
@@ -406,7 +406,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
                     </div>
                   </td>
 
-                  {/* Reserved elsewhere */}
+                  
                   <td className="px-3 py-2.5 text-right">
                     {mat.reservedStock > 0 ? (
                       <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400 font-medium">
@@ -417,7 +417,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
                     )}
                   </td>
 
-                  {/* Will consume */}
+                  
                   <td className="px-3 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <TrendingDown size={11} className={ok ? "text-blue-400" : "text-rose-500"} />
@@ -427,7 +427,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
                     </div>
                   </td>
 
-                  {/* Remaining after */}
+                  
                   <td className="px-3 py-2.5 text-right">
                     {ok ? (
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
@@ -443,7 +443,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
                     )}
                   </td>
 
-                  {/* Status badge */}
+                  
                   <td className="px-3 py-2.5 text-right">
                     {ok ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200/60 dark:ring-emerald-500/20">
@@ -462,7 +462,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
         </table>
       </div>
 
-      {/* Reserve / Release buttons */}
+      
       {err && <p className="text-xs text-rose-600 dark:text-rose-400">{err}</p>}
       <div className="flex items-center gap-2 pt-1">
         {!reserved && allOk && (
@@ -504,7 +504,7 @@ function MaterialsTable({ orderId, hasReservations, onReserved }) {
 
 function OrderCard({ order, onAction, busy, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
-  const [tab, setTab] = useState("items"); // "items" | "materials"
+  const [tab, setTab] = useState("items");
   const [simulation, setSimulation] = useState(null);
   const [simLoading, setSimLoading] = useState(false);
   const { addToast } = useNotifications();
@@ -540,7 +540,7 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
         canDeliver ? "border-emerald-200 dark:border-emerald-500/20" :
         "border-slate-200 dark:border-white/[0.08]"}`}>
 
-      {/* Header */}
+      
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
@@ -584,20 +584,20 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
           </div>
         </div>
 
-        {/* Timeline */}
+        
         <OrderTimeline status={s} />
       </div>
 
-      {/* Expanded content */}
+      
       {expanded && (
         <div className="px-5 pb-5 space-y-4 border-t border-slate-100 dark:border-white/[0.06] pt-4">
 
-          {/* Simulation panel */}
+          
           {simulation && (
             <SimulationPanel simulation={simulation} onClose={() => setSimulation(null)} />
           )}
 
-          {/* Tab switcher */}
+          
           <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl w-fit">
             <button
               onClick={() => setTab("items")}
@@ -618,7 +618,7 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
             </button>
           </div>
 
-          {/* Order items tab */}
+          
           {tab === "items" && (
             <div>
               <div className="space-y-2">
@@ -653,7 +653,7 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
             </div>
           )}
 
-          {/* Materials tab */}
+          
           {tab === "materials" && (
             <MaterialsTable
               orderId={order.id}
@@ -662,7 +662,7 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
             />
           )}
 
-          {/* Workflow info */}
+          
           {(order.confirmedBy || order.stockCheckedAt || order.productionStartedAt || order.supplyChainOrderId) && (
             <div className="grid grid-cols-2 gap-2 text-xs">
               {order.confirmedBy && (
@@ -692,7 +692,7 @@ function OrderCard({ order, onAction, busy, onRefresh }) {
             </div>
           )}
 
-          {/* Action buttons */}
+          
           <div className="flex flex-wrap gap-2 pt-1">
             {canConfirm && (
               <ActionButton
@@ -775,7 +775,7 @@ function ActionButton({ label, icon: Icon, color, busy, onClick }) {
   );
 }
 
-// ─── modals ──────────────────────────────────────────────────────────────────
+
 
 function ConfirmModal({ order, onClose, onDone }) {
   const [date, setDate] = useState(order?.confirmedDeliveryDate || "");
@@ -978,7 +978,7 @@ function FieldGroup({ label, children }) {
   );
 }
 
-// ─── stats bar ───────────────────────────────────────────────────────────────
+
 
 function StatsBar({ orders }) {
   const counts = orders.reduce((acc, o) => {
@@ -1019,7 +1019,7 @@ function StatsBar({ orders }) {
   );
 }
 
-// ─── main page ───────────────────────────────────────────────────────────────
+
 
 export default function OrderWorkflowPage() {
   const [orders, setOrders] = useState([]);
@@ -1036,7 +1036,7 @@ export default function OrderWorkflowPage() {
 
   const watchIds = orders.map((o) => o.id);
 
-  // WebSocket real-time sync
+  
   const { connected } = useOrderWorkflow({
     watchOrderIds: watchIds,
     onEvent: useCallback((event) => {
@@ -1082,7 +1082,7 @@ export default function OrderWorkflowPage() {
     let mounted = true;
     setLoading(true);
     loadOrders().finally(() => mounted && setLoading(false));
-    // Fallback polling every 45 seconds
+    
     refreshTimerRef.current = setInterval(loadOrders, 45000);
     return () => {
       mounted = false;
@@ -1127,7 +1127,7 @@ export default function OrderWorkflowPage() {
     await loadOrders();
   }
 
-  // Filter logic
+  
   const filtered = orders.filter((o) => {
     const matchOrg = !selectedOrgId || o.organizationId === selectedOrgId;
     const matchSearch = !search || o.orderReference?.toLowerCase().includes(search.toLowerCase())
@@ -1142,7 +1142,7 @@ export default function OrderWorkflowPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-10">
-        {/* Page header */}
+        
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1167,13 +1167,13 @@ export default function OrderWorkflowPage() {
           </div>
         </div>
 
-        {/* Org selector */}
+        
         <OrgSelector value={selectedOrgId} onChange={setSelectedOrgId} />
 
-        {/* Stats */}
+        
         {orders.length > 0 && <StatsBar orders={orders} />}
 
-        {/* Filters */}
+        
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1192,7 +1192,7 @@ export default function OrderWorkflowPage() {
           </div>
         </div>
 
-        {/* Content */}
+        
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -1226,7 +1226,7 @@ export default function OrderWorkflowPage() {
           </div>
         )}
 
-        {/* Modals */}
+        
         {modal === "confirm" && activeOrder && (
           <ConfirmModal order={activeOrder} onClose={closeModal} onDone={afterModalAction} />
         )}

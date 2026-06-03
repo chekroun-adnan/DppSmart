@@ -25,7 +25,6 @@ public class OrderItem {
     private List<BomMaterialLineDto> requiredMaterials;
     private boolean materialsAvailable;
 
-    // extended workflow fields
     private Integer allocatedQuantity;
     private Integer missingQuantity;
     private String relatedProductionId;

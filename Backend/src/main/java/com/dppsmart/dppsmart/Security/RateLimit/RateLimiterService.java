@@ -33,7 +33,6 @@ public class RateLimiterService {
         return bucket == null ? capacity(type) : bucket.getAvailableTokens();
     }
 
-
     private Bucket newBucket(BucketType type) {
         return Bucket.builder()
                 .addLimit(bandwidth(type))

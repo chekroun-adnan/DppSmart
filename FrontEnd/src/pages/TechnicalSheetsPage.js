@@ -509,7 +509,7 @@ export default function TechnicalSheetsPage() {
       const items = await getMaterialItems(sheet.id);
       const resolved = Array.isArray(items) ? items.map(item => {
         let materialId = item.materialId || item.id;
-        // If the stored ID no longer matches a loaded stock doc, fall back to referenceCode → name
+        
         const directMatch = materials.find(m => m.id === materialId);
         if (!directMatch) {
           const byRef = item.referenceCode && materials.find(m => m.referenceCode && m.referenceCode.toLowerCase() === item.referenceCode.toLowerCase());
@@ -550,7 +550,7 @@ export default function TechnicalSheetsPage() {
       } else {
         opItemsData = await getOperationItems(sheet.id).catch(() => []);
       }
-    } catch { /* ignore */ }
+    } catch {  }
     const product = products.find(p => p.id === sheet.productId) || null;
     const org = getOrgName(sheet.organizationId);
     const { blob, filename } = await generateSheetPdf({ sheet, product, org, matItems: matItemsData, opItems: opItemsData, logoBase64 });
@@ -959,7 +959,7 @@ export default function TechnicalSheetsPage() {
             <p className="text-sm font-medium">{t("technicalSheets.noSheets")}</p>
           </div>
         ) : (
-          <div className="max-h-[calc(100vh-320px)] overflow-y-auto rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-slate-800 shadow-sm">
+          <div className="max-h-[calc(100vh-320px)] overflow-auto rounded-2xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-slate-800 shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -1097,7 +1097,7 @@ export default function TechnicalSheetsPage() {
         )}
       </div>
 
-      {/* ── Create / Edit Sheet Modal ── */}
+      
       {(modal === "create" || modal === "edit") && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
@@ -1312,7 +1312,7 @@ export default function TechnicalSheetsPage() {
         document.body
       )}
 
-      {/* ── Delete Confirmation ── */}
+      
       {modal === "delete" && activeSheet && (
         <Modal title={t("common.confirmDelete")} onClose={() => setModal(null)}>
           <p className="text-sm text-slate-600">
@@ -1330,7 +1330,7 @@ export default function TechnicalSheetsPage() {
         </Modal>
       )}
 
-      {/* ── Material Items Editor ── */}
+      
       {modal === "material-items" && activeSheet && (
         <Modal title={`${activeSheet.name} — ${t("technicalSheets.materialItems")}`} onClose={() => setModal(null)}>
           {activeSheet.productId && (
@@ -1409,7 +1409,7 @@ export default function TechnicalSheetsPage() {
         </Modal>
       )}
 
-      {/* ── Operation Items Editor ── */}
+      
       {modal === "operation-items" && activeSheet && (
         <Modal title={`${activeSheet.name} — ${t("technicalSheets.operationItems")}`} onClose={() => setModal(null)}>
           {activeSheet.productId && (
@@ -1475,7 +1475,7 @@ export default function TechnicalSheetsPage() {
         </Modal>
       )}
 
-      {/* ── Material Library ── */}
+      
       {modal === "new-material" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
@@ -1597,7 +1597,7 @@ export default function TechnicalSheetsPage() {
         </div>
       )}
 
-      {/* ── Operation Library ── */}
+      
       {modal === "new-operation" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
@@ -1706,7 +1706,7 @@ export default function TechnicalSheetsPage() {
         </div>
       )}
 
-      {/* ── PDF Preview Modal ── */}
+      
       {pdfPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
           <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
@@ -1744,7 +1744,7 @@ export default function TechnicalSheetsPage() {
         </div>
       )}
 
-      {/* ── Audit Trail Modal ── */}
+      
       {auditModalSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] p-4">
           <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">

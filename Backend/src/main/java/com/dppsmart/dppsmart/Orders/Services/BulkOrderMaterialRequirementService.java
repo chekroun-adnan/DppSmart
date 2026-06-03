@@ -25,6 +25,7 @@ import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -36,14 +37,22 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BulkOrderMaterialRequirementService {
 
-    private final OrdersRepository ordersRepository;
-    private final ProductStockRepository productStockRepository;
-    private final MaterialStockRepository materialStockRepository;
-    private final TechnicalSheetRepository technicalSheetRepository;
-    private final MaterialSheetItemRepository materialSheetItemRepository;
-    private final GroqBulkSummaryService groqBulkSummaryService;
-    private final OrderPriorityService orderPriorityService;
-    private final OrganizationRepository organizationRepository;
+    @Autowired
+    private OrdersRepository ordersRepository;
+    @Autowired
+    private ProductStockRepository productStockRepository;
+    @Autowired
+    private MaterialStockRepository materialStockRepository;
+    @Autowired
+    private TechnicalSheetRepository technicalSheetRepository;
+    @Autowired
+    private MaterialSheetItemRepository materialSheetItemRepository;
+    @Autowired
+    private GroqBulkSummaryService groqBulkSummaryService;
+    @Autowired
+    private OrderPriorityService orderPriorityService;
+    @Autowired
+    private OrganizationRepository organizationRepository;
 
     public BulkOrderRequirementResponseDTO calculate(List<String> orderIds) {
         return compute(orderIds, Collections.emptyList(), false);
@@ -414,34 +423,10 @@ public class BulkOrderMaterialRequirementService {
                 }
             }
 
-            String allocationStatus;
-            if (!anyAllocated && orderMats.stream().anyMatch(m -> m.getMissingQuantity() > 0)) {
-                boolean hasBomError = orderMats.stream().anyMatch(m ->
-                        m.getAllocationSource().equals("RAW_MATERIAL_STOCK") && m.getAllocatedQuantity() == 0
-                                && m.getMissingQuantity() > 0);
-                if (hasBomError) {
-                    allocationStatus = "MATERIAL_SHORTAGE";
-                } else if (orderMats.isEmpty() || orderMats.stream().allMatch(m -> m.getRequiredQuantity() == 0)) {
-                    allocationStatus = "READY_FOR_DELIVERY";
-                } else {
-                    allocationStatus = "NOT_ALLOCATED";
-                }
-            } else if (allFullyAllocated && orderMats.stream().anyMatch(m -> m.getAllocationSource().equals("RAW_MATERIAL_STOCK"))) {
-                allocationStatus = "READY_FOR_PRODUCTION";
-            } else if (allFullyAllocated && !anyAllocated) {
-                allocationStatus = "READY_FOR_DELIVERY";
-            } else if (anyAllocated && !allFullyAllocated) {
-                allocationStatus = "PARTIALLY_ALLOCATED";
-                warningMsg = "This order is only partially allocated. Missing materials must be resolved before starting full production.";
-            } else {
-                allocationStatus = "FULLY_ALLOCATED";
-            }
-
             boolean hasMissingMats = orderMats.stream().anyMatch(m -> m.getMissingQuantity() > 0);
-            if (allocationStatus.equals("READY_FOR_PRODUCTION") && hasMissingMats) {
-                allocationStatus = "PARTIALLY_ALLOCATED";
-                warningMsg = "This order is only partially allocated. Missing materials must be resolved before starting full production.";
-            }
+            boolean hasRawMats = orderMats.stream().anyMatch(m -> "RAW_MATERIAL_STOCK".equals(m.getAllocationSource()));
+            boolean hasProductAlloc = orderMats.stream().anyMatch(m -> "FINISHED_PRODUCT_STOCK".equals(m.getAllocationSource()));
+            boolean anyAllocatedMat = orderMats.stream().anyMatch(m -> m.getAllocatedQuantity() > 0);
 
             List<String> missingMaterials = orderMats.stream()
                     .filter(m -> "RAW_MATERIAL_STOCK".equals(m.getAllocationSource()) && m.getMissingQuantity() > 0)
@@ -451,37 +436,30 @@ public class BulkOrderMaterialRequirementService {
                     .filter(m -> "FINISHED_PRODUCT_STOCK".equals(m.getAllocationSource()) && m.getMissingQuantity() > 0)
                     .map(MaterialAllocation::getMaterialName)
                     .collect(Collectors.toList());
-            boolean hasFullyMissing = orderMats.stream().noneMatch(m -> m.getAllocatedQuantity() > 0);
 
             String readinessStatus;
             boolean canSendToDelivery = false;
             boolean canStartProduction = false;
             boolean canStartPartialProduction = false;
 
-            if ("READY_FOR_DELIVERY".equals(allocationStatus)) {
+            if (!hasRawMats && !hasMissingMats && hasProductAlloc) {
                 readinessStatus = "READY_FOR_DELIVERY";
-                canSendToDelivery = !hasMissingMats;
-            } else if ("READY_FOR_PRODUCTION".equals(allocationStatus)) {
+                canSendToDelivery = true;
+            } else if (!hasMissingMats) {
                 readinessStatus = "READY_FOR_PRODUCTION";
-                canStartProduction = !hasMissingMats;
-            } else if ("PARTIALLY_ALLOCATED".equals(allocationStatus)) {
+                canStartProduction = true;
+            } else if (anyAllocatedMat) {
                 boolean someProductionPossible = orderMats.stream().anyMatch(m ->
                         "RAW_MATERIAL_STOCK".equals(m.getAllocationSource()) && m.getAllocatedQuantity() > 0);
                 if (someProductionPossible) {
                     readinessStatus = "PARTIALLY_PRODUCIBLE";
                     canStartPartialProduction = true;
+                    warningMsg = "This order is only partially allocated. Missing materials must be resolved before starting full production.";
                 } else {
                     readinessStatus = "MATERIAL_SHORTAGE";
                 }
-            } else if ("MATERIAL_SHORTAGE".equals(allocationStatus) || ("NOT_ALLOCATED".equals(allocationStatus) && hasFullyMissing)) {
-                readinessStatus = "MATERIAL_SHORTAGE";
-            } else if ("NOT_ALLOCATED".equals(allocationStatus)) {
-                readinessStatus = "BLOCKED";
-            } else if ("FULLY_ALLOCATED".equals(allocationStatus)) {
-                readinessStatus = "READY_FOR_PRODUCTION";
-                canStartProduction = true;
             } else {
-                readinessStatus = allocationStatus;
+                readinessStatus = "MATERIAL_SHORTAGE";
             }
 
             orderAllocations.add(OrderAllocation.builder()
@@ -491,7 +469,6 @@ public class BulkOrderMaterialRequirementService {
                     .deliveryDate(deliveryDateStr)
                     .priorityLevel(priorityLevel)
                     .priorityRank(rank++)
-                    .allocationStatus(allocationStatus)
                     .readinessStatus(readinessStatus)
                     .canSendToDelivery(canSendToDelivery)
                     .canStartProduction(canStartProduction)

@@ -109,7 +109,6 @@ public class OrderWorkflowService {
         return dto;
     }
 
-
     public WorkflowStockCheckResult checkStock(String orderId) {
         User user = requireAdminOrSubAdmin();
         Orders order = getOrderWithAccess(orderId, user);
@@ -162,7 +161,6 @@ public class OrderWorkflowService {
                 .recommendation(recommendation)
                 .build();
     }
-
 
     public SimulationResult simulate(String orderId) {
         User user = requireAdminOrSubAdmin();
@@ -246,7 +244,6 @@ public class OrderWorkflowService {
         realtimeEventService.broadcastSimulationResult(orderId, result);
         return result;
     }
-
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderProcessResultDTO processOrderFull(String orderId, LocalDate confirmedDeliveryDate) {
@@ -444,7 +441,6 @@ public class OrderWorkflowService {
                 .message("Materials missing. Supply chain order " + poNumber + " created.").build();
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto completeProduction(String productionId) {
         User user = requireAdminOrSubAdmin();
@@ -534,7 +530,6 @@ public class OrderWorkflowService {
         return null;
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto cancelProduction(String orderId, String action, String message) {
         User user = requireAdminOrSubAdmin();
@@ -605,7 +600,6 @@ public class OrderWorkflowService {
         }
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto deliverOrder(String orderId) {
         User user = requireAdminOrSubAdmin();
@@ -633,7 +627,6 @@ public class OrderWorkflowService {
         return dto;
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto requestDeliveryDate(String orderId, LocalDate proposedDate, String message) {
         User user = requireAdminOrSubAdmin();
@@ -654,7 +647,6 @@ public class OrderWorkflowService {
                 "Proposed delivery date: " + proposedDate);
         return dto;
     }
-
 
     public MaterialsBreakdownResult getMaterialsBreakdown(String orderId) {
         User user = requireAdminOrSubAdmin();
@@ -725,7 +717,6 @@ public class OrderWorkflowService {
                 .materials(lines)
                 .build();
     }
-
 
     private List<MaterialRequirementInfo> calculateMaterialRequirements(String productId, int qty, String orgId) {
         return technicalSheetRepository.findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE)

@@ -46,7 +46,7 @@ function Navbar() {
           </div>
         </Link>
 
-        {/* Desktop Nav */}
+        
         <nav className="hidden items-center gap-8 text-sm font-medium lg:flex">
           {navItems.map((item) => (
             <a
@@ -118,7 +118,7 @@ function Navbar() {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          
           <button 
             className={`lg:hidden p-2 rounded-lg transition-colors ${
               isScrolled || location.pathname !== "/" ? "text-slate-900 hover:bg-slate-100" : "text-white hover:bg-white/10"
@@ -136,7 +136,7 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      
       {isMobileMenuOpen && (
         <div className="lg:hidden absolute top-full left-0 right-0 bg-white border-b border-slate-200 animate-fade-in shadow-xl">
           <nav className="flex flex-col p-4 gap-4">

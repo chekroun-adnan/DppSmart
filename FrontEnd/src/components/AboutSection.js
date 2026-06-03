@@ -33,13 +33,10 @@ function AboutSection() {
         </div>
 
         <div className="space-y-5">
-          <figure className="overflow-hidden rounded-3xl shadow-soft-xl ring-1 ring-slate-900/8">
-            <img
-              className="h-56 w-full object-cover transition duration-500 hover:scale-105"
-              src="https://images.unsplash.com/photo-1595341888016-a392ef81b7de?auto=format&fit=crop&w=1500&q=80"
-              alt="Modern textile manufacturing environment"
-              loading="lazy"
-            />
+          <figure className="overflow-hidden rounded-3xl shadow-soft-xl ring-1 ring-slate-900/8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center h-56">
+            <svg className="w-16 h-16 text-slate-400 dark:text-slate-600 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
           </figure>
           <div className="rounded-3xl bg-white p-6 shadow-soft-xl ring-1 ring-slate-900/8">
             <ul className="space-y-4">

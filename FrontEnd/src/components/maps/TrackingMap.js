@@ -26,7 +26,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
     });
     googleMapRef.current = map;
 
-    // Supplier origin marker
+    
     if (supplier?.latitude && supplier?.longitude) {
       const supplierPos = { lat: supplier.latitude, lng: supplier.longitude };
       new google.maps.Marker({
@@ -50,7 +50,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
       map.panTo(supplierPos);
       map.setZoom(5);
 
-      // Calculate route if we have tracking data
+      
       const tracking = order?.tracking;
       if (tracking?.destinationLatitude && tracking?.destinationLongitude) {
         const dest = { lat: tracking.destinationLatitude, lng: tracking.destinationLongitude };
@@ -77,7 +77,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
           }
         );
 
-        // Destination marker
+        
         new google.maps.Marker({
           position: dest,
           map,
@@ -94,7 +94,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
       }
     }
 
-    // Truck marker (live position)
+    
     const truckMarker = new google.maps.Marker({
       position: supplier?.latitude
         ? { lat: supplier.latitude, lng: supplier.longitude }
@@ -120,7 +120,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
     };
   }, [isLoaded, supplier, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Animate truck marker when livePosition updates
+  
   useEffect(() => {
     if (!truckMarkerRef.current || !livePosition) return;
     const google = window.google;
@@ -146,7 +146,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
       )}
       <div ref={mapRef} className="w-full h-80 rounded-2xl overflow-hidden" />
 
-      {/* Route info overlay */}
+      
       {routeInfo && (
         <div className="absolute top-3 left-3 z-10 flex gap-2">
           <div className="rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200/60 dark:border-white/[0.08]">
@@ -158,7 +158,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
         </div>
       )}
 
-      {/* Live connection badge */}
+      
       <div className="absolute top-3 right-3 z-10">
         <div className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur-sm border ${
           connected
@@ -170,7 +170,7 @@ export default function TrackingMap({ order, supplier, livePosition, connected }
         </div>
       </div>
 
-      {/* Live position info */}
+      
       {livePosition && (
         <div className="absolute bottom-3 left-3 right-3 z-10">
           <div className="rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-xs text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200/60 dark:border-white/[0.08] flex items-center justify-between">

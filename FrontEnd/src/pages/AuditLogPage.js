@@ -108,14 +108,14 @@ export default function AuditLogPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
+        
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">{t("audit.security", "Security")}</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t("audit.title", "Audit Trail")}</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("audit.subtitle", "Track all changes made across the system — who changed what, and when.")}</p>
         </div>
 
-        {/* Filters */}
+        
         <div className="glass-card p-4 space-y-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div>
@@ -149,7 +149,7 @@ export default function AuditLogPage() {
           </div>
         </div>
 
-        {/* Results count */}
+        
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">{totalElements} log entries found</p>
           {totalPages > 1 && (
@@ -177,7 +177,7 @@ export default function AuditLogPage() {
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
 
-        {/* Log table */}
+        
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -253,7 +253,7 @@ export default function AuditLogPage() {
               </table>
             </div>
 
-            {/* Expanded detail */}
+            
             {expandedLog && (() => {
               const log = logs.find((l) => l.id === expandedLog);
               if (!log) return null;

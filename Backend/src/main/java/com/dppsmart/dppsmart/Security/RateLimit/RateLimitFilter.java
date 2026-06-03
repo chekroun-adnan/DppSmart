@@ -10,19 +10,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
 
-
 @Component
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    private static final AntPathMatcher pathMatcher = new AntPathMatcher();
+
     private final RateLimiterService limiterService;
     private final ObjectMapper objectMapper;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return pathMatcher.match("/ws/**", request.getRequestURI());
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

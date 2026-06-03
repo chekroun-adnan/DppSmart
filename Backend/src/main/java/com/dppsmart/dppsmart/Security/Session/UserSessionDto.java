@@ -19,7 +19,7 @@ public class UserSessionDto {
     private String sessionStatus;
     private boolean suspicious;
     private String suspicionReason;
-    private boolean current;          // true if this session belongs to the calling request
+    private boolean current;
     private LocalDateTime loginTime;
     private LocalDateTime lastActivity;
     private LocalDateTime expiresAt;

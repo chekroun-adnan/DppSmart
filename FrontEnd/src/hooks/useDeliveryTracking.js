@@ -15,10 +15,11 @@ export function useDeliveryTracking(orderId) {
       return;
     }
 
-    const token = localStorage.getItem("accessToken");
+    let activated = false;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS(`${API_URL}/ws?token=${token}`),
+      webSocketFactory: () => new SockJS(`${API_URL}/ws`),
+      connectHeaders: { token: localStorage.getItem("accessToken") || "" },
       reconnectDelay: 5000,
       onConnect: () => {
         setConnected(true);
@@ -40,11 +41,16 @@ export function useDeliveryTracking(orderId) {
       onStompError: () => setConnected(false),
     });
 
-    client.activate();
     clientRef.current = client;
 
+    const timer = setTimeout(() => {
+      activated = true;
+      client.activate();
+    }, 100);
+
     return () => {
-      client.deactivate();
+      clearTimeout(timer);
+      if (activated) client.deactivate();
       clientRef.current = null;
       setConnected(false);
       setLivePosition(null);

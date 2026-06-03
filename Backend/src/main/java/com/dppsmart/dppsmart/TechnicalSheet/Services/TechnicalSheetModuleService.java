@@ -393,30 +393,21 @@ public class TechnicalSheetModuleService {
     }
 
     
-    /**
-     * Resolves the live MaterialStock for a BOM line using a three-tier fallback:
-     * 1. Direct ID lookup (fast path — works when stock was never deleted)
-     * 2. referenceCode + organizationId (survives delete/recreate when ref code is stable)
-     * 3. normalised name + organizationId (last resort)
-     *
-     * organizationId may be null when called from enrichMaterialItems (sheet org is used
-     * as a hint, not a filter — we accept any match when org is unknown).
-     */
+    
     private MaterialStock resolveStock(MaterialSheetItem item, String organizationId) {
-        // 1. Direct ID
+
         if (item.getMaterialId() != null) {
             Optional<MaterialStock> byId = materialStockRepository.findById(item.getMaterialId());
             if (byId.isPresent()) return byId.get();
         }
 
-        // 2. referenceCode + org
         if (item.getReferenceCode() != null && !item.getReferenceCode().isBlank()) {
             if (organizationId != null) {
                 Optional<MaterialStock> byRef = materialStockRepository
                         .findByReferenceCodeAndOrganizationId(item.getReferenceCode(), organizationId);
                 if (byRef.isPresent()) return byRef.get();
             } else {
-                // org unknown — scan all orgs, first match wins
+
                 List<MaterialStock> all = materialStockRepository.findAll();
                 for (MaterialStock s : all) {
                     if (item.getReferenceCode().equalsIgnoreCase(s.getReferenceCode())) return s;
@@ -424,7 +415,6 @@ public class TechnicalSheetModuleService {
             }
         }
 
-        // 3. name + org
         if (item.getMaterialName() != null && !item.getMaterialName().isBlank()) {
             if (organizationId != null) {
                 Optional<MaterialStock> byName = materialStockRepository

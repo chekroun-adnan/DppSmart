@@ -15,6 +15,7 @@ import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,11 +27,16 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AiController {
 
-    private final GroqService groqService;
-    private final ProductAiScoringService productAiScoringService;
-    private final ProductRepository productRepository;
-    private final UserRepository userRepository;
-    private final PermissionService permissionService;
+    @Autowired
+    private GroqService groqService;
+    @Autowired
+    private ProductAiScoringService productAiScoringService;
+    @Autowired
+    private ProductRepository productRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PermissionService permissionService;
 
     @PostMapping("/chat")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE','CLIENT')")

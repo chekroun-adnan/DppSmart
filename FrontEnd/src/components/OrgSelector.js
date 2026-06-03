@@ -7,12 +7,7 @@ import {
 
 const userRole = () => (localStorage.getItem("userRole") || "").toUpperCase();
 
-/**
- * Page-level org filter. Renders a <select> dropdown.
- * Props:
- *   value    – selected org id (controlled, "" = all)
- *   onChange – called with org id string
- */
+
 export default function OrgSelector({ value, onChange, className = "" }) {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);

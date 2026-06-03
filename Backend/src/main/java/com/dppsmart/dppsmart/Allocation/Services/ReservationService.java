@@ -32,17 +32,12 @@ public class ReservationService {
 
     private static final int RESERVATION_TTL_MINUTES = 120;
 
-    // ─── Reserve product stock (idempotent) ───────────────────────────────────
 
-    /**
-     * Reserves finished-product stock for an order.
-     * Idempotent: if an ACTIVE reservation already exists for this orderId+productId,
-     * the existing one is returned without creating a duplicate.
-     */
+    
     @Transactional
     public StockReservation reserveProductStock(String orderId, String productId,
                                                 int quantity, String userId, String orgId) {
-        // ── Idempotency check ────────────────────────────────────────────────
+
         List<StockReservation> existing = reservationRepository
                 .findByOrderIdAndProductIdAndStatus(orderId, productId, StockReservation.ReservationStatus.ACTIVE);
         if (!existing.isEmpty()) {
@@ -55,7 +50,7 @@ public class ReservationService {
                 .orElseThrow(() -> new BadRequestException("No product stock found for " + productId));
 
         int physical  = stock.getQuantity() != null ? stock.getQuantity() : 0;
-        int reserved  = recalculateReservedQuantityProduct(productId); // use truth from DB
+        int reserved  = recalculateReservedQuantityProduct(productId);
         int available = physical - reserved;
 
         log.info("RESERVE PRODUCT — orderId={}, product={}, physical={}, reserved={}, available={}, requested={}",
@@ -66,7 +61,6 @@ public class ReservationService {
                     + ". Only " + available + " available (physical=" + physical + ", reserved=" + reserved + ").");
         }
 
-        // Persist reservation record first
         StockReservation reservation = new StockReservation();
         reservation.setId(NanoIdUtils.randomNanoId());
         reservation.setOrderId(orderId);
@@ -80,7 +74,6 @@ public class ReservationService {
         reservation.setExpiresAt(LocalDateTime.now().plusMinutes(RESERVATION_TTL_MINUTES));
         StockReservation saved = reservationRepository.save(reservation);
 
-        // Recalculate and sync reservedQuantity on the stock document
         syncProductReservedQuantity(productId, stock);
 
         stockMovementService.recordProductMovement(
@@ -94,16 +87,12 @@ public class ReservationService {
         return saved;
     }
 
-    // ─── Reserve material stock (idempotent) ──────────────────────────────────
 
-    /**
-     * Reserves raw-material stock for an order.
-     * Idempotent: if an ACTIVE reservation already exists for this orderId+materialId, returns it.
-     */
+    
     @Transactional
     public StockReservation reserveMaterialStock(String orderId, String materialId,
                                                  int quantity, String userId, String orgId) {
-        // ── Idempotency check ────────────────────────────────────────────────
+
         List<StockReservation> existing = reservationRepository
                 .findByOrderIdAndMaterialIdAndStatus(orderId, materialId, StockReservation.ReservationStatus.ACTIVE);
         if (!existing.isEmpty()) {
@@ -116,7 +105,7 @@ public class ReservationService {
                 .orElseThrow(() -> new BadRequestException("Material not found: " + materialId));
 
         int physical  = stock.getQuantity() != null ? stock.getQuantity() : 0;
-        int reserved  = recalculateReservedQuantityMaterial(materialId); // use truth from DB
+        int reserved  = recalculateReservedQuantityMaterial(materialId);
         int available = physical - reserved;
 
         log.info("RESERVE MATERIAL — orderId={}, material={}, physical={}, reserved={}, available={}, requested={}",
@@ -127,7 +116,6 @@ public class ReservationService {
                     + ". Only " + available + " available (physical=" + physical + ", reserved=" + reserved + ").");
         }
 
-        // Persist reservation record first
         StockReservation reservation = new StockReservation();
         reservation.setId(NanoIdUtils.randomNanoId());
         reservation.setOrderId(orderId);
@@ -141,7 +129,6 @@ public class ReservationService {
         reservation.setExpiresAt(LocalDateTime.now().plusMinutes(RESERVATION_TTL_MINUTES));
         StockReservation saved = reservationRepository.save(reservation);
 
-        // Recalculate and sync reservedQuantity on the stock document
         syncMaterialReservedQuantity(materialId, stock);
 
         stockMovementService.recordMaterialMovement(
@@ -155,7 +142,6 @@ public class ReservationService {
         return saved;
     }
 
-    // ─── Consume product reservations (on delivery) ───────────────────────────
 
     @Transactional
     public void consumeProductReservations(String orderId) {
@@ -169,7 +155,6 @@ public class ReservationService {
                 stock.setQuantity(physical - deduct);
                 productStockRepository.save(stock);
 
-                // Sync reserved after consuming
                 syncProductReservedQuantity(res.getProductId(), stock);
 
                 stockMovementService.recordProductMovement(
@@ -186,7 +171,6 @@ public class ReservationService {
         }
     }
 
-    // ─── Consume material reservations (on production start) ─────────────────
 
     @Transactional
     public void consumeMaterialReservations(String orderId) {
@@ -200,7 +184,6 @@ public class ReservationService {
                 stock.setQuantity(physical - deduct);
                 materialStockRepository.save(stock);
 
-                // Sync reserved after consuming
                 syncMaterialReservedQuantity(res.getMaterialId(), stock);
 
                 stockMovementService.recordMaterialMovement(
@@ -217,7 +200,6 @@ public class ReservationService {
         }
     }
 
-    // ─── Release reservations (on cancel / reject) ────────────────────────────
 
     @Transactional
     public void releaseReservations(String orderId) {
@@ -246,30 +228,21 @@ public class ReservationService {
         markReleasedAndSync(res, StockReservation.ReservationStatus.RELEASED);
     }
 
-    // ─── Recalculate helpers (single source of truth) ────────────────────────
 
-    /**
-     * Calculates the true reservedQuantity for a material by summing all ACTIVE
-     * StockReservation records. Updates the stock document if it differs.
-     * Returns the recalculated value.
-     */
+    
     public int recalculateReservedQuantityMaterial(String materialId) {
         List<StockReservation> active = reservationRepository
                 .findByMaterialIdAndStatus(materialId, StockReservation.ReservationStatus.ACTIVE);
         return active.stream().mapToInt(StockReservation::getQuantity).sum();
     }
 
-    /**
-     * Calculates the true reservedQuantity for a product by summing all ACTIVE
-     * StockReservation records. Returns the recalculated value.
-     */
+    
     public int recalculateReservedQuantityProduct(String productId) {
         List<StockReservation> active = reservationRepository
                 .findByProductIdAndStatus(productId, StockReservation.ReservationStatus.ACTIVE);
         return active.stream().mapToInt(StockReservation::getQuantity).sum();
     }
 
-    // ─── Queries ──────────────────────────────────────────────────────────────
 
     public List<StockReservation> getReservationsForOrder(String orderId) {
         return reservationRepository.findByOrderId(orderId);
@@ -283,24 +256,17 @@ public class ReservationService {
         return recalculateReservedQuantityMaterial(materialId);
     }
 
-    // ─── Admin repair ─────────────────────────────────────────────────────────
 
-    /**
-     * Repairs ALL stock documents by recalculating reservedQuantity from ACTIVE
-     * StockReservation records. Also removes duplicate ACTIVE reservations for the
-     * same orderId+materialId/productId (keeps the first, cancels the rest).
-     * Returns a summary of what was fixed.
-     */
+    
     @Transactional
     public RepairResult repairAllReservations() {
         int materialStocksFixed = 0;
         int productStocksFixed  = 0;
         int duplicatesRemoved   = 0;
 
-        // ── 1. Remove duplicate ACTIVE material reservations ─────────────────
         List<StockReservation> allActiveMaterial = reservationRepository
-                .findByMaterialIdAndStatus(null, StockReservation.ReservationStatus.ACTIVE); // all active
-        // Query all active to detect duplicates
+                .findByMaterialIdAndStatus(null, StockReservation.ReservationStatus.ACTIVE);
+
         List<StockReservation> allActive = reservationRepository.findAll().stream()
                 .filter(r -> r.getStatus() == StockReservation.ReservationStatus.ACTIVE)
                 .toList();
@@ -320,7 +286,7 @@ public class ReservationService {
 
         for (List<StockReservation> group : byOrderMaterial.values()) {
             if (group.size() > 1) {
-                // Keep first, cancel the rest
+
                 for (int i = 1; i < group.size(); i++) {
                     StockReservation dup = group.get(i);
                     dup.setStatus(StockReservation.ReservationStatus.CANCELLED);
@@ -347,7 +313,6 @@ public class ReservationService {
             }
         }
 
-        // ── 2. Recalculate reservedQuantity for every material stock ──────────
         for (MaterialStock ms : materialStockRepository.findAll()) {
             int trulyReserved = recalculateReservedQuantityMaterial(ms.getId());
             int stored = ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
@@ -360,7 +325,6 @@ public class ReservationService {
             }
         }
 
-        // ── 3. Recalculate reservedQuantity for every product stock ───────────
         for (ProductStock ps : productStockRepository.findAll()) {
             int trulyReserved = recalculateReservedQuantityProduct(ps.getProductId());
             int stored = ps.getReservedQuantity() != null ? ps.getReservedQuantity() : 0;
@@ -381,7 +345,6 @@ public class ReservationService {
 
     public record RepairResult(int materialStocksFixed, int productStocksFixed, int duplicatesRemoved) {}
 
-    // ─── Scheduled expiry ─────────────────────────────────────────────────────
 
     @Scheduled(fixedRate = 60_000)
     public void expireStaleReservations() {
@@ -397,7 +360,6 @@ public class ReservationService {
         }
     }
 
-    // ─── Private helpers ──────────────────────────────────────────────────────
 
     private void markReleasedAndSync(StockReservation res, StockReservation.ReservationStatus newStatus) {
         if (res.getStatus() != StockReservation.ReservationStatus.ACTIVE) {
@@ -417,10 +379,7 @@ public class ReservationService {
         }
     }
 
-    /**
-     * Recalculates the true reservedQuantity from ACTIVE StockReservations
-     * and persists it on the stock document.
-     */
+    
     private void syncProductReservedQuantity(String productId, ProductStock stock) {
         int trulyReserved = recalculateReservedQuantityProduct(productId);
         stock.setReservedQuantity(trulyReserved);

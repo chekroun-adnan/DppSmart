@@ -11,7 +11,7 @@ import {
 } from "../services/authService";
 import { useNotifications } from "../context/NotificationContext";
 
-// ─── Status maps ─────────────────────────────────────────────────────────────
+
 
 const ORDER_STATUS_META = {
   PENDING_REVIEW:       { label: "Pending Review",       cls: "text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400" },
@@ -73,7 +73,7 @@ const PRIORITY_CLS = {
   NORMAL: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400 border-slate-300/60",
 };
 
-// ─── Start Production Modal ───────────────────────────────────────────────────
+
 
 function StartProductionModal({ item, orderId, onClose, onSuccess }) {
   const [qty, setQty] = useState(item.producibleQuantityNow || item.remainingToProduce || 1);
@@ -121,7 +121,7 @@ function StartProductionModal({ item, orderId, onClose, onSuccess }) {
             )}
           </div>
 
-          {/* Material check */}
+          
           {item.materials && item.materials.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Material Check</p>
@@ -178,7 +178,7 @@ function StartProductionModal({ item, orderId, onClose, onSuccess }) {
   );
 }
 
-// ─── Confirm Delivery Date Modal ──────────────────────────────────────────────
+
 
 function ConfirmDateModal({ orderId, orderCode, current, onClose, onSuccess }) {
   const [date, setDate] = useState(current || "");
@@ -234,7 +234,7 @@ function ConfirmDateModal({ orderId, orderCode, current, onClose, onSuccess }) {
   );
 }
 
-// ─── AI Recommendation Card ───────────────────────────────────────────────────
+
 
 function AiCard({ rec }) {
   if (!rec) return null;
@@ -290,7 +290,7 @@ function AiCard({ rec }) {
   );
 }
 
-// ─── Global Material Summary ──────────────────────────────────────────────────
+
 
 function GlobalMaterialSummary({ summary }) {
   const [expanded, setExpanded] = useState(false);
@@ -350,7 +350,7 @@ function GlobalMaterialSummary({ summary }) {
   );
 }
 
-// ─── Item Row inside order card ───────────────────────────────────────────────
+
 
 function ItemRow({ item, orderId, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
@@ -371,7 +371,7 @@ function ItemRow({ item, orderId, onRefresh }) {
       )}
 
       <div className="rounded-xl border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-slate-800/50 overflow-hidden">
-        {/* Item header row */}
+        
         <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
           <Package size={13} className="text-slate-400 shrink-0" />
 
@@ -379,7 +379,7 @@ function ItemRow({ item, orderId, onRefresh }) {
             {item.productName}
           </span>
 
-          {/* Status badge */}
+          
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${meta.badgeCls}`}>
             <Icon size={10} />
             {meta.label}
@@ -391,7 +391,7 @@ function ItemRow({ item, orderId, onRefresh }) {
               )}
           </span>
 
-          {/* Quantities */}
+          
           <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 shrink-0">
             <span>Ordered: <strong className="text-slate-700 dark:text-slate-300">{item.orderedQuantity}</strong></span>
             {item.finishedStockAvailable > 0 && (
@@ -402,7 +402,7 @@ function ItemRow({ item, orderId, onRefresh }) {
             )}
           </div>
 
-          {/* Action button */}
+          
           <div className="flex items-center gap-2 shrink-0">
             {item.canStartProduction && item.productionStatus === "READY_FOR_PRODUCTION" && (
               <button onClick={() => setShowModal(true)}
@@ -428,7 +428,7 @@ function ItemRow({ item, orderId, onRefresh }) {
           </div>
         </div>
 
-        {/* Simulation message */}
+        
         {item.blockedByPreviousOrders && (
           <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20 flex items-start gap-2">
             <AlertTriangle size={12} className="text-amber-500 shrink-0 mt-0.5" />
@@ -441,7 +441,7 @@ function ItemRow({ item, orderId, onRefresh }) {
           <p className="px-4 pb-2 text-[11px] text-slate-400 dark:text-slate-500 italic">{item.simulationMessage}</p>
         )}
 
-        {/* Material detail table */}
+        
         {expanded && hasMaterials && (
           <div className="border-t border-slate-100 dark:border-white/[0.05] px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
@@ -491,7 +491,7 @@ function ItemRow({ item, orderId, onRefresh }) {
   );
 }
 
-// ─── Order Card ───────────────────────────────────────────────────────────────
+
 
 function OrderCard({ order, onRefresh }) {
   const [expanded, setExpanded] = useState(true);
@@ -502,7 +502,7 @@ function OrderCard({ order, onRefresh }) {
   const statusMeta = ORDER_STATUS_META[order.status] || ORDER_STATUS_META.PENDING_REVIEW;
   const items = order.items || [];
 
-  // Per-order readiness summary
+  
   const readyItems    = items.filter(i => i.productionStatus === "READY_FOR_PRODUCTION");
   const partialItems  = items.filter(i => i.productionStatus === "PARTIALLY_PRODUCIBLE");
   const missingItems  = items.filter(i => i.productionStatus === "MATERIALS_MISSING");
@@ -528,7 +528,7 @@ function OrderCard({ order, onRefresh }) {
           ? "border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-slate-800/80"
           : "border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800/80"
       }`}>
-        {/* Card header */}
+        
         <div className={`flex items-center justify-between px-5 py-4 flex-wrap gap-3 ${
           fullyReady ? "bg-emerald-50/60 dark:bg-emerald-500/5" : "bg-slate-50/60 dark:bg-slate-700/20"
         }`}>
@@ -559,7 +559,7 @@ function OrderCard({ order, onRefresh }) {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap shrink-0">
-            {/* Dates */}
+            
             {order.requestedDeliveryDate && (
               <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                 <Clock size={11} />
@@ -577,7 +577,7 @@ function OrderCard({ order, onRefresh }) {
               </button>
             )}
 
-            {/* Summary chips */}
+            
             {readyItems.length > 0 && (
               <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
                 <CheckCircle2 size={10} /> {readyItems.length} ready
@@ -601,7 +601,7 @@ function OrderCard({ order, onRefresh }) {
           </div>
         </div>
 
-        {/* Expanded items */}
+        
         {expanded && items.length > 0 && (
           <div className="px-5 py-4 space-y-3">
             {items.map(item => (
@@ -623,7 +623,7 @@ function OrderCard({ order, onRefresh }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+
 
 export default function AllocationReviewPage() {
   const [loading, setLoading] = useState(false);
@@ -647,7 +647,7 @@ export default function AllocationReviewPage() {
 
   const orders = data?.orders || [];
 
-  // Stats derived from items
+  
   const allItems = orders.flatMap(o => o.items || []);
   const readyCount     = allItems.filter(i => i.productionStatus === "READY_FOR_PRODUCTION").length;
   const partialCount   = allItems.filter(i => i.productionStatus === "PARTIALLY_PRODUCIBLE").length;
@@ -663,7 +663,7 @@ export default function AllocationReviewPage() {
     <DashboardLayout>
       <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 pb-10">
 
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
@@ -682,14 +682,14 @@ export default function AllocationReviewPage() {
           </button>
         </div>
 
-        {/* Error */}
+        
         {error && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200/60 dark:border-rose-500/20 text-sm text-rose-700 dark:text-rose-400">
             <AlertTriangle size={14} /> {error}
           </div>
         )}
 
-        {/* Empty / loading state */}
+        
         {!loading && !data && !error && (
           <div className="rounded-2xl border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-slate-800/60 py-16 flex flex-col items-center gap-3 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700/40 flex items-center justify-center">
@@ -712,10 +712,10 @@ export default function AllocationReviewPage() {
           </div>
         )}
 
-        {/* Results */}
+        
         {!loading && data && (
           <div className="space-y-6">
-            {/* KPI strip */}
+            
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="rounded-xl border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-slate-800/60 px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Orders</p>
@@ -741,10 +741,10 @@ export default function AllocationReviewPage() {
               </div>
             </div>
 
-            {/* AI Recommendation */}
+            
             {data.aiRecommendation && <AiCard rec={data.aiRecommendation} />}
 
-            {/* Order cards — fully ready orders first */}
+            
             {orders.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 dark:border-white/[0.07] bg-white dark:bg-slate-800/60 py-12 flex flex-col items-center gap-2">
                 <CheckCircle2 size={22} className="text-emerald-500" />
@@ -768,7 +768,7 @@ export default function AllocationReviewPage() {
               </div>
             )}
 
-            {/* Global material summary */}
+            
             <GlobalMaterialSummary summary={data.globalSummary} />
           </div>
         )}

@@ -35,7 +35,7 @@ export default function OrgPicker({ value, onChange }) {
 
   return (
     <div className="space-y-2">
-      {/* Selected preview */}
+      
       {selected && (
         <div className="flex items-center gap-2.5 rounded-xl border border-brand-300 dark:border-brand-500/40 bg-brand-50 dark:bg-brand-500/10 px-3 py-2.5">
           <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white shrink-0 ${
@@ -61,7 +61,7 @@ export default function OrgPicker({ value, onChange }) {
         </div>
       )}
 
-      {/* Search */}
+      
       <div className="relative">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -75,7 +75,7 @@ export default function OrgPicker({ value, onChange }) {
         />
       </div>
 
-      {/* List */}
+      
       <div className="max-h-44 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-600 divide-y divide-slate-100 dark:divide-white/[0.05] bg-white dark:bg-slate-800">
         {filtered.length === 0 ? (
           <p className="py-3 text-center text-xs text-slate-400">No matches</p>

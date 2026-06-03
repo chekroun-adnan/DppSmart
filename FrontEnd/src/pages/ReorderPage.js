@@ -17,7 +17,7 @@ function FieldGroup({ label, children }) {
   );
 }
 
-// ─── Reorder Date Modal ───────────────────────────────────────────────────────
+
 
 function ReorderModal({ order, onClose, onReordered }) {
   const [deliveryDate, setDate] = useState("");
@@ -87,7 +87,7 @@ function ReorderModal({ order, onClose, onReordered }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+
 
 export default function ReorderPage() {
   const role = (localStorage.getItem("userRole") || "").toUpperCase();
@@ -103,7 +103,7 @@ export default function ReorderPage() {
     try {
       const ords = await getMyOrders();
       const list = Array.isArray(ords) ? ords : [];
-      // Only DELIVERED orders, sorted newest first
+      
       const delivered = list
         .filter(o => o.status === "DELIVERED")
         .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -117,7 +117,7 @@ export default function ReorderPage() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line
 
-  // Compute top 5 products by total quantity ordered across all delivered orders
+  
   const topProducts = (() => {
     const map = {};
     orders.forEach(o => {
@@ -133,14 +133,14 @@ export default function ReorderPage() {
       .slice(0, 5);
   })();
 
-  // Stats
+  
   const totalOrders  = orders.length;
   const totalItems   = orders.reduce((s, o) => s + (o.totalQuantity || 0), 0);
   const firstDate    = orders.length > 0 ? orders[orders.length - 1].createdAt : null;
   const lastDate     = orders.length > 0 ? orders[0].createdAt : null;
   const fmt = d => d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
-  // Filter
+  
   const filtered = orders.filter(o => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -155,7 +155,7 @@ export default function ReorderPage() {
     load();
   };
 
-  // Only show to CLIENT role
+  
   if (role !== "CLIENT") {
     return (
       <DashboardLayout>
@@ -171,7 +171,7 @@ export default function ReorderPage() {
     <DashboardLayout>
       <div className="px-4 sm:px-6 lg:p-8 max-w-5xl mx-auto space-y-6">
 
-        {/* Header */}
+        
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Order History</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-3">
@@ -180,7 +180,7 @@ export default function ReorderPage() {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Browse your delivered orders and quickly reorder your favorites.</p>
         </div>
 
-        {/* Success banner */}
+        
         {successMsg && (
           <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 p-4 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -188,7 +188,7 @@ export default function ReorderPage() {
           </div>
         )}
 
-        {/* Stats strip */}
+        
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: "Delivered Orders", value: totalOrders, color: "text-brand-600 dark:text-brand-400" },
@@ -203,7 +203,7 @@ export default function ReorderPage() {
           ))}
         </div>
 
-        {/* Most Ordered Products */}
+        
         {topProducts.length > 0 && (
           <div className="glass-card rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -234,7 +234,7 @@ export default function ReorderPage() {
           </div>
         )}
 
-        {/* Search */}
+        
         <div className="relative">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
@@ -246,7 +246,7 @@ export default function ReorderPage() {
           />
         </div>
 
-        {/* Orders list */}
+        
         {loading ? (
           <div className="glass-card rounded-3xl p-8 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -273,7 +273,7 @@ export default function ReorderPage() {
                       </span>
                     </div>
 
-                    {/* Products */}
+                    
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {(order.items || []).map((it, i) => (
                         <span key={i} className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg font-medium">

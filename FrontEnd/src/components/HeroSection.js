@@ -1,17 +1,8 @@
 function HeroSection() {
   return (
     <section aria-label="Hero" className="relative min-h-screen flex items-center overflow-hidden bg-slate-950">
-      {/* Background */}
-      <div className="absolute inset-0 z-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-30 scale-105"
-          style={{
-            backgroundImage: "url(https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=2200&q=80)",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-slate-950/85 to-brand-900/20" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_0%,rgba(77,122,255,0.12),transparent_60%)]" />
-      </div>
+      
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-slate-950 to-brand-950/30" />
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 pt-32 pb-20 sm:px-6 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 lg:pt-40 lg:pb-32">
         <div className="animate-slide-up">

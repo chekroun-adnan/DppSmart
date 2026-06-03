@@ -145,7 +145,7 @@ export default function OrganizationsPage() {
     <DashboardLayout>
       <div className="space-y-8">
 
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Hierarchy</p>
@@ -170,7 +170,7 @@ export default function OrganizationsPage() {
           </div>
         </div>
 
-        {/* Filter tabs */}
+        
         <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl w-fit">
           {[
             { key: "ALL",  label: "All",  count: totalCount },
@@ -199,7 +199,7 @@ export default function OrganizationsPage() {
           ))}
         </div>
 
-        {/* Content */}
+        
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -267,7 +267,7 @@ export default function OrganizationsPage() {
         )}
       </div>
 
-      {/* ── CREATE MAIN MODAL ─────────────────────────────────────────────── */}
+      
       {modal === "createMain" && (
         <ModalShell title="Create Main Organization" onClose={() => setModal(null)}>
           <Field label="Organization Name">
@@ -279,7 +279,7 @@ export default function OrganizationsPage() {
         </ModalShell>
       )}
 
-      {/* ── CREATE SUB MODAL ──────────────────────────────────────────────── */}
+      
       {modal === "createSub" && (
         <ModalShell title="Create Sub-Organization" onClose={() => setModal(null)}>
           <Field label="Organization Name">
@@ -301,7 +301,7 @@ export default function OrganizationsPage() {
         </ModalShell>
       )}
 
-      {/* ── EDIT MODAL ────────────────────────────────────────────────────── */}
+      
       {modal === "edit" && editingOrg && (
         <ModalShell
           title="Edit Organization"
@@ -326,7 +326,7 @@ export default function OrganizationsPage() {
         </ModalShell>
       )}
 
-      {/* ── DELETE MODAL ──────────────────────────────────────────────────── */}
+      
       {modal === "delete" && pendingDelete && (
         <ModalShell title="Delete Organization" onClose={() => setModal(null)}>
           <p className="text-sm text-slate-600 dark:text-slate-400">

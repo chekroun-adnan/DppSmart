@@ -101,7 +101,7 @@ export default function ClientSupportPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
+      
       <div className="glass-card rounded-none border-x-0 border-t-0 px-6 py-4 flex items-center gap-3 flex-shrink-0">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg">
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +118,7 @@ export default function ClientSupportPage() {
         </div>
       </div>
 
-      {/* Messages */}
+      
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
         <div className="max-w-2xl mx-auto">
           {messages.map((msg, i) =>
@@ -151,7 +151,7 @@ export default function ClientSupportPage() {
         </div>
       </div>
 
-      {/* Input */}
+      
       <div className="flex-shrink-0 px-4 md:px-8 py-4 border-t border-white/10 bg-black/20 backdrop-blur">
         <form onSubmit={handleSubmit} className="max-w-2xl mx-auto flex gap-3 items-end">
           <input

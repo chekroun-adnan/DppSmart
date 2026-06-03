@@ -18,9 +18,9 @@ public class UserSession {
     private String userId;
 
     @Indexed
-    private String tokenId;   // maps to Token._id for revocation
+    private String tokenId;
 
-    private String accessToken;  // stored hashed prefix for display only
+    private String accessToken;
     private String deviceName;
     private String browser;
     private String os;
@@ -28,7 +28,7 @@ public class UserSession {
     private String userAgent;
     private String country;
     private String city;
-    private String sessionStatus; // ACTIVE, REVOKED, EXPIRED
+    private String sessionStatus;
     private boolean suspicious;
     private String suspicionReason;
 

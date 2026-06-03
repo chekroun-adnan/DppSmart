@@ -20,7 +20,7 @@ public class StockReservation {
     @Indexed
     private String orderId;
 
-    /** Identifies the specific order item — used for idempotency checks */
+    
     private String orderItemId;
 
     private String organizationId;

@@ -13,6 +13,7 @@ import com.dppsmart.dppsmart.ProductionCapacity.Repositories.ProductionQueueRepo
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -24,13 +25,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AlertService {
 
-    private final OrdersRepository ordersRepository;
-    private final MaterialStockRepository materialStockRepository;
-    private final ProductionCapacityRepository capacityRepository;
-    private final ProductionQueueRepository queueRepository;
-    private final NotificationServiceImpl notificationService;
-    private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
+    @Autowired
+    private OrdersRepository ordersRepository;
+    @Autowired
+    private MaterialStockRepository materialStockRepository;
+    @Autowired
+    private ProductionCapacityRepository capacityRepository;
+    @Autowired
+    private ProductionQueueRepository queueRepository;
+    @Autowired
+    private NotificationServiceImpl notificationService;
+    @Autowired
+    private NotificationRepository notificationRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     @Scheduled(fixedRate = 300000)
     public void checkLowStockAfterAllocation() {

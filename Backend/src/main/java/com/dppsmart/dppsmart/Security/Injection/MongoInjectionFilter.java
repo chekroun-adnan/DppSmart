@@ -11,6 +11,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.ByteArrayOutputStream;
@@ -25,6 +26,7 @@ import java.util.regex.Pattern;
 public class MongoInjectionFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(MongoInjectionFilter.class);
+    private static final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     private static final Pattern MONGO_OPERATOR = Pattern.compile(
             "\\$(?:ne|gt|gte|lt|lte|in|nin|or|and|not|nor|exists|type|mod|regex|where|all|elemMatch|size|slice|expr|jsonSchema|text|comment|meta|rand|natural)",
@@ -35,6 +37,11 @@ public class MongoInjectionFilter extends OncePerRequestFilter {
 
     public MongoInjectionFilter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return pathMatcher.match("/ws/**", request.getRequestURI());
     }
 
     @Override

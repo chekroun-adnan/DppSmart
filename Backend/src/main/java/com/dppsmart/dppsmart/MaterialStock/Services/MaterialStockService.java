@@ -82,13 +82,11 @@ public class MaterialStockService {
             throw new ForbiddenException("You are not allowed to use this organization");
         }
 
-        // Reuse the same document ID if a matching stock item already exists (deleted externally or
-        // this is a re-insertion). This keeps MaterialSheetItem.materialId valid without any migration.
         MaterialStock existing = findExistingStock(dto.getReferenceCode(), dto.getName(), dto.getUnit(), organization.getId());
 
         MaterialStock materialStock;
         if (existing != null) {
-            // Update the existing document in-place — same _id, so all BOM references stay valid
+
             log.info("CREATE MATERIAL STOCK: found existing id={} for ref={}/name={}, updating in-place",
                     existing.getId(), dto.getReferenceCode(), dto.getName());
             existing.setName(dto.getName());
@@ -110,7 +108,6 @@ public class MaterialStockService {
 
         MaterialStock saved = materialStockRepository.save(materialStock);
 
-        // Re-link any BOM items that lost their materialId (pointed to now-deleted document)
         relinkBomItems(saved);
 
         if (organization.getMaterialStocks() == null) {
@@ -455,10 +452,9 @@ public class MaterialStockService {
             boolean idValid = item.getMaterialId() != null && materialStockRepository.existsById(item.getMaterialId());
             if (idValid) continue;
 
-            // Try to find the matching stock
             MaterialStock found = null;
             if (item.getReferenceCode() != null && !item.getReferenceCode().isBlank()) {
-                // search across all orgs — sheet org not stored on item
+
                 List<MaterialStock> all = materialStockRepository.findAll();
                 found = all.stream()
                         .filter(s -> item.getReferenceCode().equalsIgnoreCase(s.getReferenceCode()))

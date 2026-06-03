@@ -85,8 +85,6 @@ public class OrdersService {
     private final SecurityAnalysisService securityAnalysisService;
     private final RuleDetectionService ruleDetectionService;
 
-
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
         User user = getCurrentUser();
@@ -696,7 +694,6 @@ public class OrdersService {
         return OrdersMapper.toDto(saved);
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto adminProposeDate(AdminProposeDateDto dto) {
         User user = getCurrentUser();
@@ -730,7 +727,6 @@ public class OrdersService {
 
         return OrdersMapper.toDto(saved);
     }
-
 
     public OrderReviewResultDTO reviewOrder(String orderId) {
         User user = getCurrentUser();
@@ -1274,7 +1270,6 @@ public class OrdersService {
         return OrdersMapper.toDto(saved);
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto clientAccept(ClientRespondDto dto) {
         User user = getCurrentUser();
@@ -1344,7 +1339,6 @@ public class OrdersService {
         return OrdersMapper.toDto(saved);
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto cancel(String orderId, String reason) {
         User user = getCurrentUser();
@@ -1382,7 +1376,6 @@ public class OrdersService {
         return OrdersMapper.toDto(saved);
     }
 
-
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto deliverByToken(String token) {
         Orders order = ordersRepository.findByDeliveryTokenAndStatus(token, ClientOrderStatus.READY)
@@ -1416,7 +1409,6 @@ public class OrdersService {
 
         return OrdersMapper.toDto(saved);
     }
-
 
     @Cacheable(value = "allOrders")
     public List<OrderResponseDto> getAll() {
@@ -1491,7 +1483,6 @@ public class OrdersService {
         auditService.log("Order", id, "DELETE", order.getOrganizationId(), null,
                 "Order deleted: " + order.getOrderReference());
     }
-
 
     private Orders getOrderAndCheckAccess(String orderId, User user) {
         Orders order = ordersRepository.findById(orderId)

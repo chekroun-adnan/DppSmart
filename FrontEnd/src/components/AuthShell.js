@@ -52,13 +52,9 @@ function AuthShell({
         <section className="glass-card grid overflow-hidden lg:grid-cols-[1fr_1.2fr] border-slate-200/60 dark:border-[rgba(255,255,255,0.06)] shadow-xl dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
           <div className="relative hidden p-12 lg:flex flex-col justify-between bg-slate-950 overflow-hidden">
             <div className="absolute inset-0 z-0">
-              <div 
-                className="absolute inset-0 bg-cover bg-center opacity-30"
-                style={{
-                  backgroundImage: "url(https://images.unsplash.com/photo-1558444479-c8f01052478d?auto=format&fit=crop&w=1200&q=80)",
-                }}
+              <div
+                className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950 to-brand-950/40"
               />
-              <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-slate-950/80 to-brand-900/30" />
             </div>
 
             <div className="relative z-10">

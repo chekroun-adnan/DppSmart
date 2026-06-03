@@ -53,7 +53,6 @@ public class AuthController {
         return ResponseEntity.ok(authService.refresh(request));
     }
 
-    // ─── Logout current session ───────────────────────────────────────────────
     @PostMapping("/logout")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Logout current session (revokes current JWT)")
@@ -63,7 +62,6 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── Logout ALL devices ───────────────────────────────────────────────────
     @PostMapping("/logout-all")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Revoke all active sessions on all devices")
@@ -76,7 +74,6 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    // ─── Login attempt info (non-sensitive — just the count) ─────────────────
     @GetMapping("/security/failed-attempts")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get recent failed login attempt count for current user")

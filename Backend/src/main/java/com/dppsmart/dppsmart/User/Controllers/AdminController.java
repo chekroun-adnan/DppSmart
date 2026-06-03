@@ -1,6 +1,5 @@
 package com.dppsmart.dppsmart.User.Controllers;
 
-
 import com.dppsmart.dppsmart.MaterialStock.Services.MaterialStockService;
 import com.dppsmart.dppsmart.User.DTO.AdminCreateUserDto;
 import com.dppsmart.dppsmart.User.DTO.AdminUpdateUserDto;
@@ -31,7 +30,6 @@ public class AdminController {
         UserDto created = adminService.adminCreateUser(adminCreateUserDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
-
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/get/all")

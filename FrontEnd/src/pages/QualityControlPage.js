@@ -170,7 +170,7 @@ export default function QualityControlPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">Manufacturing</p>
@@ -182,7 +182,7 @@ export default function QualityControlPage() {
 
         {error && <div className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-400 font-medium">{error}</div>}
 
-        {/* Summary KPIs */}
+        
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: "Active Inspections", value: activeInspections.length, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10" },
@@ -197,7 +197,7 @@ export default function QualityControlPage() {
           ))}
         </div>
 
-        {/* Tabs */}
+        
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/60 rounded-2xl p-1 w-fit">
           {TABS.map((tab) => (
             <button
@@ -231,7 +231,7 @@ export default function QualityControlPage() {
           </div>
         ) : (
           <>
-            {/* ── INSPECTIONS TAB ──────────────────────────────────── */}
+            
             {activeTab === "inspections" && (
               <div className="space-y-4">
                 {activeInspections.length === 0 ? (
@@ -251,7 +251,7 @@ export default function QualityControlPage() {
                     const pct = totalSteps ? Math.round((completedSteps / totalSteps) * 100) : 0;
                     return (
                       <article key={prod.id} className="glass-card p-6 space-y-5">
-                        {/* Card header */}
+                        
                         <div className="flex items-start justify-between gap-4 flex-wrap">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -288,7 +288,7 @@ export default function QualityControlPage() {
                           </div>
                         </div>
 
-                        {/* Overall progress */}
+                        
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Overall Progress</span>
@@ -299,7 +299,7 @@ export default function QualityControlPage() {
                           </div>
                         </div>
 
-                        {/* Steps timeline */}
+                        
                         {steps.length > 0 && (
                           <div className="space-y-2">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Production Steps</p>
@@ -351,7 +351,7 @@ export default function QualityControlPage() {
               </div>
             )}
 
-            {/* ── PRODUCTS TAB ─────────────────────────────────────── */}
+            
             {activeTab === "products" && (
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
@@ -428,7 +428,7 @@ export default function QualityControlPage() {
               </div>
             )}
 
-            {/* ── SUMMARY TAB ──────────────────────────────────────── */}
+            
             {activeTab === "summary" && (
               <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

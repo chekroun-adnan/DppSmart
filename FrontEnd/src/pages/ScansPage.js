@@ -305,7 +305,7 @@ export default function ScansPage() {
                 {heatmapData.length > 0 && (
                   <div className="glass-card p-4">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("scans.scanHeatmap", "Scan Heatmap — Hotspots")}</h3>
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={200} minWidth={1} minHeight={1}>
                       <BarChart data={heatmapData.slice(0, 8)} layout="vertical" margin={{ left: 20, right: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" darkStroke="#1e293b" horizontal={false} />
                         <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
@@ -334,7 +334,7 @@ export default function ScansPage() {
               <>
                 <div className="glass-card p-5">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("scans.mostScannedProducts", "Most Scanned Products")}</h3>
-                  <ResponsiveContainer width="100%" height={Math.max(300, productStats.length * 40)}>
+                  <ResponsiveContainer width="100%" height={Math.max(300, productStats.length * 40)} minWidth={1} minHeight={1}>
                     <BarChart data={productStats} layout="vertical" margin={{ left: 20, right: 30 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" darkStroke="#1e293b" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
@@ -354,7 +354,7 @@ export default function ScansPage() {
                 </div>
                 <div className="glass-card p-5">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("scans.scanDistribution", "Scan Distribution")}</h3>
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                     <PieChart>
                       <Pie data={productStats.slice(0, 5)} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}
                         label={({ name, percent }) => `${name.slice(0, 8)}… ${(percent * 100).toFixed(0)}%`} labelLine={false}>
@@ -444,7 +444,7 @@ export default function ScansPage() {
               <>
                 <div className="glass-card p-5">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("scans.scanTrend", "Scan Trend Over Time")}</h3>
-                  <ResponsiveContainer width="100%" height={240}>
+                  <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
                     <AreaChart data={trendStats} margin={{ left: 10, right: 20 }}>
                       <defs>
                         <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">

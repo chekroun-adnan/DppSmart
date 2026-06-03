@@ -16,7 +16,7 @@ export default function LanguageSwitcher({ compact = false }) {
     setOpen(false);
   };
 
-  // Close on outside click
+  
   useEffect(() => {
     function handleClick(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);

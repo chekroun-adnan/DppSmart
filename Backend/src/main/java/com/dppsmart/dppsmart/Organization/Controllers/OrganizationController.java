@@ -22,7 +22,6 @@ public class OrganizationController {
     @Autowired
     private OrganizationService organizationService;
 
-
     @PostMapping("/main/create")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<?> createMainOrganization(@RequestBody @Valid CreateOrganizationDto organization){
@@ -37,14 +36,12 @@ public class OrganizationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-
     @PostMapping("/assign-sub")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<OrganizationResponseDto> assignSubToMain(
             @RequestBody @Valid AssignSubToMain dto) {
         return ResponseEntity.ok(organizationService.assignSubToMain(dto));
     }
-
 
     @PutMapping("/update/main")
     @PreAuthorize("hasRole('ADMIN')")

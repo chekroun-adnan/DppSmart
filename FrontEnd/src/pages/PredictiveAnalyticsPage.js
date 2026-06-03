@@ -215,7 +215,7 @@ export default function PredictiveAnalyticsPage() {
             {rd.ordersByStatus && Object.keys(rd.ordersByStatus).length > 0 && (
               <div className="glass-card p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Orders by Status</h2>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                   <BarChart data={Object.entries(rd.ordersByStatus).map(([name, value]) => ({ name, value }))} margin={{ left: 0, right: 20, top: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" darkStroke="#1e293b" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
@@ -234,7 +234,7 @@ export default function PredictiveAnalyticsPage() {
             {rd.productionsByStatus && Object.keys(rd.productionsByStatus).length > 0 && (
               <div className="glass-card p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Productions by Status</h2>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                   <BarChart data={Object.entries(rd.productionsByStatus).map(([name, value]) => ({ name, value }))} margin={{ left: 0, right: 20, top: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" darkStroke="#1e293b" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
@@ -419,7 +419,7 @@ export default function PredictiveAnalyticsPage() {
             {data.trendData?.scansTrend?.length > 0 && (
               <div className="glass-card p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Scans Trend (30 Days)</h2>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                   <AreaChart data={data.trendData.scansTrend} margin={{ left: 0, right: 20, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="scanGrad2" x1="0" y1="0" x2="0" y2="1">
@@ -443,7 +443,7 @@ export default function PredictiveAnalyticsPage() {
             {data.trendData?.ordersTrend?.length > 0 && (
               <div className="glass-card p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Orders Trend (30 Days)</h2>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                   <AreaChart data={data.trendData.ordersTrend} margin={{ left: 0, right: 20, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="orderGrad2" x1="0" y1="0" x2="0" y2="1">
@@ -467,7 +467,7 @@ export default function PredictiveAnalyticsPage() {
             {data.trendData?.productionTrend?.length > 0 && (
               <div className="glass-card p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Productions Trend (30 Days)</h2>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
                   <AreaChart data={data.trendData.productionTrend} margin={{ left: 0, right: 20, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="prodGrad2" x1="0" y1="0" x2="0" y2="1">

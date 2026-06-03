@@ -823,7 +823,7 @@ public class AllocationService {
                             + " (need " + (int) mat.getRequiredQuantity() + ", have " + available + ")");
                 }
             }
-            // Reserve materials at click time so subsequent simulations reflect real availability
+
             for (BomMaterialLineDto mat : bom.getMaterials()) {
                 int matQty = (int) Math.ceil(mat.getRequiredQuantity());
                 if (matQty > 0) {
@@ -877,9 +877,6 @@ public class AllocationService {
 
         List<ProductionPlanningDTO.OrderPlanDTO> orderDtos = new ArrayList<>();
 
-        // ── Global shared material pool (cross-order sequential allocation) ────
-        // Collect ALL BOM material IDs across all order items, load stock once.
-        // Earlier items consume first; later items see only what remains.
         Map<String, double[]> materialPool = new HashMap<>();
         Map<String, Double> initialStock = new HashMap<>();
         Map<String, String> materialUnit = new HashMap<>();

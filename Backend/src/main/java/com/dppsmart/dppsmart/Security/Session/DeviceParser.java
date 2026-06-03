@@ -2,10 +2,6 @@ package com.dppsmart.dppsmart.Security.Session;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-/**
- * Lightweight user-agent parser — no external library needed.
- * Extracts browser, OS, and device name from the User-Agent header.
- */
 public final class DeviceParser {
 
     private DeviceParser() {}

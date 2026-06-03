@@ -37,7 +37,6 @@ public class AuthService {
     private final BruteForceProtectionService bruteForceService;
     private final SessionService sessionService;
 
-    // ─── Access token TTL mirrors JwtService constant (15 min) ───────────────
     private static final long ACCESS_TOKEN_MINUTES = 15;
 
     public AuthResponse register(RegisterDto dto) {
@@ -60,7 +59,6 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user);
         Token saved = saveUserToken(user, accessToken);
 
-        // No session for register — first proper login creates one
         return buildResponse(accessToken, refreshToken, user);
     }
 
@@ -68,7 +66,6 @@ public class AuthService {
         String email = dto.getEmail();
         String ip    = com.dppsmart.dppsmart.Security.Session.DeviceParser.extractIp(request);
 
-        // ── Brute force check BEFORE authenticating ──────────────────────────
         bruteForceService.checkLoginAllowed(email, ip);
 
         try {
@@ -86,18 +83,15 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Revoke previous tokens but keep their sessions marked EXPIRED (audit trail)
         revokeAllUserTokens(user.getId());
 
         String accessToken  = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
         Token savedToken = saveUserToken(user, accessToken);
 
-        // ── Create session record ─────────────────────────────────────────────
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(ACCESS_TOKEN_MINUTES);
         sessionService.createSession(user.getId(), savedToken.getId(), accessToken, request, expiresAt);
 
-        // ── Record successful attempt ─────────────────────────────────────────
         bruteForceService.recordSuccess(email, request);
 
         return buildResponse(accessToken, refreshToken, user);
@@ -114,20 +108,17 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Expire old session via token revocation
         revokeAllUserTokens(user.getId());
 
         String newAccessToken = jwtService.generateAccessToken(user);
         Token savedToken = saveUserToken(user, newAccessToken);
 
-        // Update existing active session's tokenId to the new token
-        // (find by userId + ACTIVE, update first match)
         sessionService.getSessionsForUser(user.getId(), null)
                 .stream()
                 .filter(s -> "ACTIVE".equals(s.getSessionStatus()))
                 .findFirst()
                 .ifPresent(s -> {
-                    // Expire old session and let the next real request touch it
+
                     sessionService.expireSessionByTokenId(s.getId());
                 });
 
@@ -147,11 +138,8 @@ public class AuthService {
         token.setExpired(true);
         tokenRepository.save(token);
 
-        // Mark corresponding session as REVOKED
         sessionService.expireSessionByTokenId(token.getId());
     }
-
-    // ─── Shared helpers ───────────────────────────────────────────────────────
 
     public Token saveUserToken(User user, String jwt) {
         Token token = new Token();

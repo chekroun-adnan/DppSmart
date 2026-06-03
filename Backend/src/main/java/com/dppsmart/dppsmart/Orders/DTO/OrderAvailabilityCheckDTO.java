@@ -15,8 +15,8 @@ public class OrderAvailabilityCheckDTO {
         private String productName;
         private int orderedQuantity;
         private int availableFinishedStock;
-        private int quantityFromStock;    // min(ordered, available)
-        private int quantityToProduce;    // ordered - quantityFromStock
+        private int quantityFromStock;
+        private int quantityToProduce;
     }
 
     @Data @Builder @AllArgsConstructor @NoArgsConstructor
@@ -31,9 +31,9 @@ public class OrderAvailabilityCheckDTO {
 
     private String orderId;
     private String orderReference;
-    private boolean fullyAvailableFromStock;   // all products covered by finished stock
-    private boolean needsProduction;           // at least one product needs production
-    private boolean rawMaterialsEnough;        // all materials for needed production are available
+    private boolean fullyAvailableFromStock;
+    private boolean needsProduction;
+    private boolean rawMaterialsEnough;
     private List<ProductAvailability> products;
     private List<MissingMaterial> missingMaterials;
 }

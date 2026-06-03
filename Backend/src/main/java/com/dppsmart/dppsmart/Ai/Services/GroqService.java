@@ -10,6 +10,7 @@ import com.dppsmart.dppsmart.Scan.Repositories.ScanEventRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
@@ -35,11 +36,16 @@ public class GroqService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private final ProductRepository productRepository;
-    private final OrdersRepository ordersRepository;
-    private final ScanEventRepository scanEventRepository;
-    private final UserRepository userRepository;
-    private final PermissionService permissionService;
+    @Autowired
+    private ProductRepository productRepository;
+    @Autowired
+    private OrdersRepository ordersRepository;
+    @Autowired
+    private ScanEventRepository scanEventRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PermissionService permissionService;
 
     public GroqService(
             ProductRepository productRepository,
@@ -154,7 +160,6 @@ public class GroqService {
                         + "- End of Life: " + safe(p.getEndOfLifeInstructions());
             }
         }
-
 
         if (apiKey == null || apiKey.isBlank()) {
             return """

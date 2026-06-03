@@ -5,6 +5,7 @@ import com.dppsmart.dppsmart.Security.JwtFilter;
 import com.dppsmart.dppsmart.Security.OAuth2SuccessHandler;
 import com.dppsmart.dppsmart.Security.RateLimit.RateLimitFilter;
 import com.dppsmart.dppsmart.Security.Sanitization.XssFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
@@ -44,6 +46,23 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
     private String allowedOriginPatternsProperty;
 
+    private static final AuthenticationEntryPoint ENTRY_POINT = (request, response, ex) -> {
+        String uri = request.getRequestURI();
+        boolean isApiOrWs = uri.startsWith("/api/")
+                || uri.startsWith("/ws/")
+                || uri.startsWith("/user/")
+                || uri.startsWith("/admin/")
+                || "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+
+        if (isApiOrWs) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required.\"}");
+        } else {
+            response.sendRedirect("/oauth2/authorization/google");
+        }
+    };
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
@@ -62,7 +81,6 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives("default-src 'self'; frame-ancestors 'none'"))
                 )
-
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/logout", "/auth/logout-all").authenticated()
@@ -70,6 +88,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/api/sessions/**").authenticated()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers(r -> r.getRequestURI().startsWith("/ws/") || r.getRequestURI().equals("/ws")).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products/*/dpp").permitAll()
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/scans").permitAll()
@@ -89,6 +108,9 @@ public class SecurityConfig {
                 .userDetailsService(userDetailsService)
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2SuccessHandler)
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(ENTRY_POINT)
                 )
                 .addFilterBefore(xssFilter,             UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(mongoInjectionFilter,  UsernamePasswordAuthenticationFilter.class)

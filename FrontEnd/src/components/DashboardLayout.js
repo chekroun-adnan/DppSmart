@@ -117,7 +117,7 @@ function DashboardLayout({ children }) {
     <div className="h-screen bg-[#f8fafc] dark:bg-[#0B1120] transition-colors duration-300 overflow-hidden">
       <div className="flex h-full">
 
-        {/* Mobile overlay */}
+        
         {isSidebarOpen && (
           <div
             className="fixed inset-0 z-40 bg-slate-900/50 dark:bg-black/60 backdrop-blur-sm lg:hidden animate-fade-in"
@@ -125,7 +125,7 @@ function DashboardLayout({ children }) {
           />
         )}
 
-        {/* ── Sidebar ──────────────────────────────────────────────────── */}
+        
         <aside
           className={`h-screen shrink-0 flex flex-col transition-[width,transform] duration-300 ease-in-out overflow-hidden
             fixed inset-y-0 left-0 z-50
@@ -135,7 +135,7 @@ function DashboardLayout({ children }) {
             bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-xl
             border-r border-slate-200/60 dark:border-[rgba(255,255,255,0.06)]`}
         >
-          {/* Logo */}
+          
           <div className={`flex items-center gap-3 shrink-0 border-b border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "justify-center px-3 py-5" : "px-5 py-5"}`}>
             <div className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/25">
               <span className="text-xs font-extrabold tracking-tighter">IKS</span>
@@ -148,7 +148,7 @@ function DashboardLayout({ children }) {
             )}
           </div>
 
-          {/* Nav */}
+          
           <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-0.5 min-h-0">
             {visibleGroups.map((group, gIdx) => (
               <div key={group.groupLabel}>
@@ -197,7 +197,7 @@ function DashboardLayout({ children }) {
             ))}
           </nav>
 
-          {/* Collapse toggle */}
+          
           <button
             type="button"
             onClick={toggleCollapse}
@@ -211,7 +211,7 @@ function DashboardLayout({ children }) {
             {!collapsed && <span className="text-[10px] font-bold uppercase tracking-widest">Collapse</span>}
           </button>
 
-          {/* User card */}
+          
           <div className={`shrink-0 border-t border-slate-100 dark:border-[rgba(255,255,255,0.06)] ${collapsed ? "p-2" : "px-3 py-3"}`}>
             {collapsed ? (
               <div className="flex justify-center">
@@ -233,10 +233,10 @@ function DashboardLayout({ children }) {
           </div>
         </aside>
 
-        {/* ── Main content ─────────────────────────────────────────────── */}
+        
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
 
-          {/* Header */}
+          
           <header className="shrink-0 z-30 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-[rgba(255,255,255,0.06)] px-4 py-3 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">

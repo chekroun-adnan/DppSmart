@@ -54,9 +54,9 @@ public class AllocationReviewResponseDTO {
         private int remainingToProduce;
         private String unit;
         private String status;
-        // per-item producibility (live, independent of other orders)
+
         private int producibleQuantityNow;
-        private String productionStatus;  // READY_FOR_PRODUCTION | PARTIALLY_PRODUCIBLE | MATERIALS_MISSING | NO_BOM
+        private String productionStatus;
         private boolean canStartProduction;
         private List<MaterialLineDTO> itemMaterials;
     }
