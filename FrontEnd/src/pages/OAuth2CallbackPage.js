@@ -36,7 +36,9 @@ export default function OAuth2CallbackPage() {
 
     
     storeAuthSession({ accessToken: token, refreshToken, userId, email, role });
-    navigate(role === "CLIENT" ? "/client-orders" : "/dashboard", { replace: true });
+    if (role === "CLIENT") navigate("/client-orders", { replace: true });
+    else if (role === "EMPLOYEE") navigate("/employee-dashboard", { replace: true });
+    else navigate("/dashboard", { replace: true });
   }, [navigate]);
 
   return (

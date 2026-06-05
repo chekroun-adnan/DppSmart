@@ -9,12 +9,17 @@ public class OperationSheetItemDto {
     private String id;
     @NotBlank
     private String operationId;
-    @NotBlank
+    private String operationName;
     private String userId;
+    private String userName;
     @Min(1)
     private Integer stepOrder;
     private Double durationEstimate;
     private String notes;
-    private String operationName;
-    private String userName;
+    private String instructions;
+    private Boolean qualityCheckRequired;
+    private Boolean canRunInParallel;
+    private Double overrideDefaultDuration;
+    private Double overrideExecutionCost;
+    private String assignedDepartment;
 }

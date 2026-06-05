@@ -34,28 +34,28 @@ public class OrderMaterialRequirementController {
 
     @PostMapping("/bulk-requirements")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUBADMIN')")
-    public ResponseEntity<BulkRequirementsResponseDTO> getBulkRequirements(
+    public ResponseEntity<?> getBulkRequirements(
             @RequestBody List<String> orderIds) {
         return ResponseEntity.ok(service.getBulkRequirements(orderIds));
     }
 
     @PostMapping("/bulk/requirements")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUBADMIN')")
-    public ResponseEntity<BulkOrderRequirementResponseDTO> calculateBulkRequirements(
+    public ResponseEntity<?> calculateBulkRequirements(
             @RequestBody List<String> orderIds) {
         return ResponseEntity.ok(bulkService.calculate(orderIds));
     }
 
     @PostMapping("/bulk/requirements/recalculate")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUBADMIN')")
-    public ResponseEntity<BulkOrderRequirementResponseDTO> recalculateBulkRequirements(
+    public ResponseEntity<?> recalculateBulkRequirements(
             @RequestBody BulkOrderRequirementRequestDTO req) {
         return ResponseEntity.ok(bulkService.recalculate(req));
     }
 
     @PostMapping("/bulk/requirements/sequential")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUBADMIN')")
-    public ResponseEntity<SequentialAllocationResponse> calculateSequential(
+    public ResponseEntity<?> calculateSequential(
             @RequestBody List<String> orderIds) {
         return ResponseEntity.ok(bulkService.calculateSequential(orderIds));
     }

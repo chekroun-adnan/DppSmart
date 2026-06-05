@@ -183,10 +183,18 @@ export function storeAuthSession(authResponse) {
   localStorage.setItem("userRole", authResponse.role || "");
   localStorage.setItem("organizationId", authResponse.organizationId || "");
   localStorage.setItem("assignedOrganizationIds", JSON.stringify(authResponse.assignedOrganizationIds || []));
+  localStorage.setItem("userDisplayName", authResponse.fullName || authResponse.email?.split("@")[0] || "");
   if (authResponse.organizationId) {
     localStorage.setItem("orgId", authResponse.organizationId);
   } else if (authResponse.assignedOrganizationIds?.length > 0) {
     localStorage.setItem("orgId", authResponse.assignedOrganizationIds[0]);
+  }
+  // Employee-specific session data
+  if (authResponse.role === "EMPLOYEE") {
+    localStorage.setItem("employeeId", authResponse.employeeId || authResponse.userId || "");
+    localStorage.setItem("employeeCode", authResponse.employeeCode || "");
+    localStorage.setItem("departmentId", authResponse.departmentId || "");
+    localStorage.setItem("departmentName", authResponse.departmentName || "");
   }
 }
 
@@ -199,6 +207,11 @@ export function clearAuthSession() {
   localStorage.removeItem("organizationId");
   localStorage.removeItem("assignedOrganizationIds");
   localStorage.removeItem("orgId");
+  localStorage.removeItem("userDisplayName");
+  localStorage.removeItem("employeeId");
+  localStorage.removeItem("employeeCode");
+  localStorage.removeItem("departmentId");
+  localStorage.removeItem("departmentName");
 }
 
 export function isAuthenticated() {
@@ -417,56 +430,8 @@ export async function processOrder(id, confirmedDeliveryDate) {
 
 
 
-export async function workflowConfirmOrder(id, payload) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/confirm`, "POST", payload, "Failed to confirm order.");
-}
 
-export async function workflowSetPriority(id, priority) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/set-priority`, "POST", { priority }, "Failed to set priority.");
-}
 
-export async function workflowRequestDeliveryDate(id, payload) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/request-delivery-date`, "POST", payload, "Failed to request delivery date.");
-}
-
-export async function workflowCheckStock(id) {
-  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/check-stock`, { method: "GET" }, "Failed to check stock.");
-  return data?.data || data;
-}
-
-export async function workflowSimulate(id) {
-  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/simulate`, { method: "GET" }, "Failed to simulate order.");
-  return data?.data || data;
-}
-
-export async function workflowProcessOrder(id, payload) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/process`, "POST", payload || {}, "Failed to process order.");
-}
-
-export async function workflowDeliverOrder(id) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/deliver`, "POST", undefined, "Failed to deliver order.");
-}
-
-export async function workflowCompleteProduction(productionId) {
-  return authJsonRequest(`/api/orders/workflow/complete-production/${encodeURIComponent(productionId)}`, "POST", undefined, "Failed to complete production.");
-}
-
-export async function cancelProduction(orderId, action, message) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(orderId)}/cancel-production`, "POST", { action, message }, "Failed to cancel production.");
-}
-
-export async function workflowGetMaterials(id) {
-  const data = await authorizedRequest(`/api/orders/${encodeURIComponent(id)}/workflow/materials`, { method: "GET" }, "Failed to load materials breakdown.");
-  return data?.data || data;
-}
-
-export async function workflowReserveMaterials(id) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/reserve-materials`, "POST", undefined, "Failed to reserve materials.");
-}
-
-export async function workflowReleaseMaterials(id) {
-  return authJsonRequest(`/api/orders/${encodeURIComponent(id)}/workflow/release-materials`, "POST", undefined, "Failed to release materials.");
-}
 
 
 
@@ -538,6 +503,41 @@ export async function completeProductionBatch(id) {
 export async function getProductionMaterialConsumption(id) {
   const data = await authorizedRequest(`/api/productions/${encodeURIComponent(id)}/material-consumption`, { method: "GET" }, "Failed to load material consumption.");
   return data?.data ?? data;
+}
+
+export async function getProductionOrders() {
+  const data = await authorizedRequest("/api/production/orders", { method: "GET" }, "Failed to load production orders.");
+  return unwrapList(data);
+}
+
+export async function getProductionOrder(orderId) {
+  const data = await authorizedRequest(`/api/production/orders/${encodeURIComponent(orderId)}`, { method: "GET" }, "Failed to load production order.");
+  return data?.data ?? data;
+}
+
+export async function getProductionOrderSteps(orderId) {
+  const data = await authorizedRequest(`/api/production/orders/${encodeURIComponent(orderId)}/steps`, { method: "GET" }, "Failed to load order steps.");
+  return unwrapList(data);
+}
+
+export async function generateProductionSteps(orderId) {
+  return authJsonRequest(`/api/production/orders/${encodeURIComponent(orderId)}/generate-steps`, "POST", undefined, "Failed to generate steps.");
+}
+
+export async function startProductionOrderStep(stepId) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/start`, "POST", undefined, "Failed to start step.");
+}
+
+export async function completeProductionOrderStep(stepId) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/complete`, "POST", undefined, "Failed to complete step.");
+}
+
+export async function blockProductionOrderStep(stepId, reason) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/block`, "POST", { reason }, "Failed to block step.");
+}
+
+export async function skipProductionOrderStep(stepId) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/skip`, "POST", undefined, "Failed to skip step.");
 }
 
 
@@ -650,6 +650,7 @@ export async function getScansByProduct(productId) {
 }
 
 export async function getScansByOrg(orgId) {
+  if (!orgId) return [];
   const data = await authorizedRequest(`/api/scans/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load scans.");
   return unwrapList(data);
 }
@@ -1255,4 +1256,201 @@ export function apiErrorMessage(error, fallback = "An error occurred. Please try
   }
 
   return error.message || fallback;
+}
+
+
+
+// ─── DEPARTMENTS ────────────────────────────────────────────────────────────
+
+export async function getDepartments() {
+  const data = await authorizedRequest("/api/departments", { method: "GET" }, "Failed to load departments.");
+  return unwrapList(data);
+}
+
+export async function getDepartmentsByOrg(organizationId) {
+  const data = await authorizedRequest(`/api/departments/organization/${encodeURIComponent(organizationId)}`, { method: "GET" }, "Failed to load departments.");
+  return unwrapList(data);
+}
+
+export async function createDepartment(payload) {
+  return authJsonRequest("/api/departments", "POST", payload, "Failed to create department.");
+}
+
+export async function updateDepartment(id, payload) {
+  return authJsonRequest(`/api/departments/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update department.");
+}
+
+export async function deleteDepartment(id) {
+  return authorizedRequest(`/api/departments/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete department.");
+}
+
+
+
+// ─── SKILLS ─────────────────────────────────────────────────────────────────
+
+export async function getSkills() {
+  const data = await authorizedRequest("/api/skills", { method: "GET" }, "Failed to load skills.");
+  return unwrapList(data);
+}
+
+export async function getActiveSkills() {
+  const data = await authorizedRequest("/api/skills/active", { method: "GET" }, "Failed to load skills.");
+  return unwrapList(data);
+}
+
+export async function createSkill(payload) {
+  return authJsonRequest("/api/skills", "POST", payload, "Failed to create skill.");
+}
+
+export async function updateSkill(id, payload) {
+  return authJsonRequest(`/api/skills/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update skill.");
+}
+
+export async function deleteSkill(id) {
+  return authorizedRequest(`/api/skills/${encodeURIComponent(id)}`, { method: "DELETE" }, "Failed to delete skill.");
+}
+
+
+
+// ─── ATTENDANCE ──────────────────────────────────────────────────────────────
+
+export async function checkIn(payload) {
+  return authJsonRequest("/api/attendance/check-in", "POST", payload, "Failed to check in.");
+}
+
+export async function checkOut(employeeId) {
+  return authJsonRequest(`/api/attendance/check-out/${encodeURIComponent(employeeId)}`, "POST", undefined, "Failed to check out.");
+}
+
+export async function getAttendance() {
+  const data = await authorizedRequest("/api/attendance", { method: "GET" }, "Failed to load attendance.");
+  return unwrapList(data);
+}
+
+export async function getAttendanceByEmployee(employeeId) {
+  const data = await authorizedRequest(`/api/attendance/employee/${encodeURIComponent(employeeId)}`, { method: "GET" }, "Failed to load attendance.");
+  return unwrapList(data);
+}
+
+export async function getAttendanceByOrg(organizationId) {
+  const data = await authorizedRequest(`/api/attendance/organization/${encodeURIComponent(organizationId)}`, { method: "GET" }, "Failed to load attendance.");
+  return unwrapList(data);
+}
+
+
+
+// ─── LEAVES ──────────────────────────────────────────────────────────────────
+
+export async function getLeaves() {
+  const data = await authorizedRequest("/api/leaves", { method: "GET" }, "Failed to load leave requests.");
+  return unwrapList(data);
+}
+
+export async function getLeavesByEmployee(employeeId) {
+  const data = await authorizedRequest(`/api/leaves/employee/${encodeURIComponent(employeeId)}`, { method: "GET" }, "Failed to load leave requests.");
+  return unwrapList(data);
+}
+
+export async function getLeavesByOrg(organizationId) {
+  const data = await authorizedRequest(`/api/leaves/organization/${encodeURIComponent(organizationId)}`, { method: "GET" }, "Failed to load leave requests.");
+  return unwrapList(data);
+}
+
+export async function createLeaveRequest(payload) {
+  return authJsonRequest("/api/leaves", "POST", payload, "Failed to submit leave request.");
+}
+
+export async function approveLeave(id, reason) {
+  return authJsonRequest(`/api/leaves/${encodeURIComponent(id)}/approve`, "PATCH", reason ? { reason } : {}, "Failed to approve leave.");
+}
+
+export async function rejectLeave(id, reason) {
+  return authJsonRequest(`/api/leaves/${encodeURIComponent(id)}/reject`, "PATCH", reason ? { reason } : {}, "Failed to reject leave.");
+}
+
+
+
+// ─── TECHNICAL SHEET VALIDATION ─────────────────────────────────────────────
+
+export async function validateProductTechnicalSheet(productId) {
+  const data = await authorizedRequest(`/api/technical-sheets/validate/product/${encodeURIComponent(productId)}`, { method: "GET" }, "Failed to validate technical sheet.");
+  return data?.data ?? data;
+}
+
+export async function validateOrderTechnicalSheets(orderId) {
+  const data = await authorizedRequest(`/api/technical-sheets/validate/order/${encodeURIComponent(orderId)}`, { method: "GET" }, "Failed to validate order technical sheets.");
+  return data?.data ?? data;
+}
+
+export async function validateOrdersTechnicalSheets(orderIds) {
+  const data = await authorizedRequest("/api/technical-sheets/validate/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(orderIds),
+  }, "Failed to validate orders technical sheets.");
+  return data?.data ?? data;
+}
+
+// ─── WORKFORCE PLANNING & PERFORMANCE ───────────────────────────────────────
+
+export async function getEmployeeWorkload(employeeId) {
+  const data = await authorizedRequest(`/api/workforce/employees/${encodeURIComponent(employeeId)}/workload`, { method: "GET" }, "Failed to load workload.");
+  return data?.data ?? data;
+}
+
+export async function getEmployeePerformance(employeeId) {
+  const data = await authorizedRequest(`/api/workforce/employees/${encodeURIComponent(employeeId)}/performance`, { method: "GET" }, "Failed to load performance.");
+  return data?.data ?? data;
+}
+
+export async function getWorkforcePlan(organizationId) {
+  const data = await authorizedRequest(`/api/workforce/planning?organizationId=${encodeURIComponent(organizationId)}`, { method: "GET" }, "Failed to load workforce plan.");
+  return data?.data ?? data;
+}
+
+
+
+// ─── EMPLOYEE SELF-SERVICE ───────────────────────────────────────────────────
+
+export async function getMyProfile() {
+  return authorizedRequest("/api/employees/me", { method: "GET" }, "Failed to load profile.");
+}
+
+export async function getMyAttendance() {
+  const data = await authorizedRequest("/api/attendance/me", { method: "GET" }, "Failed to load attendance.");
+  return unwrapList(data);
+}
+
+export async function checkInSelf(notes) {
+  const employeeId = localStorage.getItem("employeeId") || localStorage.getItem("userId");
+  const organizationId = localStorage.getItem("orgId") || localStorage.getItem("organizationId");
+  return authJsonRequest("/api/attendance/check-in", "POST", { employeeId, organizationId, notes }, "Failed to check in.");
+}
+
+export async function checkOutSelf() {
+  return authJsonRequest("/api/attendance/check-out/me", "POST", undefined, "Failed to check out.");
+}
+
+export async function getMyLeaves() {
+  const data = await authorizedRequest("/api/leaves/me", { method: "GET" }, "Failed to load leaves.");
+  return unwrapList(data);
+}
+
+export async function submitMyLeave(payload) {
+  const employeeId = localStorage.getItem("employeeId") || localStorage.getItem("userId");
+  const organizationId = localStorage.getItem("orgId") || localStorage.getItem("organizationId");
+  return authJsonRequest("/api/leaves", "POST", { ...payload, employeeId, organizationId }, "Failed to submit leave.");
+}
+
+export async function getMyAssignments() {
+  const data = await authorizedRequest("/api/productions/my-assignments", { method: "GET" }, "Failed to load assignments.");
+  return unwrapList(data);
+}
+
+export async function startMyStep(productionId, stepIndex) {
+  return authorizedRequest(`/api/productions/${encodeURIComponent(productionId)}/step/start/${stepIndex}`, { method: "PUT" }, "Failed to start step.");
+}
+
+export async function completeMyStep(productionId, stepIndex) {
+  return authorizedRequest(`/api/productions/${encodeURIComponent(productionId)}/step/complete/${stepIndex}`, { method: "PUT" }, "Failed to complete step.");
 }

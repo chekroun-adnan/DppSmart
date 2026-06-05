@@ -2,6 +2,7 @@ package com.dppsmart.dppsmart.TechnicalSheet.Controllers;
 
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.*;
 import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetModuleService;
+import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetValidationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.List;
 public class TechnicalSheetController {
 
     private final TechnicalSheetModuleService service;
+    private final TechnicalSheetValidationService validationService;
 
     
 
@@ -132,5 +134,28 @@ public class TechnicalSheetController {
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<List<OperationSheetItemDto>> getOperationItems(@PathVariable String id) {
         return ResponseEntity.ok(service.getOperationItems(id));
+    }
+
+    // ─── VALIDATION ENDPOINTS ───────────────────────────────────────────────────
+
+    @GetMapping("/validate/product/{productId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<TechnicalSheetValidationResult> validateProduct(
+            @PathVariable String productId) {
+        return ResponseEntity.ok(validationService.validateProductTechnicalSheet(productId));
+    }
+
+    @GetMapping("/validate/order/{orderId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<TechnicalSheetValidationResult> validateOrder(
+            @PathVariable String orderId) {
+        return ResponseEntity.ok(validationService.validateOrderTechnicalSheets(orderId));
+    }
+
+    @PostMapping("/validate/orders")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<List<TechnicalSheetValidationResult>> validateOrders(
+            @RequestBody List<String> orderIds) {
+        return ResponseEntity.ok(validationService.validateOrdersTechnicalSheets(orderIds));
     }
 }

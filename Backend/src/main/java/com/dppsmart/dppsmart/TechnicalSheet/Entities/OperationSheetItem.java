@@ -11,8 +11,15 @@ public class OperationSheetItem {
     private String id;
     private String technicalSheetId;
     private String operationId;
+    private String operationName;
     private String userId;
     private Integer stepOrder;
     private Double durationEstimate;
     private String notes;
+    private String instructions;
+    private Boolean qualityCheckRequired;
+    private Boolean canRunInParallel;
+    private Double overrideDefaultDuration;
+    private Double overrideExecutionCost;
+    private String assignedDepartment;
 }

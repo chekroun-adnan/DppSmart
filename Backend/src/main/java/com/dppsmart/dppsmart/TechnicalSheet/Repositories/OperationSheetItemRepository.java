@@ -8,4 +8,5 @@ import java.util.List;
 public interface OperationSheetItemRepository extends MongoRepository<OperationSheetItem, String> {
     List<OperationSheetItem> findByTechnicalSheetIdOrderByStepOrderAsc(String technicalSheetId);
     void deleteByTechnicalSheetId(String technicalSheetId);
+    boolean existsByOperationId(String operationId);
 }

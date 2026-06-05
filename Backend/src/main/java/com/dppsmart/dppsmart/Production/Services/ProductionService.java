@@ -12,7 +12,6 @@ import com.dppsmart.dppsmart.Notification.Services.RealtimeEventService;
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Orders.Entities.OrderItem;
 import com.dppsmart.dppsmart.Orders.Entities.OrderItemStatus;
-import com.dppsmart.dppsmart.Orders.Entities.Orders;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
 import com.dppsmart.dppsmart.Organization.Entities.Organization;
 import com.dppsmart.dppsmart.Organization.Repositories.OrganizationRepository;
@@ -37,9 +36,13 @@ import com.dppsmart.dppsmart.SecurityAlert.Services.SecurityAnalysisService;
 import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
 import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.MaterialSheetItem;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.Operation;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.OperationSheetItem;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheet;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
+import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationRepository;
+import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
 import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
@@ -53,8 +56,11 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -79,6 +85,8 @@ public class ProductionService {
     @Autowired private RealtimeEventService realtimeEventService;
     @Autowired private SecurityAnalysisService securityAnalysisService;
     @Autowired private RuleDetectionService ruleDetectionService;
+    @Autowired private OperationSheetItemRepository operationSheetItemRepository;
+    @Autowired private OperationRepository operationRepository;
 
     public ProductionResponseDto create(CreateProductionDto dto) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -95,11 +103,14 @@ public class ProductionService {
             throw new ForbiddenException("You are not allowed to use this organization");
         }
 
+        List<ProductionStep> steps = generateStepsFromOperationSheet(
+                dto.getProductId(), dto.getQuantity(), dto.getSteps());
+
         Production production = Production.builder()
                 .productId(dto.getProductId())
                 .organizationId(organization.getId())
                 .quantity(dto.getQuantity())
-                .steps(dto.getSteps())
+                .steps(steps)
                 .clientOrderId(dto.getClientOrderId())
                 .status(ProductionStatus.PLANNED)
                 .createdAt(LocalDateTime.now())
@@ -237,7 +248,7 @@ public class ProductionService {
                 .map(p -> p.getProductName()).orElse(production.getProductId());
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findByProductIdAndStatus(production.getProductId(), TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetStatus.ACTIVE);
 
         if (sheetOpt.isEmpty()) {
             return ProductionMaterialConsumptionDto.builder()
@@ -308,15 +319,20 @@ public class ProductionService {
 
     public ProductionResponseDto startStep(String productionId, int stepIndex) {
         User user = getCurrentUser();
-        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
-            throw new ForbiddenException("Access denied");
-        }
+        if (user.getRole() == Roles.CLIENT) throw new ForbiddenException("Access denied");
         Production production = getProduction(productionId);
-        if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) {
+
+        if (user.getRole() == Roles.EMPLOYEE) {
+            ProductionStep step = production.getSteps().get(stepIndex);
+            if (!user.getId().equals(step.getAssignedEmployeeId()))
+                throw new ForbiddenException("You can only start steps assigned to you");
+        } else if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) {
             throw new ForbiddenException("Access denied");
         }
+
         ProductionStep step = production.getSteps().get(stepIndex);
         step.setStartDate(LocalDateTime.now());
+        step.setStartedAt(LocalDateTime.now());
         step.setCompleted(false);
         production.setStatus(ProductionStatus.IN_PROGRESS);
         production.setUpdatedAt(LocalDateTime.now());
@@ -325,11 +341,14 @@ public class ProductionService {
 
     public ProductionResponseDto completeStep(String productionId, int stepIndex) {
         User user = getCurrentUser();
-        if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) {
-            throw new ForbiddenException("Access denied");
-        }
+        if (user.getRole() == Roles.CLIENT) throw new ForbiddenException("Access denied");
         Production production = getProduction(productionId);
-        if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) {
+
+        if (user.getRole() == Roles.EMPLOYEE) {
+            ProductionStep target = production.getSteps().get(stepIndex);
+            if (!user.getId().equals(target.getAssignedEmployeeId()))
+                throw new ForbiddenException("You can only complete steps assigned to you");
+        } else if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) {
             throw new ForbiddenException("Access denied");
         }
 
@@ -460,7 +479,7 @@ public class ProductionService {
     }
 
     private void consumeMaterialsFromBom(Production production, User user, Product product) {
-        technicalSheetRepository.findByProductIdAndStatus(production.getProductId(), TechnicalSheetStatus.ACTIVE)
+        technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetStatus.ACTIVE)
                 .ifPresentOrElse(sheet -> {
                     List<MaterialSheetItem> items = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                     StringBuilder auditDetails = new StringBuilder("Materials consumed: ");
@@ -508,6 +527,15 @@ public class ProductionService {
                         production.getProductId()));
     }
 
+    public List<ProductionResponseDto> getMyAssignments() {
+        User user = getCurrentUser();
+        return productionRepository.findAll().stream()
+                .filter(p -> p.getSteps() != null && p.getSteps().stream()
+                        .anyMatch(s -> user.getId().equals(s.getAssignedEmployeeId())))
+                .map(productionMapper::toDto)
+                .toList();
+    }
+
     public ProductionResponseDto assignStep(String productionId, int stepIndex, String employeeId, String employeeName) {
         User user = getCurrentUser();
         if (user.getRole() == Roles.CLIENT || user.getRole() == Roles.EMPLOYEE) throw new ForbiddenException("Access denied");
@@ -515,6 +543,8 @@ public class ProductionService {
         if (!permissionService.canAccessOrganization(user, production.getOrganizationId())) throw new ForbiddenException("Access denied");
         ProductionStep step = production.getSteps().get(stepIndex);
         step.setOperator(employeeName != null ? employeeName : employeeId);
+        step.setAssignedEmployeeId(employeeId);
+        step.setAssignedAt(LocalDateTime.now());
         production.setUpdatedAt(LocalDateTime.now());
         return productionMapper.toDto(productionRepository.save(production));
     }
@@ -536,8 +566,12 @@ public class ProductionService {
         }
 
         if (dto.getProductId() != null) production.setProductId(dto.getProductId());
-        if (dto.getQuantity() != null) production.setQuantity(dto.getQuantity());
-        if (dto.getSteps() != null) {
+        if (dto.getQuantity() != null) {
+            production.setQuantity(dto.getQuantity());
+            List<ProductionStep> recalculated = generateStepsFromOperationSheet(
+                    production.getProductId(), dto.getQuantity(), dto.getSteps());
+            production.setSteps(recalculated);
+        } else if (dto.getSteps() != null) {
             for (int i = 0; i < dto.getSteps().size(); i++) {
                 dto.getSteps().get(i).setOrderIndex(i);
             }
@@ -569,6 +603,77 @@ public class ProductionService {
         }
         productionRepository.deleteById(id);
         auditService.log("Production", id, "DELETE", production.getOrganizationId(), null, "Production deleted");
+    }
+
+    private List<ProductionStep> generateStepsFromOperationSheet(String productId, int quantity, List<ProductionStep> fallbackSteps) {
+        Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
+                .findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE);
+        if (sheetOpt.isEmpty()) {
+            if (fallbackSteps != null && !fallbackSteps.isEmpty()) {
+                for (int i = 0; i < fallbackSteps.size(); i++) {
+                    fallbackSteps.get(i).setOrderIndex(i);
+                }
+                return fallbackSteps;
+            }
+            throw new BadRequestException(
+                    "No active technical sheet found for product. "
+                    + "Please create and activate a technical sheet with operation items first.");
+        }
+
+        TechnicalSheet sheet = sheetOpt.get();
+        List<OperationSheetItem> opItems = operationSheetItemRepository
+                .findByTechnicalSheetIdOrderByStepOrderAsc(sheet.getId());
+
+        if (opItems.isEmpty()) {
+            if (fallbackSteps != null && !fallbackSteps.isEmpty()) {
+                for (int i = 0; i < fallbackSteps.size(); i++) {
+                    fallbackSteps.get(i).setOrderIndex(i);
+                }
+                return fallbackSteps;
+            }
+            throw new BadRequestException(
+                    "No operation items found in the active technical sheet. "
+                    + "Please add operations to the sheet first.");
+        }
+
+        Map<String, Operation> opMap = operationRepository.findAllById(
+                opItems.stream().map(OperationSheetItem::getOperationId).distinct().toList()
+        ).stream().collect(Collectors.toMap(Operation::getId, Function.identity()));
+
+        List<ProductionStep> generated = new ArrayList<>();
+        for (int i = 0; i < opItems.size(); i++) {
+            OperationSheetItem oi = opItems.get(i);
+            Operation op = opMap.get(oi.getOperationId());
+            Double durPerUnit = oi.getDurationEstimate() != null
+                    ? oi.getDurationEstimate()
+                    : (op != null ? op.getDefaultDuration() : null);
+            String durUnit = op != null && op.getDurationUnit() != null
+                    ? op.getDurationUnit() : "MINUTES";
+            Double costPerUnit = oi.getOverrideExecutionCost() != null
+                    ? oi.getOverrideExecutionCost()
+                    : (op != null ? op.getExecutionCost() : null);
+
+            double totalDur = durPerUnit != null ? durPerUnit * quantity : 0;
+            double totalCost = costPerUnit != null ? costPerUnit * quantity : 0;
+
+            ProductionStep step = ProductionStep.builder()
+                    .stepName(oi.getOperationName() != null ? oi.getOperationName() : "Step " + (i + 1))
+                    .description("")
+                    .completed(false)
+                    .orderIndex(i)
+                    .operationId(oi.getOperationId())
+                    .operationName(oi.getOperationName())
+                    .instructions(oi.getInstructions())
+                    .durationPerUnit(durPerUnit)
+                    .durationUnit(durUnit)
+                    .orderQuantity(quantity)
+                    .totalDuration(totalDur)
+                    .executionCostPerUnit(costPerUnit)
+                    .totalExecutionCost(totalCost)
+                    .build();
+            generated.add(step);
+        }
+        return generated;
     }
 
     private Production getProduction(String id) {

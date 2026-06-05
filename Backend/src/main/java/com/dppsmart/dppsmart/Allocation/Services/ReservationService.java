@@ -142,7 +142,6 @@ public class ReservationService {
         return saved;
     }
 
-
     @Transactional
     public void consumeProductReservations(String orderId) {
         List<StockReservation> reservations = reservationRepository

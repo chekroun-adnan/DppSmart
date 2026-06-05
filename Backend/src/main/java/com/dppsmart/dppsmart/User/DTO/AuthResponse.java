@@ -19,6 +19,17 @@ public class AuthResponse {
     private String organizationId;
     private List<String> assignedOrganizationIds;
 
+    // Employee-specific fields (null for non-employee roles)
+    private String employeeId;
+    private String employeeCode;
+    private String departmentId;
+    private String departmentName;
+    private String fullName;
+
     public AuthResponse(String token, String id, String email, Roles role) {
+        this.accessToken = token;
+        this.userId = id;
+        this.email = email;
+        this.role = role;
     }
 }

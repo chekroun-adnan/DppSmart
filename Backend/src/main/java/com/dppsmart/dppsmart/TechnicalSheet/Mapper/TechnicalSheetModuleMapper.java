@@ -55,12 +55,18 @@ public class TechnicalSheetModuleMapper {
         OperationSheetItemDto d = new OperationSheetItemDto();
         d.setId(e.getId());
         d.setOperationId(e.getOperationId());
+        d.setOperationName(operationName != null ? operationName : e.getOperationName());
         d.setUserId(e.getUserId());
+        d.setUserName(userName);
         d.setStepOrder(e.getStepOrder());
         d.setDurationEstimate(e.getDurationEstimate());
         d.setNotes(e.getNotes());
-        d.setOperationName(operationName);
-        d.setUserName(userName);
+        d.setInstructions(e.getInstructions());
+        d.setQualityCheckRequired(e.getQualityCheckRequired());
+        d.setCanRunInParallel(e.getCanRunInParallel());
+        d.setOverrideDefaultDuration(e.getOverrideDefaultDuration());
+        d.setOverrideExecutionCost(e.getOverrideExecutionCost());
+        d.setAssignedDepartment(e.getAssignedDepartment());
         return d;
     }
 }

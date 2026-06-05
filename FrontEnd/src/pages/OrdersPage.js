@@ -4,7 +4,7 @@ import { MobileTabs } from "../components/MobileTabs";
 import {
   Calendar, CheckCircle2,
   AlertTriangle, XCircle, Download, Printer,
-  Truck, Brain, ListChecks, Play, Star, ClipboardList,
+  Truck, Brain, ListChecks, Play, ClipboardList, FileText,
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import OrgSelector from "../components/OrgSelector";
@@ -22,9 +22,8 @@ import {
   bulkStartProduction,
   adminProposeDate,
   cancelOrder,
-  workflowSetPriority,
-  cancelProduction,
   sendToDelivery,
+  validateOrderTechnicalSheets,
 } from "../services/authService";
 import AuditHistoryModal from "../components/AuditHistoryModal";
 
@@ -144,11 +143,9 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
   const [viewOrder, setViewOrder] = useState(null);
   const [showPropose, setShowPropose] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
-  const [showPriority, setShowPriority] = useState(false);
-  const [showCancelProduction, setShowCancelProduction] = useState(false);
-  const [cancelProductionAction, setCancelProductionAction] = useState(null);
-  const [cancelProductionMessage, setCancelProductionMessage] = useState("");
-  const [priorityValue, setPriorityValue] = useState("NORMAL");
+
+
+
   const [proposeDate, setProposeDate] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -160,15 +157,31 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
   
   const [completed, setCompleted] = useState({});
 
-  
+  const [validationModal, setValidationModal] = useState(null);
+  const [productTechIssues, setProductTechIssues] = useState({});
+
+  async function validateAndAct(orderId, actionFn, successLabel) {
+    try {
+      const val = await validateOrderTechnicalSheets(orderId);
+      if (!val.valid) {
+        setValidationModal({ orderId, orderNumber: val.orderNumber, issues: val.issues, actionFn, successLabel });
+        return;
+      }
+    } catch {}
+    handleOrderAction(orderId, actionFn, successLabel);
+  }
+
   useEffect(() => {
     let mounted = true;
     setLoading(true); setError("");
     Promise.all([
       calculateBulkRequirements(orderIds),
       calculateSequentialRequirements(orderIds),
+      ...orderIds.map(id =>
+        validateOrderTechnicalSheets(id).then(v => ({ orderId: id, v })).catch(() => null)
+      ),
     ])
-      .then(([bulkRes, seqRes]) => {
+      .then(([bulkRes, seqRes, ...validations]) => {
         if (!mounted) return;
         const d = bulkRes?.data ?? bulkRes;
         const seq = seqRes?.data ?? seqRes;
@@ -182,6 +195,14 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
           });
         });
         setAllocations(seed);
+        const issuesMap = {};
+        (validations.filter(Boolean) || []).forEach(({ v }) => {
+          (v.issues || []).forEach(issue => {
+            if (!issuesMap[issue.productId]) issuesMap[issue.productId] = [];
+            issuesMap[issue.productId].push(issue);
+          });
+        });
+        setProductTechIssues(issuesMap);
       })
       .catch(e => { if (mounted) setError(e.message || "Failed to load."); })
       .finally(() => { if (mounted) setLoading(false); });
@@ -210,12 +231,23 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
           orderId, allocatedFromStock,
         })),
       }));
-      const [bulkRes, seqRes] = await Promise.all([
+      const [validations, bulkRes, seqRes] = await Promise.all([
+        Promise.all(orderIds.map(id =>
+          validateOrderTechnicalSheets(id).then(v => ({ orderId: id, v })).catch(() => null)
+        )),
         recalculateBulkRequirements({ orderIds, priorityAllocations }),
         calculateSequentialRequirements(orderIds),
       ]);
       setData(bulkRes?.data ?? bulkRes);
       setReadinessData(seqRes?.data ?? seqRes);
+      const issuesMap = {};
+      (validations.filter(Boolean) || []).forEach(({ v }) => {
+        (v.issues || []).forEach(issue => {
+          if (!issuesMap[issue.productId]) issuesMap[issue.productId] = [];
+          issuesMap[issue.productId].push(issue);
+        });
+      });
+      setProductTechIssues(issuesMap);
     } catch (e) {
       setError(e.message || "Recalculation failed.");
     } finally {
@@ -276,54 +308,14 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
     }
   }
 
-  async function handleSetPriority() {
-    setSaving(true); setActionError("");
-    try {
-      await workflowSetPriority(viewOrder.id, priorityValue);
-      setViewOrder(prev => ({ ...prev, orderPriority: priorityValue }));
-      setShowPriority(false);
-      showToast(`Priority set to ${priorityValue}.`, "ok");
-      onOrderUpdated({ ...viewOrder, orderPriority: priorityValue });
-    } catch (e) {
-      setActionError(e.message || "Failed to set priority.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
-  async function handleCancelProduction() {
-    if (!cancelProductionAction) { setActionError("Please select an action."); return; }
-    if (cancelProductionAction === "cancel" && !cancelProductionMessage.trim()) { setActionError("Please provide a message."); return; }
-    setSaving(true); setActionError("");
-    try {
-      const res = await cancelProduction(viewOrder.id, cancelProductionAction, cancelProductionMessage);
-      const updated = res?.data ?? res;
-      onOrderUpdated(updated);
-      setViewOrder(null);
-      setShowCancelProduction(false);
-      setCancelProductionAction(null);
-      setCancelProductionMessage("");
-      showToast(
-        cancelProductionAction === "return"
-          ? "Production cancelled. Order returned to confirmed list."
-          : "Production cancelled. Order has been cancelled.",
-        "ok"
-      );
-    } catch (e) {
-      setActionError(e.message || "Failed to cancel production.");
-    } finally {
-      setSaving(false);
-    }
-  }
+
 
   function closeDetail() {
     setViewOrder(null);
     setShowPropose(false);
     setShowCancel(false);
-    setShowPriority(false);
-    setShowCancelProduction(false);
-    setCancelProductionAction(null);
-    setCancelProductionMessage("");
+
     setActionError("");
   }
 
@@ -421,7 +413,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
   );
 
   
-  return (
+  return (<>
     <div className="fixed inset-0 z-[100] flex" onClick={onClose}>
       <div className="flex-1 bg-slate-900/50 dark:bg-black/60 backdrop-blur-[2px]" />
       <div
@@ -600,7 +592,21 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                               
                               <div className="flex items-center justify-between gap-2 mb-2">
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{p.productName}</p>
+                                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1">
+                                    {productTechIssues[p.productId] && productTechIssues[p.productId].length > 0 && (
+                                      <span className="group relative inline-flex shrink-0">
+                                        <AlertTriangle size={12} className="text-amber-500 cursor-help" />
+                                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-[9px] leading-relaxed text-slate-700 dark:text-slate-200 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50 text-left font-normal">
+                                          {productTechIssues[p.productId].map((issue, i) => (
+                                            <span key={i} className="block">
+                                              <span className={`font-semibold ${issue.severity === 'CRITICAL' ? 'text-rose-500' : 'text-amber-500'}`}>{issue.severity}</span>: {issue.message}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {p.productName}
+                                  </p>
                                   {isDeliveryReady ? (
                                     <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                                       From stock: <strong>{p.fromStock}</strong> / <strong>{p.remainingToProduce}</strong> available
@@ -869,7 +875,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                   const a = acting === order.id;
                                   if (rStatus === "READY_FOR_DELIVERY" && rd.canSendToDelivery) {
                                     return (
-                                      <button disabled={a} onClick={e => { e.stopPropagation(); handleOrderAction(order.id, () => sendToDelivery(order.id, null), "delivered"); }}
+                                      <button disabled={a} onClick={e => { e.stopPropagation(); validateAndAct(order.id, () => sendToDelivery(order.id, null), "delivered"); }}
                                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-[9px] font-bold transition-all shadow-sm shadow-emerald-500/25">
                                         {a ? <Spinner cls="text-white" /> : <CheckCircle2 size={10} />}
                                         {a ? "Processing…" : "Send to Delivery"}
@@ -878,7 +884,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                   }
                                   if (rStatus === "READY_FOR_PRODUCTION" && rd.canStartProduction) {
                                     return (
-                                      <button disabled={a} onClick={e => { e.stopPropagation(); handleOrderAction(order.id, startProductionV2, "production"); }}
+                                      <button disabled={a} onClick={e => { e.stopPropagation(); validateAndAct(order.id, startProductionV2, "production"); }}
                                         className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-600 hover:to-blue-700 text-white text-[9px] font-bold transition-all shadow-sm shadow-blue-500/25">
                                         {a ? <Spinner cls="text-white" /> : <Play size={10} />}
                                         {a ? "Processing…" : "Start Production"}
@@ -1001,67 +1007,19 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                           {!completed[viewOrder.id] && (
                             <>
                               <div className="flex gap-2 flex-wrap">
-                                {!showPropose && !showCancel && !showPriority && !showCancelProduction && (
+                                {!showPropose && !showCancel && (
                                   <>
-                                    <button onClick={() => { setShowPropose(true); setShowCancel(false); setShowPriority(false); setShowCancelProduction(false); setActionError(""); }}
+                                    <button onClick={() => { setShowPropose(true); setShowCancel(false); setActionError(""); }}
                                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-all">
                                       <Calendar size={12} /> Propose Date
                                     </button>
-                                    <button onClick={() => { setShowPriority(true); setShowPropose(false); setShowCancel(false); setShowCancelProduction(false); setPriorityValue(viewOrder.orderPriority || "NORMAL"); setActionError(""); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 dark:border-violet-500/40 text-violet-600 dark:text-violet-400 text-xs font-semibold hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all">
-                                      <Star size={12} /> Set Priority
-                                    </button>
-                                    <button onClick={() => { setShowCancel(true); setShowPropose(false); setShowPriority(false); setShowCancelProduction(false); setActionError(""); }}
+                                    <button onClick={() => { setShowCancel(true); setShowPropose(false); setActionError(""); }}
                                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all">
                                       <XCircle size={12} /> Cancel
                                     </button>
-                                    {viewOrder.status === "IN_PRODUCTION" && (
-                                      <button onClick={() => { setShowCancelProduction(true); setShowPropose(false); setShowCancel(false); setShowPriority(false); setCancelProductionAction(null); setCancelProductionMessage(""); setActionError(""); }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all">
-                                        <Play size={12} className="rotate-180" /> Cancel Production
-                                      </button>
-                                    )}
                                   </>
                                 )}
                               </div>
-
-                              {showPriority && (
-                                <div className="space-y-3 p-4 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50/50 dark:bg-violet-500/5">
-                                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                    Current: <span className="text-violet-600 dark:text-violet-400">{viewOrder.orderPriority || "NORMAL"}</span>
-                                  </p>
-                                  <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Manual Priority Override</label>
-                                    <div className="flex gap-2">
-                                      {["HIGH", "NORMAL", "LOW"].map(p => (
-                                        <button key={p} onClick={() => setPriorityValue(p)}
-                                          className={`flex-1 py-2 rounded-lg border-2 text-xs font-bold transition-all ${
-                                            priorityValue === p
-                                              ? p === "HIGH"
-                                                ? "border-rose-500 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300"
-                                                : p === "NORMAL"
-                                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                                                  : "border-slate-400 bg-slate-50 dark:bg-slate-500/10 text-slate-600 dark:text-slate-300"
-                                              : "border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"
-                                          }`}>
-                                          {p}
-                                        </button>
-                                      ))}
-                                    </div>
-                                    <p className="text-[9px] text-slate-400 mt-1">Delivery date remains the main priority rule.</p>
-                                  </div>
-                                  <div className="flex gap-3">
-                                    <button onClick={handleSetPriority} disabled={saving}
-                                      className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm transition-all">
-                                      {saving ? "Saving..." : "Set Priority"}
-                                    </button>
-                                    <button onClick={() => { setShowPriority(false); setActionError(""); }}
-                                      className="py-2.5 px-5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all">
-                                      Back
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
 
                               {showPropose && (
                                 <div className="space-y-3 p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5">
@@ -1106,52 +1064,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                 </div>
                               )}
 
-                                {showCancelProduction && (
-                                <div className="space-y-3 p-4 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/5">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <AlertTriangle size={16} className="text-rose-500 shrink-0" />
-                                    <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">Cancel Production</p>
-                                  </div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Choose what happens with this order when its production is cancelled:</p>
-                                  <div className="flex gap-3">
-                                    <button onClick={() => setCancelProductionAction("return")}
-                                      className={`flex-1 p-3 rounded-xl border-2 text-xs font-bold transition-all text-left ${
-                                        cancelProductionAction === "return"
-                                          ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                                          : "border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"
-                                      }`}>
-                                      <p className="text-sm font-bold mb-1">↩ Return to orders list</p>
-                                      <p className="text-[10px] font-normal opacity-70">Cancel production, order goes back to CONFIRMED status.</p>
-                                    </button>
-                                    <button onClick={() => setCancelProductionAction("cancel")}
-                                      className={`flex-1 p-3 rounded-xl border-2 text-xs font-bold transition-all text-left ${
-                                        cancelProductionAction === "cancel"
-                                          ? "border-rose-500 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300"
-                                          : "border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"
-                                      }`}>
-                                      <p className="text-sm font-bold mb-1">✕ Cancel order</p>
-                                      <p className="text-[10px] font-normal opacity-70">Cancel both production and the entire order.</p>
-                                    </button>
-                                  </div>
-                                  {cancelProductionAction === "cancel" && (
-                                    <textarea value={cancelProductionMessage} onChange={e => setCancelProductionMessage(e.target.value)} rows={2}
-                                      className="w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-900/60 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 resize-none"
-                                      placeholder="Reason for cancelling the order..." />
-                                  )}
-                                  <div className="flex gap-3">
-                                    <button onClick={handleCancelProduction} disabled={saving || !cancelProductionAction}
-                                      className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                      {saving ? "Processing..." : cancelProductionAction === "return" ? "Return to Orders" : "Cancel Order"}
-                                    </button>
-                                    <button onClick={() => { setShowCancelProduction(false); setCancelProductionAction(null); setCancelProductionMessage(""); setActionError(""); }}
-                                      className="py-2.5 px-5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all">
-                                      Back
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {!showPropose && !showCancel && !showPriority && !showCancelProduction && (
+                              {!showPropose && !showCancel && (
                                 <div className="flex gap-2">
                                   {(() => {
                                     const rd = getReadiness(viewOrder.id);
@@ -1159,7 +1072,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                     const a = acting === viewOrder.id;
                                     if (rStatus === "READY_FOR_DELIVERY" && rd.canSendToDelivery) {
                                       return (
-                                        <button disabled={a} onClick={() => handleOrderAction(viewOrder.id, () => sendToDelivery(viewOrder.id, null), "delivered")}
+                                        <button disabled={a} onClick={() => validateAndAct(viewOrder.id, () => sendToDelivery(viewOrder.id, null), "delivered")}
                                           className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/25">
                                           {a ? <Spinner cls="text-white" /> : <CheckCircle2 size={13} />}
                                           {a ? "Processing…" : "Send to Delivery"}
@@ -1168,7 +1081,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                                     }
                                     if (rStatus === "READY_FOR_PRODUCTION" && rd.canStartProduction) {
                                       return (
-                                        <button disabled={a} onClick={() => handleOrderAction(viewOrder.id, startProductionV2, "production")}
+                                        <button disabled={a} onClick={() => validateAndAct(viewOrder.id, startProductionV2, "production")}
                                           className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-blue-600 hover:from-brand-600 hover:to-blue-700 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/25">
                                           {a ? <Spinner cls="text-white" /> : <Play size={13} />}
                                           {a ? "Processing…" : "Start Production"}
@@ -1197,7 +1110,65 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
         </div>
       </div>
     </div>
-  );
+
+    {validationModal && (
+      <div className="fixed inset-0 z-[110] grid place-items-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] px-4 animate-fade-in" onClick={() => setValidationModal(null)}>
+        <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="px-7 pt-7 pb-4 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Technical Sheet Incomplete</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Order {validationModal.orderNumber}</p>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-y-auto flex-1 px-7 py-5 space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              This order cannot be processed because some products have incomplete technical sheets.
+            </p>
+            {validationModal.issues.map((issue, i) => (
+              <div key={i} className={`rounded-xl border p-4 ${
+                issue.severity === "CRITICAL"
+                  ? "border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/5"
+                  : "border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5"
+              }`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    issue.severity === "CRITICAL"
+                      ? "bg-rose-200 text-rose-700 dark:bg-rose-500/30 dark:text-rose-300"
+                      : "bg-amber-200 text-amber-700 dark:bg-amber-500/30 dark:text-amber-300"
+                  }`}>{issue.severity}</span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{issue.productName}</span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 ml-1">{issue.message}</p>
+              </div>
+            ))}
+          </div>
+          <div className="px-7 py-5 border-t border-slate-100 dark:border-white/[0.06] flex justify-end gap-3 shrink-0">
+            <button onClick={() => setValidationModal(null)}
+              className="btn-secondary py-2 px-5 text-sm">Cancel</button>
+            {validationModal.issues.every(i => i.severity !== "CRITICAL") && (
+              <button onClick={() => {
+                const { actionFn, successLabel, orderId } = validationModal;
+                setValidationModal(null);
+                handleOrderAction(orderId, actionFn, successLabel);
+              }} className="btn-primary py-2 px-5 text-sm">Continue Anyway</button>
+            )}
+            <button onClick={() => {
+              const pid = validationModal.issues[0]?.productId;
+              setValidationModal(null);
+              if (pid) window.location.href = `/technical-sheets/product/${pid}`;
+            }} className="py-2 px-5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-all flex items-center gap-2">
+              <FileText size={14} /> Fix Technical Sheet
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>);
 }
 
 function DeleteModal({ order, onClose, onDelete }) {

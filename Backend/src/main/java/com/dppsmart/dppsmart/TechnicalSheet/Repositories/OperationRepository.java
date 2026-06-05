@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface OperationRepository extends MongoRepository<Operation, String> {
     List<Operation> findByOrganizationId(String organizationId);
+    List<Operation> findByOrganizationIdAndActive(String organizationId, Boolean active);
+    boolean existsByNameAndOrganizationId(String name, String organizationId);
 }

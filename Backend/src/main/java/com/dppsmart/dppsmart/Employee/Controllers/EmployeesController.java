@@ -54,5 +54,11 @@ public class EmployeesController {
         employeesService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<EmployeeResponseDto> getMe() {
+        return ResponseEntity.ok(employeesService.getMe());
+    }
 }
 

@@ -57,7 +57,10 @@ function LoginPage() {
         password: form.password,
       });
       storeAuthSession(authResponse);
-      navigate(authResponse.role === "CLIENT" ? "/client-orders" : "/dashboard");
+      const role = authResponse.role;
+      if (role === "CLIENT") navigate("/client-orders");
+      else if (role === "EMPLOYEE") navigate("/employee-dashboard");
+      else navigate("/dashboard");
     } catch (requestError) {
       if (requestError.status === 429) {
         const wait = requestError.retryAfter || 60;

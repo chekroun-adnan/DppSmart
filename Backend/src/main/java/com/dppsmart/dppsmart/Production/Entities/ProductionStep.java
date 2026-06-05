@@ -29,4 +29,22 @@ public class ProductionStep {
     private Double durationMinutes;
 
     private String qualityCheck;
+
+    private String operationId;
+    private String operationName;
+    private String instructions;
+    private Double durationPerUnit;
+    private String durationUnit;
+    private Integer orderQuantity;
+    private Double totalDuration;
+    private Double executionCostPerUnit;
+    private Double totalExecutionCost;
+
+    // Workforce assignment fields
+    private String assignedEmployeeId;
+    private String assignedDepartmentId;
+    private String assignedDepartmentName;
+    private LocalDateTime assignedAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
 }

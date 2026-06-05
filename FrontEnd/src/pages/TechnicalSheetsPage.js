@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
@@ -13,6 +13,7 @@ import {
   getSubOrganizations,
 } from "../services/authService";
 import AuditHistoryModal from "../components/AuditHistoryModal";
+import OperationSheetPanel from "../components/OperationSheetPanel";
 
 const ROLE = () => (localStorage.getItem("userRole") || "").toUpperCase();
 const canEdit = () => ["ADMIN", "SUBADMIN"].includes(ROLE());
@@ -205,7 +206,7 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
   } else {
     autoTable(doc, {
       startY: propsTableTop + 4,
-      head: [["STEP", "OPERATION", "OPERATOR", "DURATION (MIN)", "NOTES"]],
+      head: [["STEP", "OPERATION", "OPERATOR", "DURATION / UNIT", "NOTES"]],
       body: opItems.length > 0
         ? opItems.map((item, i) => [
             item.stepOrder ?? i + 1,
@@ -328,6 +329,8 @@ export default function TechnicalSheetsPage() {
 
   const [editMaterial, setEditMaterial] = useState(null);
   const [editOperation, setEditOperation] = useState(null);
+  const dragItem = useRef(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
 
   const [filterType, setFilterType] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -595,10 +598,17 @@ export default function TechnicalSheetsPage() {
             logAuditEntry(sheetId, "MATERIALS_ADDED", { count: matItems.length });
           } else if (sheetDraft.type === "OPERATION_SHEET" && opItems.length > 0) {
             await saveOperationItems(sheetId, opItems.map(r => ({
-              operationId: r.operationId, userId: r.userId,
+              operationId: r.operationId, userId: r.userId || null,
+              operationName: r.operationName || null,
               stepOrder: parseInt(r.stepOrder) || 1,
               durationEstimate: parseFloat(r.durationEstimate) || null,
-              notes: r.notes,
+              notes: r.notes || "",
+              instructions: r.instructions || "",
+              qualityCheckRequired: r.qualityCheckRequired || false,
+              canRunInParallel: r.canRunInParallel || false,
+              overrideDefaultDuration: r.overrideDefaultDuration != null ? parseFloat(r.overrideDefaultDuration) : null,
+              overrideExecutionCost: r.overrideExecutionCost != null ? parseFloat(r.overrideExecutionCost) : null,
+              assignedDepartment: r.assignedDepartment || "",
             })));
             logAuditEntry(sheetId, "OPERATIONS_ADDED", { count: opItems.length });
           }
@@ -757,17 +767,26 @@ export default function TechnicalSheetsPage() {
     setOpItems(p => p.filter((_, idx) => idx !== i).map((r, idx) => ({ ...r, stepOrder: idx + 1 })));
   }
 
-  async function handleSaveOpItems() {
+  async function handleSaveOpItems(itemsArg) {
+    const items = itemsArg || opItems;
     setSaving(true);
     try {
       const oldItems = await getOperationItems(activeSheet.id).catch(() => []);
-      await saveOperationItems(activeSheet.id, opItems.map(r => ({
-        operationId: r.operationId, userId: r.userId,
+      await saveOperationItems(activeSheet.id, items.map(r => ({
+        operationId: r.operationId,
+        operationName: r.operationName || "",
+        userId: r.userId || null,
         stepOrder: parseInt(r.stepOrder) || 1,
         durationEstimate: parseFloat(r.durationEstimate) || null,
-        notes: r.notes,
+        notes: r.notes || null,
+        instructions: r.instructions || null,
+        qualityCheckRequired: r.qualityCheckRequired || false,
+        canRunInParallel: r.canRunInParallel || false,
+        overrideDefaultDuration: r.overrideDefaultDuration != null ? parseFloat(r.overrideDefaultDuration) : null,
+        overrideExecutionCost: r.overrideExecutionCost != null ? parseFloat(r.overrideExecutionCost) : null,
+        assignedDepartment: r.assignedDepartment || null,
       })));
-      logAuditEntry(activeSheet.id, "OPERATIONS_UPDATED", { count: opItems.length, changes: opItems.length !== oldItems.length ? "Steps modified" : "Steps updated" });
+      logAuditEntry(activeSheet.id, "OPERATIONS_UPDATED", { count: items.length, changes: items.length !== oldItems.length ? "Steps modified" : "Steps updated" });
       setModal(null);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -1248,7 +1267,7 @@ export default function TechnicalSheetsPage() {
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="h-4 w-1 rounded-full bg-blue-500" />
                           <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Production Routing</span>
@@ -1258,22 +1277,139 @@ export default function TechnicalSheetsPage() {
                           + {t("technicalSheets.newOperation")}
                         </button>
                       </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mb-4">
+                        {["Fabric Preparation","Cutting","Screen Printing","Embroidery","Sewing","Quality Control","Ironing","Packaging","Finished Stock","Delivery"].map((name, i) => {
+                          const existing = operations.find(o => o.name === name);
+                          const alreadyAdded = existing ? opItems.some(item => item.operationId === existing.id) : false;
+                          const contextOrgId = activeSheet?.organizationId || sheetDraft.organizationId || orgId || (Array.isArray(orgs) && orgs.length > 0 ? orgs[0].id : null);
+                          return (
+                            <button
+                              key={name}
+                              draggable={!alreadyAdded}
+                              onDragStart={() => { dragItem.current = { type: "predefined", name }; }}
+                              onDragEnd={() => { dragItem.current = null; setDragOverIdx(null); }}
+                              onClick={async () => {
+                                if (alreadyAdded) return;
+                                if (!contextOrgId) { setError("Please select an organization first"); return; }
+                                setSaving(true);
+                                try {
+                                  let op = existing;
+                                  if (!op) {
+                                    op = await createTsOperation({ name, description: "", defaultDuration: null, organizationId: contextOrgId });
+                                    setOperations(p => [...p, op]);
+                                  }
+                                  setOpItems(prev => [...prev, {
+                                    operationId: op.id,
+                                    operationName: name,
+                                    userId: "",
+                                    stepOrder: prev.length + 1,
+                                    durationEstimate: op.defaultDuration || null,
+                                    notes: "",
+                                    instructions: "",
+                                    qualityCheckRequired: false,
+                                    canRunInParallel: false,
+                                    overrideDefaultDuration: null,
+                                    overrideExecutionCost: null,
+                                    assignedDepartment: "",
+                                  }]);
+                                } catch (e) { setError(e.message); }
+                                finally { setSaving(false); }
+                              }}
+                              disabled={alreadyAdded || saving}
+                              className={`flex flex-col items-center justify-center rounded-lg border-2 px-2 py-2 text-center transition-all ${
+                                alreadyAdded
+                                  ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 opacity-60 cursor-default"
+                                  : "border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 hover:border-brand-300 hover:bg-brand-50 dark:hover:bg-brand-500/10 cursor-grab active:cursor-grabbing"
+                              }`}
+                            >
+                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold mb-0.5 ${
+                                alreadyAdded
+                                  ? "bg-emerald-200 dark:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                                  : "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                              }`}>
+                                {i + 1}
+                              </span>
+                              <span className={`text-[10px] font-semibold leading-tight ${
+                                alreadyAdded ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-200"
+                              }`}>
+                                {name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       <div className="space-y-2">
                         {opItems.length === 0 && (
-                          <p className="text-sm text-slate-400 italic text-center py-6 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
-                            No steps yet — click "+ Add Step" to begin
+                          <p className="text-sm text-slate-400 italic text-center py-4 border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
+                            Click a step above or drag one into the list
                           </p>
                         )}
                         {opItems.map((row, i) => (
-                          <div key={i} className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 p-3 space-y-2">
+                          <div
+                            key={i}
+                            draggable
+                            onDragStart={() => { dragItem.current = { type: "item", idx: i }; }}
+                            onDragOver={e => { e.preventDefault(); setDragOverIdx(i); }}
+                            onDrop={async () => {
+                              const from = dragItem.current;
+                              if (!from) { setDragOverIdx(null); return; }
+                              if (from.type === "predefined") {
+                                if (opItems.some(item => operations.find(o => o.id === item.operationId)?.name === from.name)) { setDragOverIdx(null); dragItem.current = null; return; }
+                                const dropContextOrgId = activeSheet?.organizationId || sheetDraft.organizationId || orgId || (Array.isArray(orgs) && orgs.length > 0 ? orgs[0].id : null);
+                                if (!dropContextOrgId) { setError("Please select an organization first"); setDragOverIdx(null); dragItem.current = null; return; }
+                                setSaving(true);
+                                try {
+                                  let op = operations.find(o => o.name === from.name);
+                                  if (!op) {
+                                    op = await createTsOperation({ name: from.name, description: "", defaultDuration: null, organizationId: dropContextOrgId });
+                                    setOperations(p => [...p, op]);
+                                  }
+                                  setOpItems(prev => {
+                                    const next = [...prev];
+                                    next.splice(i, 0, {
+                                      operationId: op.id, operationName: from.name, userId: "",
+                                      stepOrder: i + 1, durationEstimate: op.defaultDuration || null,
+                                      notes: "", instructions: "", qualityCheckRequired: false,
+                                      canRunInParallel: false, overrideDefaultDuration: null,
+                                      overrideExecutionCost: null, assignedDepartment: "",
+                                    });
+                                    return next.map((item, idx) => ({ ...item, stepOrder: idx + 1 }));
+                                  });
+                                } catch (e) { setError(e.message); }
+                                finally { setSaving(false); }
+                              } else if (from.type === "item" && from.idx !== i) {
+                                setOpItems(prev => {
+                                  const next = [...prev];
+                                  const [moved] = next.splice(from.idx, 1);
+                                  next.splice(i, 0, moved);
+                                  return next.map((item, idx) => ({ ...item, stepOrder: idx + 1 }));
+                                });
+                              }
+                              setDragOverIdx(null);
+                              dragItem.current = null;
+                            }}
+                            onDragEnd={() => { setDragOverIdx(null); dragItem.current = null; }}
+                            className={`rounded-xl border p-3 space-y-2 transition-all cursor-grab active:cursor-grabbing ${
+                              dragOverIdx === i
+                                ? "border-brand-300 bg-brand-50 dark:border-brand-600 dark:bg-brand-500/10 ring-2 ring-brand-300"
+                                : "border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5"
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
+                              <div className="flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 text-slate-300 dark:text-slate-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+                                </svg>
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
+                              </div>
                               <div className="flex-1 grid grid-cols-2 gap-2">
                                 <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
                                   <option value="">{t("technicalSheets.selectOperation")}</option>
                                   {operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
                                 </Select>
-                                <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder={t("technicalSheets.duration")} />
+                                <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder="Duration / unit (min)" />
                               </div>
                               <button onClick={() => removeOpRow(i)} className="text-red-400 hover:text-red-600 shrink-0">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1411,7 +1547,7 @@ export default function TechnicalSheetsPage() {
 
       
       {modal === "operation-items" && activeSheet && (
-        <Modal title={`${activeSheet.name} — ${t("technicalSheets.operationItems")}`} onClose={() => setModal(null)}>
+        <Modal title={`${activeSheet.name} — Production Routing`} onClose={() => setModal(null)}>
           {activeSheet.productId && (
             <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-2">
               <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1422,56 +1558,17 @@ export default function TechnicalSheetsPage() {
               </span>
             </div>
           )}
-
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("technicalSheets.productionRouting")}</span>
-            <button onClick={openNewOperation} className="text-xs font-semibold text-brand-600 hover:underline">
-              + {t("technicalSheets.newOperation")}
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {opItems.length === 0 && (
-              <p className="text-sm text-slate-400 italic">{t("technicalSheets.noOperationItems")}</p>
-            )}
-            {opItems.map((row, i) => (
-              <div key={i} className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/50 text-xs font-bold text-brand-700 dark:text-brand-300">{row.stepOrder}</span>
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
-                      <option value="">{t("technicalSheets.selectOperation")}</option>
-                      {operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
-                    </Select>
-                    <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder={t("technicalSheets.duration")} />
-                  </div>
-                  <button onClick={() => removeOpRow(i)} className="text-red-400 hover:text-red-600">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input value={row.userId} onChange={e => updateOpRow(i, "userId", e.target.value)} placeholder={t("technicalSheets.assignedUserId")} />
-                  <Input value={row.notes} onChange={e => updateOpRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
-                </div>
-              </div>
-            ))}
-            <button onClick={addOpRow}
-              className="w-full rounded-xl border border-dashed border-slate-300 py-2 text-sm text-slate-500 hover:border-brand-400 hover:text-brand-600">
-              + {t("technicalSheets.addStep")}
-            </button>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
-              {t("common.cancel")}
-            </button>
-            <button onClick={handleSaveOpItems} disabled={saving}
-              className="h-10 rounded-xl bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
-              {saving ? t("common.saving") : t("common.save")}
-            </button>
-          </div>
+          <OperationSheetPanel
+            sheet={activeSheet}
+            operations={operations}
+            initialItems={opItems}
+            orgId={activeSheet.organizationId}
+            onRefreshOperations={load}
+            onSave={async (items) => {
+              setOpItems(items);
+              await handleSaveOpItems();
+            }}
+          />
         </Modal>
       )}
 

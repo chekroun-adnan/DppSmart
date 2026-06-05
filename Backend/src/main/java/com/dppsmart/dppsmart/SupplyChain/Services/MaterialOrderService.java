@@ -9,8 +9,6 @@ import com.dppsmart.dppsmart.Email.Services.EmailService;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
-import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
-import com.dppsmart.dppsmart.Orders.Services.OrderWorkflowService;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.SecurityAlert.Services.RuleDetectionService;
@@ -32,8 +30,6 @@ import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -63,10 +59,6 @@ public class MaterialOrderService {
     private final EmailService emailService;
     private final OrdersRepository ordersRepository;
     private final StockMovementService stockMovementService;
-
-    @Lazy
-    @Autowired
-    private OrderWorkflowService orderWorkflowService;
 
     public MaterialOrderResponseDTO createOrder(CreateMaterialOrderDTO dto) {
         User user = getCurrentUser();
@@ -431,10 +423,6 @@ public class MaterialOrderService {
             }
         }
 
-        if (order.getSourceClientOrderId() != null && totalAccepted > 0) {
-            tryUnblockSourceOrder(order.getSourceClientOrderId());
-        }
-
         ReceptionResponseDTO responseDto = new ReceptionResponseDTO();
         responseDto.setId(reception.getId());
         responseDto.setMaterialOrderId(reception.getMaterialOrderId());
@@ -445,22 +433,6 @@ public class MaterialOrderService {
         responseDto.setRejectionReason(reception.getRejectionReason());
         responseDto.setStockResults(receivingResults);
         return responseDto;
-    }
-
-    private void tryUnblockSourceOrder(String sourceOrderId) {
-        ordersRepository.findById(sourceOrderId).ifPresent(sourceOrder -> {
-            if (sourceOrder.getStatus() == ClientOrderStatus.WAITING_FOR_MATERIALS) {
-                try {
-
-                    sourceOrder.setStatus(ClientOrderStatus.READY_FOR_CONFIRMATION);
-                    sourceOrder.setUpdatedAt(LocalDateTime.now());
-                    ordersRepository.save(sourceOrder);
-                    orderWorkflowService.processOrderFull(sourceOrderId, sourceOrder.getConfirmedDeliveryDate());
-                } catch (Exception ignored) {
-
-                }
-            }
-        });
     }
 
     public List<ReceptionResponseDTO> getReceptions(String orderId) {

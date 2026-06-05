@@ -327,7 +327,7 @@ public class OrdersService {
         for (ItemPlan plan : plans) {
             if (plan.toProduce() <= 0) continue;
             final int toProduce = plan.toProduce();
-            technicalSheetRepository.findByProductIdAndStatus(
+            technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(
                     plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
                     .ifPresent(sheet -> {
                         List<MaterialSheetItem> sheetItems =
@@ -401,7 +401,7 @@ public class OrdersService {
                 if (plan.toProduce() > 0) {
                     final int toProduceFinal = plan.toProduce();
 
-                    technicalSheetRepository.findByProductIdAndStatus(
+                    technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(
                             plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
                             .ifPresent(sheet -> {
                                 List<MaterialSheetItem> sheetItems =
@@ -593,7 +593,7 @@ public class OrdersService {
                 }
             } else if (item.getStatus() == OrderItemStatus.OUT_OF_STOCK
                     || item.getStatus() == OrderItemStatus.TO_PRODUCE) {
-                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {
@@ -803,7 +803,7 @@ public class OrdersService {
             if (toProduce > 0) {
                 anyNeedsProduction = true;
                 final int finalToProduce = toProduce;
-                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {
@@ -930,7 +930,7 @@ public class OrdersService {
             int toProduce = item.getQuantity() - Math.min(item.getQuantity(), stock);
             if (toProduce > 0) {
                 Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                        .findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                        .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
                 if (sheetOpt.isEmpty()) {
                     throw new BadRequestException("Order cannot start production: missing BOM (technical sheet) for " + item.getProductName());
                 }
@@ -982,7 +982,7 @@ public class OrdersService {
 
             if (toProduce > 0) {
                 final int finalToProduce = toProduce;
-                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {

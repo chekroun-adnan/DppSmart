@@ -12,6 +12,8 @@ import com.dppsmart.dppsmart.ConflictLock.Services.ConflictService;
 import com.dppsmart.dppsmart.DeliveryLog.Entities.DeliveryLog;
 import com.dppsmart.dppsmart.DeliveryLog.Services.DeliveryService;
 import com.dppsmart.dppsmart.ProductionCapacity.DTO.CapacityCheckResponseDTO;
+import com.dppsmart.dppsmart.TechnicalSheet.DTO.TechnicalSheetValidationResult;
+import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetValidationService;
 import com.dppsmart.dppsmart.ProductionCapacity.Services.CapacityService;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
@@ -41,6 +43,8 @@ public class AllocationController {
     private ConflictService conflictService;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private TechnicalSheetValidationService validationService;
 
     @PostMapping("/allocation-review")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
@@ -82,9 +86,16 @@ public class AllocationController {
 
     @PostMapping("/{orderId}/send-to-delivery")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<DeliveryLog> sendToDelivery(
+    public ResponseEntity<?> sendToDelivery(
             @PathVariable String orderId,
             @RequestBody(required = false) List<DeliveryLog.DeliveryItem> partialItems) {
+        TechnicalSheetValidationResult validation = validationService.validateOrderTechnicalSheets(orderId);
+        if (!validation.isValid()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Technical sheet validation failed",
+                    "validation", validation
+            ));
+        }
         User user = getCurrentUser();
         return ResponseEntity.ok(deliveryService.sendToDelivery(orderId, partialItems, user));
     }

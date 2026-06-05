@@ -74,7 +74,7 @@ public class ProductionController {
     }
 
     @PutMapping("/{id}/step/start/{stepIndex}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ProductionResponseDto startStep(
             @PathVariable String id,
             @PathVariable int stepIndex) {
@@ -82,11 +82,17 @@ public class ProductionController {
     }
 
     @PutMapping("/{id}/step/complete/{stepIndex}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','EMPLOYEE')")
     public ProductionResponseDto completeStep(
             @PathVariable String id,
             @PathVariable int stepIndex) {
         return productionService.completeStep(id, stepIndex);
+    }
+
+    @GetMapping("/my-assignments")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public List<ProductionResponseDto> getMyAssignments() {
+        return productionService.getMyAssignments();
     }
 
     @PutMapping("/{id}/step/{stepIndex}/assign")

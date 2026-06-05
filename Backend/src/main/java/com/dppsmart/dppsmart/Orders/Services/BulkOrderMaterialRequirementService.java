@@ -25,7 +25,6 @@ import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -37,22 +36,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BulkOrderMaterialRequirementService {
 
-    @Autowired
-    private OrdersRepository ordersRepository;
-    @Autowired
-    private ProductStockRepository productStockRepository;
-    @Autowired
-    private MaterialStockRepository materialStockRepository;
-    @Autowired
-    private TechnicalSheetRepository technicalSheetRepository;
-    @Autowired
-    private MaterialSheetItemRepository materialSheetItemRepository;
-    @Autowired
-    private GroqBulkSummaryService groqBulkSummaryService;
-    @Autowired
-    private OrderPriorityService orderPriorityService;
-    @Autowired
-    private OrganizationRepository organizationRepository;
+    private final OrdersRepository ordersRepository;
+    private final ProductStockRepository productStockRepository;
+    private final MaterialStockRepository materialStockRepository;
+    private final TechnicalSheetRepository technicalSheetRepository;
+    private final MaterialSheetItemRepository materialSheetItemRepository;
+    private final GroqBulkSummaryService groqBulkSummaryService;
+    private final OrderPriorityService orderPriorityService;
+    private final OrganizationRepository organizationRepository;
 
     public BulkOrderRequirementResponseDTO calculate(List<String> orderIds) {
         return compute(orderIds, Collections.emptyList(), false);
@@ -105,7 +96,7 @@ public class BulkOrderMaterialRequirementService {
         for (List<OrderItemEntry> productEntries : byProduct.values()) {
             if (productEntries.isEmpty()) continue;
             String pid = productEntries.get(0).item.getProductId();
-            technicalSheetRepository.findByProductIdAndStatus(pid, TechnicalSheetStatus.ACTIVE)
+            technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(pid, TechnicalSheetStatus.ACTIVE)
                     .ifPresent(sheet -> {
                         List<MaterialSheetItem> items = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                         for (MaterialSheetItem si : items) {
@@ -128,7 +119,7 @@ public class BulkOrderMaterialRequirementService {
 
             String productName = entries.get(0).item.getProductName();
 
-            int totalRequested = entries.stream().mapToInt(e -> e.item.getQuantity()).sum();
+            int totalRequested = entries.stream().mapToInt(e -> e.item.getQuantity() != null ? e.item.getQuantity() : 0).sum();
 
             Optional<ProductStock> psOpt = productStockRepository.findByProductId(productId)
                     .stream().findFirst();
@@ -137,7 +128,7 @@ public class BulkOrderMaterialRequirementService {
             String sheetId = null, sheetName = null, errorMessage = null;
             List<MaterialSheetItem> bomItems = List.of();
             Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                    .findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE);
+                    .findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE);
             if (sheetOpt.isPresent()) {
                 TechnicalSheet sheet = sheetOpt.get();
                 sheetId = sheet.getId();
@@ -155,11 +146,12 @@ public class BulkOrderMaterialRequirementService {
                 affectedOrders = new ArrayList<>();
                 int priorityCounter = 1;
                 for (OrderItemEntry e : entries) {
+                    int qty = e.item.getQuantity() != null ? e.item.getQuantity() : 0;
                     int alloc = Math.min(
-                        e.item.getQuantity(),
+                        qty,
                         Math.max(0, allocMap.getOrDefault(e.order.getId(), 0))
                     );
-                    int toProduce = e.item.getQuantity() - alloc;
+                    int toProduce = qty - alloc;
                     affectedOrders.add(buildOrderItem(e.order, e.item, alloc, toProduce, priorityCounter++, bomItems, materialPool, totalMatRequired, matStockCache).build());
                 }
                 allocatedTotal = affectedOrders.stream().mapToInt(AffectedOrderItem::getAllocatedFromStock).sum();
@@ -169,9 +161,10 @@ public class BulkOrderMaterialRequirementService {
                 int remainingStock = availableStock;
                 int priorityCounter = 1;
                 for (OrderItemEntry e : entries) {
-                    int alloc = Math.min(e.item.getQuantity(), Math.max(0, remainingStock));
+                    int qty = e.item.getQuantity() != null ? e.item.getQuantity() : 0;
+                    int alloc = Math.min(qty, Math.max(0, remainingStock));
                     remainingStock -= alloc;
-                    int toProduce = e.item.getQuantity() - alloc;
+                    int toProduce = qty - alloc;
                     Map<String, double[]> itemPool = cloneMaterialPool(materialPool);
                     affectedOrders.add(buildOrderItem(e.order, e.item, alloc, toProduce, priorityCounter++, bomItems, itemPool, totalMatRequired, matStockCache).build());
                 }
@@ -266,7 +259,7 @@ public class BulkOrderMaterialRequirementService {
         Set<String> allMaterialIds = new HashSet<>();
         for (Orders order : sortedOrders) {
             for (OrderItem item : order.getItems()) {
-                technicalSheetRepository.findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> items = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : items) {
@@ -300,8 +293,11 @@ public class BulkOrderMaterialRequirementService {
         int rank = 1;
 
         for (Orders order : sortedOrders) {
-            String orgName = orgNameCache.computeIfAbsent(order.getOrganizationId(), id ->
-                    organizationRepository.findById(id).map(o -> o.getName() != null ? o.getName() : id).orElse(id));
+            String orgId = order.getOrganizationId();
+            String orgName = orgId != null
+                    ? orgNameCache.computeIfAbsent(orgId, id ->
+                            organizationRepository.findById(id).map(o -> o.getName() != null ? o.getName() : id).orElse(id))
+                    : "—";
 
             LocalDate deliveryDate = order.getConfirmedDeliveryDate() != null ? order.getConfirmedDeliveryDate()
                     : order.getProposedDeliveryDate() != null ? order.getProposedDeliveryDate()
@@ -346,7 +342,7 @@ public class BulkOrderMaterialRequirementService {
 
                 if (toProduce > 0) {
                     Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                            .findByProductIdAndStatus(pid, TechnicalSheetStatus.ACTIVE);
+                            .findFirstByProductIdAndStatusOrderByVersionDesc(pid, TechnicalSheetStatus.ACTIVE);
                     if (sheetOpt.isPresent()) {
                         List<MaterialSheetItem> bomItems = materialSheetItemRepository
                                 .findByTechnicalSheetId(sheetOpt.get().getId());

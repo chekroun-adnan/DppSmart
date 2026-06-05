@@ -37,7 +37,6 @@ public class SequentialAllocationResponse {
         private String deliveryDate;
         private String priorityLevel;
         private int priorityRank;
-        private String allocationStatus;
         private String readinessStatus;
         private boolean canSendToDelivery;
         private boolean canStartProduction;

@@ -4,9 +4,12 @@ import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
+import com.dppsmart.dppsmart.Department.Entities.Department;
+import com.dppsmart.dppsmart.Department.Repositories.DepartmentRepository;
 import com.dppsmart.dppsmart.Employee.DTO.CreateEmployeeDto;
 import com.dppsmart.dppsmart.Employee.DTO.EmployeeResponseDto;
 import com.dppsmart.dppsmart.Employee.DTO.UpdateEmployeeDto;
+import com.dppsmart.dppsmart.Employee.Entities.EmployeeStatus;
 import com.dppsmart.dppsmart.Employee.Entities.Employees;
 import com.dppsmart.dppsmart.Employee.Mapper.EmployeesMapper;
 import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
@@ -36,6 +39,7 @@ public class EmployeesService {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final NotificationServiceImpl notificationService;
+    private final DepartmentRepository departmentRepository;
 
     public EmployeeResponseDto create(CreateEmployeeDto dto) {
         User user = getCurrentUser();
@@ -65,12 +69,36 @@ public class EmployeesService {
         empUser.setCreatedAt(LocalDateTime.now());
         userRepository.save(empUser);
 
+        long count = employeesRepository.count() + 1;
+        String employeeCode = "EMP-" + String.format("%04d", count);
+
+        String deptName = null;
+        if (dto.getDepartmentId() != null && !dto.getDepartmentId().isBlank()) {
+            deptName = departmentRepository.findById(dto.getDepartmentId())
+                    .map(Department::getName).orElse(null);
+        }
+
         Employees employee = new Employees();
         employee.setId(employeeId);
+        employee.setEmployeeCode(employeeCode);
         employee.setFullName(dto.getFullName());
+        employee.setFirstName(dto.getFirstName());
+        employee.setLastName(dto.getLastName());
         employee.setEmail(dto.getEmail());
+        employee.setPhone(dto.getPhone());
+        employee.setAddress(dto.getAddress());
+        employee.setPosition(dto.getPosition());
+        employee.setDepartmentId(dto.getDepartmentId());
+        employee.setDepartmentName(deptName);
+        employee.setHireDate(dto.getHireDate());
+        employee.setSalary(dto.getSalary());
+        employee.setNotes(dto.getNotes());
+        employee.setSkills(dto.getSkills() != null ? dto.getSkills() : new java.util.ArrayList<>());
+        employee.setStatus(EmployeeStatus.ACTIVE);
+        employee.setActive(true);
         employee.setRole(dto.getRole() != null && !dto.getRole().isBlank() ? dto.getRole() : "EMPLOYEE");
         employee.setOrganizationId(dto.getOrganizationId());
+        employee.setQrCode(employeeCode);
         employee.setCreatedAt(LocalDateTime.now());
         employee.setUpdatedAt(LocalDateTime.now());
         employee.setCreatedBy(user.getEmail());
@@ -128,8 +156,24 @@ public class EmployeesService {
         }
 
         if (dto.getFullName() != null && !dto.getFullName().isBlank()) employee.setFullName(dto.getFullName());
+        if (dto.getFirstName() != null) employee.setFirstName(dto.getFirstName());
+        if (dto.getLastName() != null) employee.setLastName(dto.getLastName());
         if (dto.getEmail() != null && !dto.getEmail().isBlank()) employee.setEmail(dto.getEmail());
         if (dto.getRole() != null && !dto.getRole().isBlank()) employee.setRole(dto.getRole());
+        if (dto.getPhone() != null) employee.setPhone(dto.getPhone());
+        if (dto.getAddress() != null) employee.setAddress(dto.getAddress());
+        if (dto.getPosition() != null) employee.setPosition(dto.getPosition());
+        if (dto.getDepartmentId() != null) {
+            employee.setDepartmentId(dto.getDepartmentId());
+            employee.setDepartmentName(departmentRepository.findById(dto.getDepartmentId())
+                    .map(Department::getName).orElse(null));
+        }
+        if (dto.getHireDate() != null) employee.setHireDate(dto.getHireDate());
+        if (dto.getStatus() != null) employee.setStatus(dto.getStatus());
+        if (dto.getSalary() != null) employee.setSalary(dto.getSalary());
+        if (dto.getNotes() != null) employee.setNotes(dto.getNotes());
+        if (dto.getActive() != null) employee.setActive(dto.getActive());
+        if (dto.getSkills() != null) employee.setSkills(dto.getSkills());
 
         employee.setUpdatedAt(LocalDateTime.now());
         employee.setUpdatedBy(user.getEmail());
@@ -232,6 +276,22 @@ public class EmployeesService {
                 com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType.TASK,
                 "/employees"
         );
+    }
+
+    public EmployeeResponseDto getMe() {
+        User user = getCurrentUser();
+        return employeesRepository.findById(user.getId())
+                .map(EmployeesMapper::toDto)
+                .orElseGet(() -> {
+                    EmployeeResponseDto dto = new EmployeeResponseDto();
+                    dto.setId(user.getId());
+                    dto.setFullName(user.getName());
+                    dto.setEmail(user.getEmail());
+                    dto.setOrganizationId(user.getOrganizationId());
+                    dto.setRole(user.getRole().name());
+                    dto.setActive(true);
+                    return dto;
+                });
     }
 
     private User getCurrentUser() {

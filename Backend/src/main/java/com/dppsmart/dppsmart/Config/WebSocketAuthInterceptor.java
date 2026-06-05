@@ -29,7 +29,6 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
                 }
             } catch (Exception ignored) {}
         }
-        // Always allow the HTTP handshake; JWT is validated at STOMP CONNECT level
         return true;
     }
 

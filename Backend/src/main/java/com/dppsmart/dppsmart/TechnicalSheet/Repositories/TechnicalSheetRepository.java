@@ -13,6 +13,7 @@ public interface TechnicalSheetRepository extends MongoRepository<TechnicalSheet
     List<TechnicalSheet> findByOrganizationIdAndType(String organizationId, TechnicalSheetType type);
     List<TechnicalSheet> findByProductId(String productId);
     List<TechnicalSheet> findByProductIdOrderByVersionDesc(String productId);
-    Optional<TechnicalSheet> findByProductIdAndStatus(String productId, TechnicalSheetStatus status);
+    Optional<TechnicalSheet> findFirstByProductIdAndStatusOrderByVersionDesc(String productId, TechnicalSheetStatus status);
+    Optional<TechnicalSheet> findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(String productId, TechnicalSheetType type, TechnicalSheetStatus status);
     List<TechnicalSheet> findByProductIdAndStatusNot(String productId, TechnicalSheetStatus status);
 }

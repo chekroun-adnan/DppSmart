@@ -83,7 +83,7 @@ public class OrderMaterialRequirementService {
         }
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
         if (sheetOpt.isEmpty()) {
             return builder
                     .errorMessage("No active technical sheet found for product: " + item.getProductName())
@@ -165,7 +165,7 @@ public class OrderMaterialRequirementService {
                 }
 
                 Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                        .findByProductIdAndStatus(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                        .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
                 if (sheetOpt.isEmpty()) {
                     summaries.add(BulkRequirementsResponseDTO.OrderSummaryDTO.builder()
                             .orderId(orderId)
@@ -271,7 +271,7 @@ public class OrderMaterialRequirementService {
         for (String mid : matIds) result.put(mid, 0.0);
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE);
         if (sheetOpt.isEmpty()) return result;
 
         Map<String, Double> qpuMap = materialSheetItemRepository.findByTechnicalSheetId(sheetOpt.get().getId())

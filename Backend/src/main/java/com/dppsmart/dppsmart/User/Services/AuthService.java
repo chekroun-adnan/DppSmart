@@ -11,6 +11,8 @@ import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Mapper.AuthMapper;
 import com.dppsmart.dppsmart.User.Repositories.TokenRepository;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
+import com.dppsmart.dppsmart.Employee.Entities.Employees;
+import com.dppsmart.dppsmart.Employee.Repositories.EmployeesRepository;
 import com.dppsmart.dppsmart.Security.JwtService;
 import com.dppsmart.dppsmart.Email.Services.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +38,7 @@ public class AuthService {
     private final EmailService emailService;
     private final BruteForceProtectionService bruteForceService;
     private final SessionService sessionService;
+    private final EmployeesRepository employeesRepository;
 
     private static final long ACCESS_TOKEN_MINUTES = 15;
 
@@ -159,14 +162,30 @@ public class AuthService {
     }
 
     private AuthResponse buildResponse(String accessToken, String refreshToken, User user) {
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                user.getId(),
-                user.getEmail(),
-                user.getRole(),
-                user.getOrganizationId(),
-                user.getAssignedOrganizationIds()
-        );
+        AuthResponse response = new AuthResponse();
+        response.setAccessToken(accessToken);
+        response.setRefreshToken(refreshToken);
+        response.setUserId(user.getId());
+        response.setEmail(user.getEmail());
+        response.setRole(user.getRole());
+        response.setOrganizationId(user.getOrganizationId());
+        response.setAssignedOrganizationIds(user.getAssignedOrganizationIds());
+        response.setFullName(user.getName());
+
+        if (user.getRole() == com.dppsmart.dppsmart.User.Entities.Roles.EMPLOYEE) {
+            com.dppsmart.dppsmart.Employee.Entities.Employees emp =
+                employeesRepository.findById(user.getId())
+                    .or(() -> employeesRepository.findByEmail(user.getEmail()))
+                    .orElse(null);
+            if (emp != null) {
+                response.setEmployeeId(emp.getId());
+                response.setEmployeeCode(emp.getEmployeeCode());
+                response.setDepartmentId(emp.getDepartmentId());
+                response.setDepartmentName(emp.getDepartmentName());
+                if (emp.getFullName() != null) response.setFullName(emp.getFullName());
+            }
+        }
+
+        return response;
     }
 }

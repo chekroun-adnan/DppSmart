@@ -39,14 +39,25 @@ import SupplyChainPage from "./pages/SupplyChainPage";
 import PredictiveAnalyticsPage from "./pages/PredictiveAnalyticsPage";
 import ReorderPage from "./pages/ReorderPage";
 import AllocationReviewPage from "./pages/AllocationReviewPage";
-import OrderWorkflowPage from "./pages/OrderWorkflowPage";
 import SecuritySessionPage from "./pages/SecuritySessionPage";
+import EmployeeDashboardPage from "./pages/EmployeeDashboardPage";
+import MyTasksPage from "./pages/MyTasksPage";
+import MyAttendancePage from "./pages/MyAttendancePage";
+import MyLeavesPage from "./pages/MyLeavesPage";
+import MyProfilePage from "./pages/MyProfilePage";
 import { isAuthenticated } from "./services/authService";
 import ChatbotWidget from "./components/ChatbotWidget";
 import { NotificationProvider } from "./context/NotificationContext";
 
+function roleHome() {
+  const role = (localStorage.getItem("userRole") || "").toUpperCase();
+  if (role === "CLIENT") return "/client-orders";
+  if (role === "EMPLOYEE") return "/employee-dashboard";
+  return "/dashboard";
+}
+
 function PublicRoute({ children }) {
-  return isAuthenticated() ? <Navigate to="/dashboard" replace /> : children;
+  return isAuthenticated() ? <Navigate to={roleHome()} replace /> : children;
 }
 
 function PrivateRoute({ children }) {
@@ -57,6 +68,13 @@ function NonClientRoute({ children }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const role = (localStorage.getItem("userRole") || "").toUpperCase();
   return role === "CLIENT" ? <Navigate to="/client-orders" replace /> : children;
+}
+
+function EmployeeRoute({ children }) {
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  const role = (localStorage.getItem("userRole") || "").toUpperCase();
+  if (role !== "EMPLOYEE") return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 function LandingPage() {
@@ -122,6 +140,9 @@ function App() {
         <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
         <Route path="/client-orders" element={<PrivateRoute><ClientOrdersPage /></PrivateRoute>} />
         <Route path="/employees" element={<PrivateRoute><EmployeesPage /></PrivateRoute>} />
+        <Route path="/workforce"  element={<Navigate to="/employees?tab=workforce"  replace />} />
+        <Route path="/attendance" element={<Navigate to="/employees?tab=attendance" replace />} />
+        <Route path="/leaves"     element={<Navigate to="/employees?tab=leaves"     replace />} />
         <Route path="/production" element={<PrivateRoute><ProductionPage /></PrivateRoute>} />
         <Route path="/stock" element={<PrivateRoute><StockPage /></PrivateRoute>} />
         <Route path="/organizations" element={<PrivateRoute><OrganizationsPage /></PrivateRoute>} />
@@ -140,9 +161,16 @@ function App() {
         <Route path="/predictive-analytics" element={<PrivateRoute><PredictiveAnalyticsPage /></PrivateRoute>} />
         <Route path="/reorder" element={<PrivateRoute><ReorderPage /></PrivateRoute>} />
         <Route path="/allocation-review" element={<NonClientRoute><AllocationReviewPage /></NonClientRoute>} />
-        <Route path="/order-workflow" element={<NonClientRoute><OrderWorkflowPage /></NonClientRoute>} />
+
         <Route path="/security" element={<NonClientRoute><SecuritySessionPage /></NonClientRoute>} />
         <Route path="/oauth2/callback" element={<OAuth2CallbackPage />} />
+
+        {/* Employee-only routes */}
+        <Route path="/employee-dashboard" element={<EmployeeRoute><EmployeeDashboardPage /></EmployeeRoute>} />
+        <Route path="/my-tasks"      element={<EmployeeRoute><MyTasksPage /></EmployeeRoute>} />
+        <Route path="/my-attendance" element={<EmployeeRoute><MyAttendancePage /></EmployeeRoute>} />
+        <Route path="/my-leaves"     element={<EmployeeRoute><MyLeavesPage /></EmployeeRoute>} />
+        <Route path="/my-profile"    element={<EmployeeRoute><MyProfilePage /></EmployeeRoute>} />
       </Routes>
       <ChatbotWidget />
       </RtlProvider>

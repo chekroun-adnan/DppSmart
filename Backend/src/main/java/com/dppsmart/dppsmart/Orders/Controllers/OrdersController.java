@@ -4,7 +4,9 @@ import com.dppsmart.dppsmart.Orders.DTO.*;
 import com.dppsmart.dppsmart.Orders.DTO.OrderAvailabilityCheckDTO;
 import com.dppsmart.dppsmart.Orders.DTO.OrderProcessResultDTO;
 import com.dppsmart.dppsmart.Orders.Services.OrdersService;
-import com.dppsmart.dppsmart.Orders.Services.OrderWorkflowService;
+import com.dppsmart.dppsmart.TechnicalSheet.DTO.TechnicalSheetIssue;
+import com.dppsmart.dppsmart.TechnicalSheet.DTO.TechnicalSheetValidationResult;
+import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetValidationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +23,7 @@ import java.util.Map;
 public class OrdersController {
 
     private final OrdersService ordersService;
-    private final OrderWorkflowService orderWorkflowService;
+    private final TechnicalSheetValidationService validationService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
@@ -63,7 +65,14 @@ public class OrdersController {
 
     @PostMapping("/{id}/start-production")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> startProduction(@PathVariable String id) {
+    public ResponseEntity<?> startProduction(@PathVariable String id) {
+        TechnicalSheetValidationResult validation = validationService.validateOrderTechnicalSheets(id);
+        if (!validation.isValid()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Technical sheet validation failed",
+                    "validation", validation
+            ));
+        }
         return ResponseEntity.ok(ordersService.startProduction(id));
     }
 
@@ -81,16 +90,30 @@ public class OrdersController {
 
     @PostMapping("/{id}/start-production-v2")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> startProductionV2(@PathVariable String id) {
+    public ResponseEntity<?> startProductionV2(@PathVariable String id) {
+        TechnicalSheetValidationResult validation = validationService.validateOrderTechnicalSheets(id);
+        if (!validation.isValid()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Technical sheet validation failed",
+                    "validation", validation
+            ));
+        }
         return ResponseEntity.ok(ordersService.startProductionWithMaterials(id));
     }
 
     @PostMapping("/bulk/start-production")
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
     public ResponseEntity<Map<String, Object>> bulkStartProduction(@RequestBody List<String> orderIds) {
+        List<TechnicalSheetValidationResult> validations = validationService.validateOrdersTechnicalSheets(orderIds);
         List<Map<String, Object>> results = new ArrayList<>();
         int successCount = 0;
-        for (String id : orderIds) {
+        for (int i = 0; i < orderIds.size(); i++) {
+            String id = orderIds.get(i);
+            TechnicalSheetValidationResult val = validations.get(i);
+            if (!val.isValid()) {
+                results.add(Map.of("orderId", id, "success", false, "error", "Technical sheet validation failed", "validation", val));
+                continue;
+            }
             try {
                 OrderResponseDto dto = ordersService.startProductionWithMaterials(id);
                 successCount++;
@@ -173,76 +196,6 @@ public class OrdersController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{id}/workflow/confirm")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowConfirm(
-            @PathVariable String id,
-            @RequestBody ConfirmWorkflowDto dto) {
-        return ResponseEntity.ok(orderWorkflowService.confirmOrder(
-                id, dto.getConfirmedDeliveryDate(), dto.getPriority(), dto.getAdminMessage()));
-    }
 
-    @PostMapping("/{id}/workflow/set-priority")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowSetPriority(
-            @PathVariable String id,
-            @RequestBody @Valid SetPriorityDto dto) {
-        return ResponseEntity.ok(orderWorkflowService.setPriority(id, dto.getPriority()));
-    }
-
-    @PostMapping("/{id}/workflow/request-delivery-date")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowRequestDeliveryDate(
-            @PathVariable String id,
-            @RequestBody @Valid RequestDeliveryDateDto dto) {
-        return ResponseEntity.ok(orderWorkflowService.requestDeliveryDate(id, dto.getProposedDate(), dto.getMessage()));
-    }
-
-    @GetMapping("/{id}/workflow/check-stock")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<WorkflowStockCheckResult> workflowCheckStock(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.checkStock(id));
-    }
-
-    @GetMapping("/{id}/workflow/simulate")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<SimulationResult> workflowSimulate(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.simulate(id));
-    }
-
-    @PostMapping("/{id}/workflow/process")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderProcessResultDTO> workflowProcess(
-            @PathVariable String id,
-            @RequestBody(required = false) ConfirmWorkflowDto dto) {
-        java.time.LocalDate date = dto != null ? dto.getConfirmedDeliveryDate() : null;
-        return ResponseEntity.ok(orderWorkflowService.processOrderFull(id, date));
-    }
-
-    @PostMapping("/{id}/workflow/deliver")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowDeliver(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.deliverOrder(id));
-    }
-
-    @PostMapping("/workflow/complete-production/{productionId}")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> workflowCompleteProduction(@PathVariable String productionId) {
-        return ResponseEntity.ok(orderWorkflowService.completeProduction(productionId));
-    }
-
-    @PostMapping("/{id}/cancel-production")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<OrderResponseDto> cancelProduction(
-            @PathVariable String id,
-            @RequestBody @Valid CancelProductionDto dto) {
-        return ResponseEntity.ok(orderWorkflowService.cancelProduction(id, dto.getAction(), dto.getMessage()));
-    }
-
-    @GetMapping("/{id}/workflow/materials")
-    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
-    public ResponseEntity<MaterialsBreakdownResult> workflowMaterials(@PathVariable String id) {
-        return ResponseEntity.ok(orderWorkflowService.getMaterialsBreakdown(id));
-    }
 
 }

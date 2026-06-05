@@ -11,47 +11,57 @@ import {
   Users, Building2, CheckSquare, FileText, Truck, QrCode,
   ShieldCheck, UserCog, ScrollText, Settings, BarChart2,
   ChevronLeft, Sun, Moon, LogOut, SlidersHorizontal,
-  Menu, Brain, ShoppingCart, RefreshCw, Layers, Shield,
+  Menu, Brain, ShoppingCart, RefreshCw, Shield,
+  CalendarDays, Plane, UserCircle,
 } from "lucide-react";
 
 const NAV_GROUPS = [
   {
     groupLabel: "Overview",
     items: [
-      { key: "dashboard",  path: "/dashboard",  roles: ["ADMIN","SUBADMIN","EMPLOYEE"], Icon: LayoutDashboard },
-      { key: "analytics",  path: "/analytics",  roles: ["ADMIN","SUBADMIN"],            Icon: BarChart2 },
-      { key: "predictiveAnalytics", path: "/predictive-analytics", roles: ["ADMIN","SUBADMIN"], Icon: Brain },
+      { key: "dashboard",          path: "/dashboard",          roles: ["ADMIN","SUBADMIN"],            Icon: LayoutDashboard },
+      { key: "employeeDashboard",  path: "/employee-dashboard", roles: ["EMPLOYEE"],                    Icon: LayoutDashboard },
+      { key: "analytics",          path: "/analytics",          roles: ["ADMIN","SUBADMIN"],            Icon: BarChart2 },
+      { key: "predictiveAnalytics",path: "/predictive-analytics",roles: ["ADMIN","SUBADMIN"],           Icon: Brain },
     ],
   },
   {
     groupLabel: "Operations",
     items: [
-      { key: "production",    path: "/production",         roles: ["ADMIN","SUBADMIN"], Icon: Factory },
-      { key: "orders",       path: "/orders",             roles: ["ADMIN","SUBADMIN"], Icon: ClipboardList },
-      { key: "orderWorkflow", path: "/order-workflow",    roles: ["ADMIN","SUBADMIN"], Icon: Layers },
-      { key: "clientOrders", path: "/client-orders", roles: ["CLIENT"],                     Icon: ShoppingCart },
-      { key: "reorder",      path: "/reorder",       roles: ["CLIENT"],                     Icon: RefreshCw },
-      { key: "stock",       path: "/stock",         roles: ["ADMIN","SUBADMIN"], Icon: Archive },
-      { key: "tasks",       path: "/tasks",         roles: ["ADMIN","SUBADMIN","EMPLOYEE"], Icon: CheckSquare },
-      { key: "supplyChain", path: "/supply-chain",  roles: ["ADMIN","SUBADMIN"], Icon: Truck },
+      { key: "production",    path: "/production",    roles: ["ADMIN","SUBADMIN"], Icon: Factory },
+      { key: "orders",        path: "/orders",        roles: ["ADMIN","SUBADMIN"], Icon: ClipboardList },
+      { key: "clientOrders",  path: "/client-orders", roles: ["CLIENT"],           Icon: ShoppingCart },
+      { key: "reorder",       path: "/reorder",       roles: ["CLIENT"],           Icon: RefreshCw },
+      { key: "stock",         path: "/stock",         roles: ["ADMIN","SUBADMIN"], Icon: Archive },
+      { key: "tasks",         path: "/tasks",         roles: ["ADMIN","SUBADMIN"], Icon: CheckSquare },
+      { key: "myTasks",       path: "/my-tasks",      roles: ["EMPLOYEE"],         Icon: CheckSquare },
+      { key: "supplyChain",   path: "/supply-chain",  roles: ["ADMIN","SUBADMIN"], Icon: Truck },
     ],
   },
   {
     groupLabel: "Products & DPP",
     items: [
-      { key: "products",        path: "/products",         roles: ["ADMIN","SUBADMIN","EMPLOYEE","CLIENT"], Icon: Package },
-      { key: "technicalSheets", path: "/technical-sheets", roles: ["ADMIN","SUBADMIN"], Icon: FileText },
-      { key: "scans",           path: "/scans",            roles: ["ADMIN","SUBADMIN"], Icon: QrCode },
+      { key: "products",        path: "/products",         roles: ["ADMIN","SUBADMIN","CLIENT"], Icon: Package },
+      { key: "technicalSheets", path: "/technical-sheets", roles: ["ADMIN","SUBADMIN"],          Icon: FileText },
+      { key: "scans",           path: "/scans",            roles: ["ADMIN","SUBADMIN"],          Icon: QrCode },
     ],
   },
   {
     groupLabel: "Management",
     items: [
-      { key: "employees",     path: "/employees",    roles: ["ADMIN","SUBADMIN"], Icon: Users },
-      { key: "organizations", path: "/organizations",roles: ["ADMIN","SUBADMIN"], Icon: Building2 },
-      { key: "qualityControl",path: "/quality-control", roles: ["ADMIN","SUBADMIN"], Icon: ShieldCheck },
-      { key: "users",         path: "/admin/users",  roles: ["ADMIN"],            Icon: UserCog },
-      { key: "auditLog",      path: "/audit-log",    roles: ["ADMIN","SUBADMIN"], Icon: ScrollText },
+      { key: "employees",     path: "/employees",      roles: ["ADMIN","SUBADMIN"], Icon: Users },
+      { key: "organizations", path: "/organizations",  roles: ["ADMIN","SUBADMIN"], Icon: Building2 },
+      { key: "qualityControl",path: "/quality-control",roles: ["ADMIN","SUBADMIN"], Icon: ShieldCheck },
+      { key: "users",         path: "/admin/users",    roles: ["ADMIN"],            Icon: UserCog },
+      { key: "auditLog",      path: "/audit-log",      roles: ["ADMIN","SUBADMIN"], Icon: ScrollText },
+    ],
+  },
+  {
+    groupLabel: "My Workspace",
+    items: [
+      { key: "myAttendance", path: "/my-attendance", roles: ["EMPLOYEE"], Icon: CalendarDays },
+      { key: "myLeaves",     path: "/my-leaves",     roles: ["EMPLOYEE"], Icon: Plane },
+      { key: "myProfile",    path: "/my-profile",    roles: ["EMPLOYEE"], Icon: UserCircle },
     ],
   },
   {
@@ -64,16 +74,21 @@ const NAV_GROUPS = [
 ];
 
 function NavLabel({ navKey, t }) {
-  if (navKey === "technicalSheets") return t("technicalSheets.title", "Technical Sheets");
-  if (navKey === "adminOrders")     return "Client Orders";
-  if (navKey === "clientOrders")   return "My Orders";
-  if (navKey === "supplyChain")     return "Supply Chain";
-  if (navKey === "qualityControl")  return "Quality Control";
-  if (navKey === "auditLog")        return "Audit Log";
-  if (navKey === "analytics")       return "Analytics";
+  if (navKey === "technicalSheets")     return t("technicalSheets.title", "Technical Sheets");
+  if (navKey === "adminOrders")         return "Client Orders";
+  if (navKey === "clientOrders")        return "My Orders";
+  if (navKey === "supplyChain")         return "Supply Chain";
+  if (navKey === "qualityControl")      return "Quality Control";
+  if (navKey === "auditLog")            return "Audit Log";
+  if (navKey === "analytics")           return "Analytics";
   if (navKey === "predictiveAnalytics") return "Predictive Analytics";
-  if (navKey === "reorder")       return "Reorder History";
-  if (navKey === "orderWorkflow") return "Order Workflow";
+  if (navKey === "reorder")             return "Reorder History";
+  if (navKey === "orderWorkflow")       return "Order Workflow";
+  if (navKey === "employeeDashboard")   return "Dashboard";
+  if (navKey === "myTasks")             return "My Tasks";
+  if (navKey === "myAttendance")        return "My Attendance";
+  if (navKey === "myLeaves")            return "My Leaves";
+  if (navKey === "myProfile")           return "My Profile";
   return t(`nav.${navKey}`, navKey);
 }
 

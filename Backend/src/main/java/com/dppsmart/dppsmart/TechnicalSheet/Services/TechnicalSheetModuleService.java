@@ -113,7 +113,7 @@ public class TechnicalSheetModuleService {
         }
 
         if (sheet.getProductId() != null) {
-            sheetRepository.findByProductIdAndStatus(sheet.getProductId(), TechnicalSheetStatus.ACTIVE)
+            sheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(sheet.getProductId(), TechnicalSheetStatus.ACTIVE)
                     .ifPresent(prev -> {
                         if (!prev.getId().equals(sheet.getId())) {
                             prev.setStatus(TechnicalSheetStatus.INACTIVE);
@@ -189,6 +189,27 @@ public class TechnicalSheetModuleService {
         }).collect(Collectors.toList());
         materialItemRepository.saveAll(copies);
 
+        List<OperationSheetItem> baseOpItems = operationItemRepository.findByTechnicalSheetIdOrderByStepOrderAsc(baseSheetId);
+        List<OperationSheetItem> opCopies = baseOpItems.stream().map(item -> {
+            OperationSheetItem copy = new OperationSheetItem();
+            copy.setId(NanoIdUtils.randomNanoId());
+            copy.setTechnicalSheetId(saved.getId());
+            copy.setOperationId(item.getOperationId());
+            copy.setOperationName(item.getOperationName());
+            copy.setUserId(item.getUserId());
+            copy.setStepOrder(item.getStepOrder());
+            copy.setDurationEstimate(item.getDurationEstimate());
+            copy.setNotes(item.getNotes());
+            copy.setInstructions(item.getInstructions());
+            copy.setQualityCheckRequired(item.getQualityCheckRequired());
+            copy.setCanRunInParallel(item.getCanRunInParallel());
+            copy.setOverrideDefaultDuration(item.getOverrideDefaultDuration());
+            copy.setOverrideExecutionCost(item.getOverrideExecutionCost());
+            copy.setAssignedDepartment(item.getAssignedDepartment());
+            return copy;
+        }).collect(Collectors.toList());
+        operationItemRepository.saveAll(opCopies);
+
         auditService.log("TechnicalSheet", saved.getId(), "NEW_VERSION", saved.getOrganizationId(), null,
                 "New version v" + nextVersion + " created from v" + base.getVersion());
         return TechnicalSheetModuleMapper.toDto(saved);
@@ -220,7 +241,7 @@ public class TechnicalSheetModuleService {
     }
 
     public Optional<TechnicalSheetResponseDto> getActiveSheetByProduct(String productId) {
-        return sheetRepository.findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE)
+        return sheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE)
                 .map(TechnicalSheetModuleMapper::toDto);
     }
 
@@ -250,7 +271,7 @@ public class TechnicalSheetModuleService {
     
 
     public BomCalculationResultDto calculateBom(String productId, int quantity, String organizationId) {
-        TechnicalSheet sheet = sheetRepository.findByProductIdAndStatus(productId, TechnicalSheetStatus.ACTIVE)
+        TechnicalSheet sheet = sheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE)
                 .orElseThrow(() -> new NotFoundException(
                         "No active Bill of Materials for product: " + productId
                                 + ". Please create and activate a technical sheet first."));
@@ -357,10 +378,17 @@ public class TechnicalSheetModuleService {
             item.setId(NanoIdUtils.randomNanoId());
             item.setTechnicalSheetId(sheetId);
             item.setOperationId(dto.getOperationId());
+            item.setOperationName(dto.getOperationName());
             item.setUserId(dto.getUserId());
             item.setStepOrder(dto.getStepOrder());
             item.setDurationEstimate(dto.getDurationEstimate());
             item.setNotes(dto.getNotes());
+            item.setInstructions(dto.getInstructions());
+            item.setQualityCheckRequired(dto.getQualityCheckRequired());
+            item.setCanRunInParallel(dto.getCanRunInParallel());
+            item.setOverrideDefaultDuration(dto.getOverrideDefaultDuration());
+            item.setOverrideExecutionCost(dto.getOverrideExecutionCost());
+            item.setAssignedDepartment(dto.getAssignedDepartment());
             return item;
         }).collect(Collectors.toList());
 
