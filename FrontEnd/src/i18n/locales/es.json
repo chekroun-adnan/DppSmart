@@ -423,5 +423,17 @@
     "referenceCode": "Código de referencia",
     "quantity": "Cantidad",
     "conditionStatus": "Estado de la condición"
+  },
+  "operations": {
+    "fabricPreparation": "Preparación de tela",
+    "cutting": "Corte",
+    "screenPrinting": "Serigrafía",
+    "embroidery": "Bordado",
+    "sewing": "Costura",
+    "qualityControl": "Control de calidad",
+    "ironing": "Planchado",
+    "packaging": "Empaque",
+    "finishedStock": "Stock terminado",
+    "delivery": "Entrega"
   }
 }

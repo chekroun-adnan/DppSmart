@@ -423,5 +423,17 @@
     "referenceCode": "参考编号",
     "quantity": "数量",
     "conditionStatus": "状态情况"
+  },
+  "operations": {
+    "fabricPreparation": "面料准备",
+    "cutting": "裁剪",
+    "screenPrinting": "丝网印刷",
+    "embroidery": "刺绣",
+    "sewing": "缝纫",
+    "qualityControl": "质量控制",
+    "ironing": "熨烫",
+    "packaging": "包装",
+    "finishedStock": "成品库存",
+    "delivery": "配送"
   }
 }

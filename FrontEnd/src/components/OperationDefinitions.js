@@ -40,6 +40,19 @@ const OPERATION_NAMES = [
   "Delivery",
 ];
 
+const OPERATION_KEYS = {
+  "Fabric Preparation": "operations.fabricPreparation",
+  "Cutting": "operations.cutting",
+  "Screen Printing": "operations.screenPrinting",
+  "Embroidery": "operations.embroidery",
+  "Sewing": "operations.sewing",
+  "Quality Control": "operations.qualityControl",
+  "Ironing": "operations.ironing",
+  "Packaging": "operations.packaging",
+  "Finished Stock": "operations.finishedStock",
+  "Delivery": "operations.delivery",
+};
+
 const DURATION_UNITS = ["MINUTES", "HOURS", "DAYS"];
 
 const INPUT =
@@ -226,7 +239,7 @@ export default function OperationDefinitions() {
         <FieldGroup label="Operation Name *">
           <select className={SELECT} value={draft.name} onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}>
             <option value="">— Select operation —</option>
-            {OPERATION_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
+            {OPERATION_NAMES.map((n) => <option key={n} value={n}>{t(OPERATION_KEYS[n])}</option>)}
           </select>
         </FieldGroup>
         <FieldGroup label="Organization *">
@@ -311,7 +324,7 @@ export default function OperationDefinitions() {
                     <tr key={op.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => openView(op)}>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{op.name || "—"}</p>
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : (op.name || "—")}</p>
                           {op.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{op.description}</p>}
                         </div>
                       </td>
@@ -350,7 +363,7 @@ export default function OperationDefinitions() {
                 <div key={op.id} className="p-4 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onClick={() => openView(op)}>
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{op.name}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</p>
                       {op.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{op.description}</p>}
                     </div>
                     <ActiveBadge active={op.active} />
@@ -415,7 +428,7 @@ export default function OperationDefinitions() {
         <div className="fixed inset-0 z-[80] flex justify-end bg-slate-900/50 dark:bg-black/70 backdrop-blur-[2px] animate-fade-in" onClick={() => setViewingOp(null)}>
           <div className="w-full max-w-md bg-white dark:bg-slate-800 shadow-2xl h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-white/[0.06] px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{viewingOp.name}</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{OPERATION_KEYS[viewingOp.name] ? t(OPERATION_KEYS[viewingOp.name]) : viewingOp.name}</h2>
               <button type="button" onClick={() => setViewingOp(null)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -427,7 +440,7 @@ export default function OperationDefinitions() {
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 space-y-1">
-                <DetailRow label="Name" value={viewingOp.name} />
+                <DetailRow label="Name" value={OPERATION_KEYS[viewingOp.name] ? t(OPERATION_KEYS[viewingOp.name]) : viewingOp.name} />
                 <DetailRow label="Description" value={viewingOp.description} />
                 <DetailRow label="Organization" value={orgName(viewingOp.organizationId)} />
               </div>

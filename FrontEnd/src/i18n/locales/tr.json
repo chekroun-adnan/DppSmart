@@ -423,5 +423,17 @@
     "referenceCode": "Referans Kodu",
     "quantity": "Miktar",
     "conditionStatus": "Durum Durumu"
+  },
+  "operations": {
+    "fabricPreparation": "Kumaş Hazırlık",
+    "cutting": "Kesim",
+    "screenPrinting": "Serigrafi",
+    "embroidery": "Nakış",
+    "sewing": "Dikiş",
+    "qualityControl": "Kalite Kontrol",
+    "ironing": "Ütüleme",
+    "packaging": "Paketleme",
+    "finishedStock": "Bitmiş Stok",
+    "delivery": "Teslimat"
   }
 }

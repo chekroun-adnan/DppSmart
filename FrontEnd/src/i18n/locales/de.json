@@ -423,5 +423,17 @@
     "referenceCode": "Referenzcode",
     "quantity": "Menge",
     "conditionStatus": "Zustandsstatus"
+  },
+  "operations": {
+    "fabricPreparation": "Stoffvorbereitung",
+    "cutting": "Zuschnitt",
+    "screenPrinting": "Siebdruck",
+    "embroidery": "Stickerei",
+    "sewing": "Nähen",
+    "qualityControl": "Qualitätskontrolle",
+    "ironing": "Bügeln",
+    "packaging": "Verpackung",
+    "finishedStock": "Fertigwarenlager",
+    "delivery": "Lieferung"
   }
 }

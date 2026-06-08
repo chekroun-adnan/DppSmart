@@ -1,11 +1,25 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { createTsOperation } from "../services/authService";
 
 const PREDEFINED_OPERATIONS = [
   "Fabric Preparation", "Cutting", "Screen Printing", "Embroidery",
   "Sewing", "Quality Control", "Ironing", "Packaging", "Finished Stock", "Delivery"
 ];
+
+const OPERATION_KEYS = {
+  "Fabric Preparation": "operations.fabricPreparation",
+  "Cutting": "operations.cutting",
+  "Screen Printing": "operations.screenPrinting",
+  "Embroidery": "operations.embroidery",
+  "Sewing": "operations.sewing",
+  "Quality Control": "operations.qualityControl",
+  "Ironing": "operations.ironing",
+  "Packaging": "operations.packaging",
+  "Finished Stock": "operations.finishedStock",
+  "Delivery": "operations.delivery",
+};
 
 function Badge({ label, color = "blue" }) {
   const colors = {
@@ -92,6 +106,7 @@ export default function OperationSheetPanel({
   orgId,
   onRefreshOperations,
 }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
@@ -302,7 +317,7 @@ export default function OperationSheetPanel({
                     {item.stepOrder}
                   </div>
                   <div className="mt-1 text-center max-w-[100px]">
-                    <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{item.operationName}</p>
+                    <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">{OPERATION_KEYS[item.operationName] ? t(OPERATION_KEYS[item.operationName]) : item.operationName}</p>
                     {item.durationEstimate && (
                       <p className="text-[9px] text-slate-400">{item.durationEstimate} min/pc</p>
                     )}
@@ -365,7 +380,7 @@ export default function OperationSheetPanel({
                     </div>
                   </td>
                   <td className="px-3 py-2">
-                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.operationName}</span>
+                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{OPERATION_KEYS[item.operationName] ? t(OPERATION_KEYS[item.operationName]) : item.operationName}</span>
                   </td>
                   <td className="px-3 py-2">
                               <Input
@@ -453,7 +468,7 @@ export default function OperationSheetPanel({
                 {item.stepOrder}
               </span>
             </div>
-            <span className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{item.operationName}</span>
+            <span className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[item.operationName] ? t(OPERATION_KEYS[item.operationName]) : item.operationName}</span>
             <IconButton onClick={() => removeItem(idx)} title="Remove" className="hover:text-red-500">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -585,10 +600,11 @@ export default function OperationSheetPanel({
                     <Select value={newOp.name} onChange={e => setNewOp(p => ({ ...p, name: e.target.value }))}>
                       <option value="">— Select a predefined step —</option>
                       {PREDEFINED_OPERATIONS.map(n => (
-                        <option key={n} value={n}>{n}</option>
+                        <option key={n} value={n}>{t(OPERATION_KEYS[n])}</option>
                       ))}
                     </Select>
                   </FieldGroup>
+
                   <FieldGroup label="Description">
                     <Input
                       value={newOp.description}
@@ -688,7 +704,7 @@ export default function OperationSheetPanel({
                             <span className={`text-[11px] font-semibold leading-tight ${
                               alreadyAdded ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-200"
                             }`}>
-                              {name}
+                              {t(OPERATION_KEYS[name])}
                             </span>
                             {alreadyAdded && (
                               <span className="text-[9px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">Added</span>
@@ -731,7 +747,7 @@ export default function OperationSheetPanel({
                             }`}
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{op.name}</p>
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</p>
                               {(op.description || op.defaultDuration) && (
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                   {op.description ? `${op.description} · ` : ""}
@@ -783,7 +799,7 @@ export default function OperationSheetPanel({
                 <Select value={newOp.name} onChange={e => setNewOp(p => ({ ...p, name: e.target.value }))}>
                   <option value="">— Select or type —</option>
                   {PREDEFINED_OPERATIONS.map(n => (
-                    <option key={n} value={n}>{n}</option>
+                    <option key={n} value={n}>{t(OPERATION_KEYS[n])}</option>
                   ))}
                 </Select>
               </FieldGroup>

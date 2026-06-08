@@ -423,5 +423,17 @@
     "referenceCode": "رمز المرجع",
     "quantity": "الكمية",
     "conditionStatus": "حالة الشرط"
+  },
+  "operations": {
+    "fabricPreparation": "تجهيز القماش",
+    "cutting": "قص",
+    "screenPrinting": "طباعة الشاشة",
+    "embroidery": "تطريز",
+    "sewing": "خياطة",
+    "qualityControl": "مراقبة الجودة",
+    "ironing": "كي",
+    "packaging": "تغليف",
+    "finishedStock": "مخزون جاهز",
+    "delivery": "توصيل"
   }
 }

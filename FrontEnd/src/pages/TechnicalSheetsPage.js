@@ -15,6 +15,19 @@ import {
 import AuditHistoryModal from "../components/AuditHistoryModal";
 import OperationSheetPanel from "../components/OperationSheetPanel";
 
+const OPERATION_KEYS = {
+  "Fabric Preparation": "operations.fabricPreparation",
+  "Cutting": "operations.cutting",
+  "Screen Printing": "operations.screenPrinting",
+  "Embroidery": "operations.embroidery",
+  "Sewing": "operations.sewing",
+  "Quality Control": "operations.qualityControl",
+  "Ironing": "operations.ironing",
+  "Packaging": "operations.packaging",
+  "Finished Stock": "operations.finishedStock",
+  "Delivery": "operations.delivery",
+};
+
 const ROLE = () => (localStorage.getItem("userRole") || "").toUpperCase();
 const canEdit = () => ["ADMIN", "SUBADMIN"].includes(ROLE());
 
@@ -1333,7 +1346,7 @@ export default function TechnicalSheetsPage() {
                               <span className={`text-[10px] font-semibold leading-tight ${
                                 alreadyAdded ? "text-emerald-700 dark:text-emerald-300" : "text-slate-700 dark:text-slate-200"
                               }`}>
-                                {name}
+                                {t(OPERATION_KEYS[name])}
                               </span>
                             </button>
                           );
@@ -1407,7 +1420,7 @@ export default function TechnicalSheetsPage() {
                               <div className="flex-1 grid grid-cols-2 gap-2">
                                 <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
                                   <option value="">{t("technicalSheets.selectOperation")}</option>
-                                  {operations.map(op => <option key={op.id} value={op.id}>{op.name}</option>)}
+                                  {operations.map(op => <option key={op.id} value={op.id}>{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</option>)}
                                 </Select>
                                 <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder="Duration / unit (min)" />
                               </div>
@@ -1735,7 +1748,7 @@ export default function TechnicalSheetsPage() {
                         ) : (
                           <>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{op.name}</p>
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</p>
                               <p className="text-xs text-slate-500 dark:text-slate-400">
                                 {op.description || "—"}
                                 {op.defaultDuration ? ` · ${op.defaultDuration} min` : ""}

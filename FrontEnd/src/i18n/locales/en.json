@@ -462,5 +462,17 @@
     "referenceCode": "Reference Code",
     "quantity": "Quantity",
     "conditionStatus": "Condition Status"
+  },
+  "operations": {
+    "fabricPreparation": "Fabric Preparation",
+    "cutting": "Cutting",
+    "screenPrinting": "Screen Printing",
+    "embroidery": "Embroidery",
+    "sewing": "Sewing",
+    "qualityControl": "Quality Control",
+    "ironing": "Ironing",
+    "packaging": "Packaging",
+    "finishedStock": "Finished Stock",
+    "delivery": "Delivery"
   }
 }

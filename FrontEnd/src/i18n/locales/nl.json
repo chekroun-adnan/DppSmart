@@ -423,5 +423,17 @@
     "referenceCode": "Referentiecode",
     "quantity": "Hoeveelheid",
     "conditionStatus": "Conditiestatus"
+  },
+  "operations": {
+    "fabricPreparation": "Stofvoorbereiding",
+    "cutting": "Knippen",
+    "screenPrinting": "Zeefdrukken",
+    "embroidery": "Borduren",
+    "sewing": "Naaiwerk",
+    "qualityControl": "Kwaliteitscontrole",
+    "ironing": "Strijken",
+    "packaging": "Verpakking",
+    "finishedStock": "Afgewerkt voorraad",
+    "delivery": "Levering"
   }
 }
