@@ -40,6 +40,7 @@ import com.dppsmart.dppsmart.TechnicalSheet.Entities.Operation;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.OperationSheetItem;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheet;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetType;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationSheetItemRepository;
@@ -248,7 +249,7 @@ public class ProductionService {
                 .map(p -> p.getProductName()).orElse(production.getProductId());
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findFirstByProductIdAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
 
         if (sheetOpt.isEmpty()) {
             return ProductionMaterialConsumptionDto.builder()
@@ -479,7 +480,7 @@ public class ProductionService {
     }
 
     private void consumeMaterialsFromBom(Production production, User user, Product product) {
-        technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetStatus.ACTIVE)
+        technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(production.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
                 .ifPresentOrElse(sheet -> {
                     List<MaterialSheetItem> items = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                     StringBuilder auditDetails = new StringBuilder("Materials consumed: ");
@@ -607,7 +608,7 @@ public class ProductionService {
 
     private List<ProductionStep> generateStepsFromOperationSheet(String productId, int quantity, List<ProductionStep> fallbackSteps) {
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(productId, TechnicalSheetType.OPERATION_SHEET, TechnicalSheetStatus.ACTIVE);
         if (sheetOpt.isEmpty()) {
             if (fallbackSteps != null && !fallbackSteps.isEmpty()) {
                 for (int i = 0; i < fallbackSteps.size(); i++) {
@@ -649,12 +650,11 @@ public class ProductionService {
                     : (op != null ? op.getDefaultDuration() : null);
             String durUnit = op != null && op.getDurationUnit() != null
                     ? op.getDurationUnit() : "MINUTES";
-            Double costPerUnit = oi.getOverrideExecutionCost() != null
-                    ? oi.getOverrideExecutionCost()
-                    : (op != null ? op.getExecutionCost() : null);
+            Double costPerMinute = op != null && op.getCostPerMinute() != null ? op.getCostPerMinute() : 0.0;
 
             double totalDur = durPerUnit != null ? durPerUnit * quantity : 0;
-            double totalCost = costPerUnit != null ? costPerUnit * quantity : 0;
+            double costPerUnitVal = (durPerUnit != null ? durPerUnit : 0) * (costPerMinute != null ? costPerMinute : 0);
+            double totalCost = costPerUnitVal * quantity;
 
             ProductionStep step = ProductionStep.builder()
                     .stepName(oi.getOperationName() != null ? oi.getOperationName() : "Step " + (i + 1))
@@ -668,7 +668,7 @@ public class ProductionService {
                     .durationUnit(durUnit)
                     .orderQuantity(quantity)
                     .totalDuration(totalDur)
-                    .executionCostPerUnit(costPerUnit)
+                    .executionCostPerUnit(costPerUnitVal)
                     .totalExecutionCost(totalCost)
                     .build();
             generated.add(step);

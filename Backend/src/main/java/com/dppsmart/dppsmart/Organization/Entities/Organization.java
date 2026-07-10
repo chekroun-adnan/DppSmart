@@ -25,4 +25,19 @@ public class Organization {
     private List<MaterialStock> materialStocks;
     private List<ProductStock> productStocks;
     private List<String> subOrganizationIds;
+
+    private String address;
+    private String city;
+    private String country;
+    private String vatNumber;
+    private String registrationNumber;
+    private String currency;
+    private String invoicePrefix;
+    private String quotePrefix;
+
+    private String bankName;
+    private String accountHolder;
+    private String accountNumber;
+    private String iban;
+    private String swiftCode;
 }

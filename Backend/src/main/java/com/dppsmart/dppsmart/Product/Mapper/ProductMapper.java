@@ -22,6 +22,8 @@ public class ProductMapper {
         product.setEndOfLifeInstructions(dto.getEndOfLifeInstructions());
         product.setExtraFields(dto.getExtraFields());
         product.setOrganizationId(dto.getOrganizationId());
+        product.setDefaultUnitPrice(dto.getDefaultUnitPrice());
+        product.setCurrency(dto.getCurrency());
         return product;
     }
 
@@ -42,6 +44,8 @@ public class ProductMapper {
         dto.setQrUrl(p.getQrUrl());
         dto.setDppUrl(p.getDppUrl());
         dto.setOrganizationId(p.getOrganizationId());
+        dto.setDefaultUnitPrice(p.getDefaultUnitPrice());
+        dto.setCurrency(p.getCurrency());
         return dto;
     }
 }

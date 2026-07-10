@@ -2,24 +2,46 @@ package com.dppsmart.dppsmart.Task.DTO;
 
 import com.dppsmart.dppsmart.Task.Entities.TaskPriority;
 import com.dppsmart.dppsmart.Task.Entities.TaskStatus;
-import jakarta.validation.constraints.NotBlank;
+import com.dppsmart.dppsmart.Task.Entities.TaskType;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 public class UpdateTaskDto {
 
-    @NotBlank(message = "id is required")
     private String id;
 
     private String title;
     private String description;
-    private String organizationId;
-    private List<String> assignedEmployeeIds;
-    private TaskStatus status;
+
+    private TaskType taskType;
     private TaskPriority priority;
-    private Integer progress;
-    private LocalDateTime dueDate;
+    private TaskStatus status;
+
+    private String assignedEmployeeId;
+    private String assignedEmployeeName;
+    private String assignedDepartmentId;
+    private String assignedDepartmentName;
+
+    private String orderId;
+    private String orderReference;
+    private String productionOrderId;
+    private String operationId;
+    private String operationName;
+
+    private LocalDateTime plannedStart;
+    private LocalDateTime plannedEnd;
+
+    private Integer completionPercentage;
+
+    private Integer requiredQuantity;
+    private Integer completedQuantity;
+
+    private Integer estimatedDurationMinutes;
+    private Integer actualDurationMinutes;
+
+    private Integer delayMinutes;
+
+    private String notes;
 }

@@ -12,6 +12,7 @@ import com.dppsmart.dppsmart.Product.Entities.Product;
 import com.dppsmart.dppsmart.Product.Mapper.ProductMapper;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
 import com.dppsmart.dppsmart.Ai.Services.ProductAiScoringService;
+import com.dppsmart.dppsmart.Billing.Services.CostCalculationService;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Security.PermissionService;
@@ -24,6 +25,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,6 +49,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
+@Slf4j
 public class ProductService {
 
     @Autowired
@@ -66,6 +70,8 @@ public class ProductService {
     private AuditService auditService;
     @Autowired
     private NotificationServiceImpl notificationService;
+    @Autowired
+    private CostCalculationService costCalculationService;
     private final Cloudinary cloudinary;
 
     @Value("${app.frontend.base-url:http://localhost:3000}")
@@ -74,6 +80,8 @@ public class ProductService {
     public ProductService(
             @Value("${cloudinary.cloud-name:}") String cloudName,
             @Value("${cloudinary.api-key:}") String apiKey,
+
+
             @Value("${cloudinary.api-secret:}") String apiSecret
     ) {
         if (cloudName == null || cloudName.isBlank() || apiKey == null || apiKey.isBlank() || apiSecret == null || apiSecret.isBlank()) {
@@ -317,6 +325,21 @@ public class ProductService {
         dto.setAiScore(score.getScore());
         dto.setAiMissingFields(score.getMissingFields());
         dto.setAiSummary(score.getSummary());
+
+        // Enrich with estimated cost-based price
+        if (product.getOrganizationId() != null) {
+            try {
+                var cost = costCalculationService.calculateEstimatedUnitPrice(
+                        product.getId(), product.getOrganizationId());
+                if (cost.hasMaterialSheet() || cost.hasOperationSheet()) {
+                    dto.setEstimatedUnitPrice(cost.estimatedUnitPrice() > 0 ? cost.estimatedUnitPrice() : null);
+                    dto.setEstimatedCurrency(cost.currency());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to calculate estimated price for product {}: {}", product.getId(), e.getMessage());
+            }
+        }
+
         return dto;
     }
 

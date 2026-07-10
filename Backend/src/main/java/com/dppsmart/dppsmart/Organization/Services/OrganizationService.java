@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -353,6 +354,42 @@ if (dto.getName() != null && !dto.getName().isBlank()) {
     public List<OrganizationResponseDto> getMyOrganizations() {
         User user = getCurrentUser();
         return resolveUserOrganizations(user).stream().map(OrganizationMapper::toDto).toList();
+    }
+
+
+    public Map<String, Object> getBankDetails(String organizationId) {
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found: " + organizationId));
+
+        Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("bankName", org.getBankName());
+        details.put("accountHolder", org.getAccountHolder());
+        details.put("accountNumber", org.getAccountNumber());
+        details.put("iban", org.getIban());
+        details.put("swiftCode", org.getSwiftCode());
+        return details;
+    }
+
+    public Map<String, Object> updateBankDetails(String organizationId, Map<String, String> bankDetails) {
+        Organization org = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("Organization not found: " + organizationId));
+
+        if (bankDetails.containsKey("bankName")) org.setBankName(bankDetails.get("bankName"));
+        if (bankDetails.containsKey("accountHolder")) org.setAccountHolder(bankDetails.get("accountHolder"));
+        if (bankDetails.containsKey("accountNumber")) org.setAccountNumber(bankDetails.get("accountNumber"));
+        if (bankDetails.containsKey("iban")) org.setIban(bankDetails.get("iban"));
+        if (bankDetails.containsKey("swiftCode")) org.setSwiftCode(bankDetails.get("swiftCode"));
+
+        organizationRepository.save(org);
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("bankName", org.getBankName());
+        result.put("accountHolder", org.getAccountHolder());
+        result.put("accountNumber", org.getAccountNumber());
+        result.put("iban", org.getIban());
+        result.put("swiftCode", org.getSwiftCode());
+        result.put("message", "Bank details updated successfully");
+        return result;
     }
 
     private List<Organization> resolveUserOrganizations(User user) {

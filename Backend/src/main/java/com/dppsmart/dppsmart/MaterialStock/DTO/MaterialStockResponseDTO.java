@@ -16,4 +16,7 @@ public class MaterialStockResponseDTO {
     private String organizationId;
     private String lastUpdatedBy;
     private LocalDateTime updatedAt;
+    private Double unitPrice;
+    private String costCurrency;
+    private String supplier;
 }

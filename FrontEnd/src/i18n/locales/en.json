@@ -464,6 +464,7 @@
     "conditionStatus": "Condition Status"
   },
   "operations": {
+    "title": "Operations Management",
     "fabricPreparation": "Fabric Preparation",
     "cutting": "Cutting",
     "screenPrinting": "Screen Printing",

@@ -10,6 +10,7 @@ import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
 import com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType;
 import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Security.PermissionService;
+import com.dppsmart.dppsmart.Billing.Services.CostCalculationService;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.*;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.*;
 import com.dppsmart.dppsmart.TechnicalSheet.Mapper.TechnicalSheetModuleMapper;
@@ -112,8 +113,9 @@ public class TechnicalSheetModuleService {
             throw new BadRequestException("Cannot activate an archived technical sheet.");
         }
 
-        if (sheet.getProductId() != null) {
-            sheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(sheet.getProductId(), TechnicalSheetStatus.ACTIVE)
+        if (sheet.getProductId() != null && sheet.getType() != null) {
+            sheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(
+                    sheet.getProductId(), sheet.getType(), TechnicalSheetStatus.ACTIVE)
                     .ifPresent(prev -> {
                         if (!prev.getId().equals(sheet.getId())) {
                             prev.setStatus(TechnicalSheetStatus.INACTIVE);
@@ -203,8 +205,6 @@ public class TechnicalSheetModuleService {
             copy.setInstructions(item.getInstructions());
             copy.setQualityCheckRequired(item.getQualityCheckRequired());
             copy.setCanRunInParallel(item.getCanRunInParallel());
-            copy.setOverrideDefaultDuration(item.getOverrideDefaultDuration());
-            copy.setOverrideExecutionCost(item.getOverrideExecutionCost());
             copy.setAssignedDepartment(item.getAssignedDepartment());
             return copy;
         }).collect(Collectors.toList());
@@ -271,7 +271,7 @@ public class TechnicalSheetModuleService {
     
 
     public BomCalculationResultDto calculateBom(String productId, int quantity, String organizationId) {
-        TechnicalSheet sheet = sheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE)
+        TechnicalSheet sheet = sheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(productId, TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
                 .orElseThrow(() -> new NotFoundException(
                         "No active Bill of Materials for product: " + productId
                                 + ". Please create and activate a technical sheet first."));
@@ -299,9 +299,19 @@ public class TechnicalSheetModuleService {
                     : (item.getMaterialName() != null ? item.getMaterialName() : "—");
             String unit = item.getUnit() != null ? item.getUnit()
                     : (stock != null ? stock.getUnit() : "");
+            Double stockPrice = stock != null && stock.getUnitPrice() != null ? stock.getUnitPrice() : 0.0;
 
-            lines.add(new BomMaterialLineDto(resolvedId, matName, unit, base,
-                    waste > 0 ? waste : null, required, available, missing, sufficient));
+            BomMaterialLineDto bomLine = new BomMaterialLineDto();
+            bomLine.setMaterialId(resolvedId);
+            bomLine.setMaterialName(matName);
+            bomLine.setUnit(unit);
+            bomLine.setQuantityPerUnit(base);
+            bomLine.setWastePercentage(waste > 0 ? waste : null);
+            bomLine.setRequiredQuantity(required);
+            bomLine.setAvailableQuantity(available);
+            bomLine.setMissingQuantity(missing);
+            bomLine.setSufficient(sufficient);
+            lines.add(bomLine);
         }
 
         return new BomCalculationResultDto(productId, sheet.getId(), sheet.getVersion(),
@@ -328,14 +338,24 @@ public class TechnicalSheetModuleService {
             item.setUnit(dto.getUnit());
             item.setWastePercentage(dto.getWastePercentage());
             item.setNotes(dto.getNotes());
-            if (dto.getMaterialId() != null) {
-                materialStockRepository.findById(dto.getMaterialId())
-                        .ifPresent(ms -> {
-                            item.setReferenceCode(ms.getReferenceCode());
-                            if (item.getMaterialName() == null || item.getMaterialName().isBlank()) {
+            item.setUnitPrice(dto.getUnitPrice());
+            item.setCostCurrency(dto.getCostCurrency() != null ? dto.getCostCurrency() : "MAD");
+            if (dto.getMaterialId() != null && !dto.getMaterialId().isBlank()) {
+                try {
+                    materialStockRepository.findById(dto.getMaterialId())
+                            .ifPresent(ms -> {
                                 item.setMaterialName(ms.getName());
-                            }
-                        });
+                                item.setReferenceCode(ms.getReferenceCode());
+                                if (item.getUnitPrice() == null) {
+                                    item.setUnitPrice(ms.getUnitPrice());
+                                }
+                                if (item.getCostCurrency() == null) {
+                                    item.setCostCurrency(ms.getCostCurrency() != null ? ms.getCostCurrency() : "MAD");
+                                }
+                            });
+                } catch (IllegalArgumentException e) {
+                    // Ignore invalid ObjectId format
+                }
             }
             if (item.getReferenceCode() == null && dto.getMaterialReference() != null) {
                 item.setReferenceCode(dto.getMaterialReference());
@@ -358,10 +378,14 @@ public class TechnicalSheetModuleService {
     private List<MaterialSheetItemDto> enrichMaterialItems(List<MaterialSheetItem> items) {
         return items.stream().map(i -> {
             MaterialStock m = resolveStock(i, null);
+            Double unitPrice = i.getUnitPrice() != null ? i.getUnitPrice() : (m != null && m.getUnitPrice() != null ? m.getUnitPrice() : 0.0);
+            String currency = i.getCostCurrency() != null ? i.getCostCurrency() : (m != null && m.getCostCurrency() != null ? m.getCostCurrency() : "MAD");
             return TechnicalSheetModuleMapper.toDto(i,
                     m != null ? m.getName() : (i.getMaterialName() != null ? i.getMaterialName() : "—"),
                     m != null ? m.getReferenceCode() : (i.getReferenceCode() != null ? i.getReferenceCode() : "—"),
-                    m != null ? m.getQuantity() : null);
+                    m != null ? m.getQuantity() : null,
+                    unitPrice,
+                    currency);
         }).toList();
     }
 
@@ -386,9 +410,20 @@ public class TechnicalSheetModuleService {
             item.setInstructions(dto.getInstructions());
             item.setQualityCheckRequired(dto.getQualityCheckRequired());
             item.setCanRunInParallel(dto.getCanRunInParallel());
-            item.setOverrideDefaultDuration(dto.getOverrideDefaultDuration());
-            item.setOverrideExecutionCost(dto.getOverrideExecutionCost());
             item.setAssignedDepartment(dto.getAssignedDepartment());
+            item.setCostPerMinute(dto.getCostPerMinute());
+            item.setCostCurrency(dto.getCostCurrency());
+            item.setExecutionCostPerUnit(dto.getExecutionCostPerUnit());
+            
+            if (dto.getOperationId() != null && !dto.getOperationId().isBlank()) {
+                try {
+                    operationRepository.findById(dto.getOperationId()).ifPresent(op -> {
+                        if (item.getCostPerMinute() == null) item.setCostPerMinute(op.getCostPerMinute());
+                        if (item.getCostCurrency() == null) item.setCostCurrency(op.getCostCurrency() != null ? op.getCostCurrency() : "MAD");
+                    });
+                } catch (IllegalArgumentException e) {
+                }
+            }
             return item;
         }).collect(Collectors.toList());
 
@@ -404,19 +439,50 @@ public class TechnicalSheetModuleService {
     }
 
     private List<OperationSheetItemDto> enrichOperationItems(List<OperationSheetItem> items) {
-        List<String> opIds   = items.stream().map(OperationSheetItem::getOperationId).distinct().toList();
-        List<String> userIds = items.stream().map(OperationSheetItem::getUserId).distinct().toList();
-        Map<String, Operation> opMap = operationRepository.findAllById(opIds).stream()
-                .collect(Collectors.toMap(Operation::getId, Function.identity()));
-        Map<String, User> userMap = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
+        List<String> opIds   = items.stream().map(OperationSheetItem::getOperationId).filter(id -> id != null && !id.isBlank()).distinct().toList();
+        List<String> userIds = items.stream().map(OperationSheetItem::getUserId).filter(id -> id != null && !id.isBlank()).distinct().toList();
+        
+        Map<String, Operation> tempOpMap = new java.util.HashMap<>();
+        try {
+            if (!opIds.isEmpty()) {
+                tempOpMap = operationRepository.findAllById(opIds).stream()
+                        .collect(Collectors.toMap(Operation::getId, Function.identity()));
+            }
+        } catch (IllegalArgumentException e) {}
+        final Map<String, Operation> opMap = tempOpMap;
+        
+        Map<String, User> tempUserMap = new java.util.HashMap<>();
+        try {
+            if (!userIds.isEmpty()) {
+                tempUserMap = userRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+            }
+        } catch (IllegalArgumentException e) {}
+        final Map<String, User> userMap = tempUserMap;
 
         return items.stream().map(i -> {
             Operation op = opMap.get(i.getOperationId());
             User u = userMap.get(i.getUserId());
+            Double costPerMinute = i.getCostPerMinute() != null ? i.getCostPerMinute() : (op != null ? op.getCostPerMinute() : null);
+            String currency = i.getCostCurrency() != null ? i.getCostCurrency() : (op != null && op.getCostCurrency() != null ? op.getCostCurrency() : "MAD");
+            Double executionCostPerUnit = i.getExecutionCostPerUnit() != null ? i.getExecutionCostPerUnit() : (op != null ? op.getExecutionCost() : null);
+
+            Double defaultDuration = null;
+            if (op != null) {
+                defaultDuration = op.getDefaultDuration();
+                if (defaultDuration == null) {
+                    defaultDuration = op.getEstimatedDuration();
+                }
+                if (defaultDuration != null && op.getDurationUnit() != null) {
+                    defaultDuration = CostCalculationService.toMinutes(defaultDuration, op.getDurationUnit());
+                }
+            }
             return TechnicalSheetModuleMapper.toDto(i,
                     op != null ? op.getName() : "—",
-                    u != null ? u.getName() : "—");
+                    u != null ? u.getName() : "—",
+                    costPerMinute,
+                    currency,
+                    defaultDuration);
         }).toList();
     }
 
@@ -424,9 +490,12 @@ public class TechnicalSheetModuleService {
     
     private MaterialStock resolveStock(MaterialSheetItem item, String organizationId) {
 
-        if (item.getMaterialId() != null) {
-            Optional<MaterialStock> byId = materialStockRepository.findById(item.getMaterialId());
-            if (byId.isPresent()) return byId.get();
+        if (item.getMaterialId() != null && !item.getMaterialId().isBlank()) {
+            try {
+                Optional<MaterialStock> byId = materialStockRepository.findById(item.getMaterialId());
+                if (byId.isPresent()) return byId.get();
+            } catch (IllegalArgumentException e) {
+            }
         }
 
         if (item.getReferenceCode() != null && !item.getReferenceCode().isBlank()) {
@@ -475,5 +544,45 @@ public class TechnicalSheetModuleService {
         if (auth == null) throw new ForbiddenException("Unauthenticated");
         return userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new NotFoundException("User not found"));
+    }
+
+    @Transactional
+    public void migrateOldTechnicalSheets() {
+        List<MaterialSheetItem> allMaterials = materialItemRepository.findAll();
+        boolean materialUpdated = false;
+        for (MaterialSheetItem item : allMaterials) {
+            if (item.getUnitPrice() == null || item.getCostCurrency() == null) {
+                MaterialStock stock = resolveStock(item, null);
+                if (stock != null) {
+                    if (item.getUnitPrice() == null) item.setUnitPrice(stock.getUnitPrice() != null ? stock.getUnitPrice() : 0.0);
+                    if (item.getCostCurrency() == null) item.setCostCurrency(stock.getCostCurrency() != null ? stock.getCostCurrency() : "MAD");
+                    materialUpdated = true;
+                } else {
+                    if (item.getUnitPrice() == null) item.setUnitPrice(0.0);
+                    if (item.getCostCurrency() == null) item.setCostCurrency("MAD");
+                    materialUpdated = true;
+                }
+            }
+        }
+        if (materialUpdated) materialItemRepository.saveAll(allMaterials);
+
+        List<OperationSheetItem> allOps = operationItemRepository.findAll();
+        boolean opUpdated = false;
+        for (OperationSheetItem opItem : allOps) {
+            if (opItem.getCostPerMinute() == null || opItem.getCostCurrency() == null) {
+                if (opItem.getOperationId() != null) {
+                    operationRepository.findById(opItem.getOperationId()).ifPresent(op -> {
+                        if (opItem.getCostPerMinute() == null) opItem.setCostPerMinute(op.getCostPerMinute() != null ? op.getCostPerMinute() : 0.0);
+                        if (opItem.getCostCurrency() == null) opItem.setCostCurrency(op.getCostCurrency() != null ? op.getCostCurrency() : "MAD");
+                    });
+                    opUpdated = true;
+                } else {
+                    if (opItem.getCostPerMinute() == null) opItem.setCostPerMinute(0.0);
+                    if (opItem.getCostCurrency() == null) opItem.setCostCurrency("MAD");
+                    opUpdated = true;
+                }
+            }
+        }
+        if (opUpdated) operationItemRepository.saveAll(allOps);
     }
 }

@@ -14,6 +14,7 @@ import {
   getMainOrganizations,
   getSubOrganizations,
   getOrders,
+  getProductionOrder,
   calculateBulkRequirements,
   calculateSequentialRequirements,
   recalculateBulkRequirements,
@@ -24,6 +25,7 @@ import {
   cancelOrder,
   sendToDelivery,
   validateOrderTechnicalSheets,
+  processOrder,
 } from "../services/authService";
 import AuditHistoryModal from "../components/AuditHistoryModal";
 
@@ -32,6 +34,7 @@ const loadOrgs = () =>
 
 const STATUS_STYLE = {
   PENDING_REVIEW:               { cls: "status-amber",    label: "Pending Review" },
+  PENDING_QUOTATION:            { cls: "status-amber",    label: "Pending Quotation" },
   READY_FOR_CONFIRMATION:       { cls: "status-amber",    label: "Ready for Confirmation" },
   BLOCKED_INSUFFICIENT_STOCK:   { cls: "status-red",      label: "Blocked — Insufficient Stock" },
   BLOCKED_INSUFFICIENT_MATERIALS:{ cls: "status-red",     label: "Blocked — Missing Materials" },
@@ -149,6 +152,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
   const [proposeDate, setProposeDate] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
   
@@ -159,6 +163,7 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
 
   const [validationModal, setValidationModal] = useState(null);
   const [productTechIssues, setProductTechIssues] = useState({});
+  const [productionSchedule, setProductionSchedule] = useState(null);
 
   async function validateAndAct(orderId, actionFn, successLabel) {
     try {
@@ -208,6 +213,20 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, [orderIds]);
+
+  useEffect(() => {
+    if (!viewOrder) { setProductionSchedule(null); return; }
+    const prodStatuses = ["IN_PRODUCTION", "PRODUCTION_COMPLETED", "READY_FOR_PRODUCTION"];
+    if (!prodStatuses.includes(viewOrder.status)) { setProductionSchedule(null); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await getProductionOrder(viewOrder.id);
+        if (mounted) setProductionSchedule(data);
+      } catch (_) {}
+    })();
+    return () => { mounted = false; };
+  }, [viewOrder]);
 
   
   const showToast = (msg, type = "ok") => {
@@ -936,6 +955,13 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                           </div>
                         </div>
 
+                        <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.03] p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Material Supply</p>
+                          <p className={`text-sm font-semibold ${viewOrder.materialSource === 'CLIENT_SUPPLIED' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-800 dark:text-slate-100'}`}>
+                            {viewOrder.materialSource === 'CLIENT_SUPPLIED' ? 'Client Supplied (Production Only)' : 'Company Supplied (Materials + Production)'}
+                          </p>
+                        </div>
+
                         
                         <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] p-4">
                           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Delivery Schedule</p>
@@ -992,7 +1018,73 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                           </div>
                         </div>
 
+                        {viewOrder.totalPrice != null && viewOrder.totalPrice > 0 && (
+                          <div className="rounded-xl border border-brand-200 dark:border-brand-500/20 bg-brand-50 dark:bg-brand-500/10 p-4 space-y-1">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-500">Pricing</p>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-500 dark:text-slate-400">Total</span>
+                              <span className="text-lg font-bold text-brand-600 dark:text-brand-400">
+                                {viewOrder.totalPrice?.toFixed(2)} {viewOrder.currency || "MAD"}
+                              </span>
+                            </div>
+                            {viewOrder.invoiceId && (
+                              <button onClick={() => window.location.href = `/payments?invoiceId=${viewOrder.invoiceId}`}
+                                className="mt-2 w-full py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs transition-colors">
+                                Pay Now
+                              </button>
+                            )}
+                          </div>
+                        )}
+
                         {actionError && <p className="text-sm text-rose-600 font-medium">{actionError}</p>}
+
+                        {(productionSchedule && (productionSchedule.plannedStartDateTime || productionSchedule.plannedEndDateTime || productionSchedule.estimatedStartTime || productionSchedule.estimatedCompletionDateTime)) && (
+                          <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Production Schedule</p>
+                            <div className="flex gap-4 flex-wrap">
+                              {productionSchedule.plannedStartDateTime && (
+                                <div>
+                                  <p className="text-[10px] text-slate-400 uppercase mb-1">Planned Start</p>
+                                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {new Date(productionSchedule.plannedStartDateTime).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                              {productionSchedule.plannedEndDateTime && (
+                                <div>
+                                  <p className="text-[10px] text-slate-400 uppercase mb-1">Planned End</p>
+                                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                    {new Date(productionSchedule.plannedEndDateTime).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                              {!productionSchedule.plannedStartDateTime && productionSchedule.estimatedStartTime && (
+                                <div>
+                                  <p className="text-[10px] text-slate-400 uppercase mb-1">Production Start</p>
+                                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {new Date(productionSchedule.estimatedStartTime).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                              {!productionSchedule.plannedEndDateTime && productionSchedule.estimatedCompletionDateTime && (
+                                <div>
+                                  <p className="text-[10px] text-slate-400 uppercase mb-1">Estimated Finish</p>
+                                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                    {new Date(productionSchedule.estimatedCompletionDateTime).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                              {productionSchedule.estimatedCompletionTime && (
+                                <div>
+                                  <p className="text-[10px] text-slate-400 uppercase mb-1">Total Time</p>
+                                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                    {productionSchedule.estimatedCompletionTime}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         
                         <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
@@ -1009,6 +1101,31 @@ function BulkRequirementsDrawer({ orderIds, orders, products, orgs, onClose, onO
                               <div className="flex gap-2 flex-wrap">
                                 {!showPropose && !showCancel && (
                                   <>
+                                    {["PENDING_REVIEW","READY_FOR_CONFIRMATION","DATE_CHANGE_REQUESTED",
+                                      "BLOCKED_INSUFFICIENT_STOCK","BLOCKED_INSUFFICIENT_MATERIALS","BLOCKED_NO_BOM",
+                                      "AWAITING_DEPOSIT","PENDING_QUOTATION"
+                                    ].includes(viewOrder.status) && (
+                                      <button disabled={confirmLoading} onClick={async () => {
+                                        setConfirmLoading(true); setActionError("");
+                                        try {
+                                          const result = await processOrder(viewOrder.id, null);
+                                          const outcomes = {
+                                            DELIVERED: "All items in stock — order ready for delivery",
+                                            PRODUCTION_STARTED: "Order confirmed — production started",
+                                            SUPPLY_ORDER_CREATED: "Order confirmed — supply order created for missing materials",
+                                          };
+                                          showToast(outcomes[result.outcome] || "Order processed", "ok");
+                                          window.location.reload();
+                                        } catch (e) {
+                                          setActionError(e.message || "Processing failed");
+                                        } finally {
+                                          setConfirmLoading(false);
+                                        }
+                                      }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all">
+                                        <CheckCircle2 size={12} /> {confirmLoading ? "Processing…" : "Confirm & Start Production"}
+                                      </button>
+                                    )}
                                     <button onClick={() => { setShowPropose(true); setShowCancel(false); setActionError(""); }}
                                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-all">
                                       <Calendar size={12} /> Propose Date
@@ -1226,7 +1343,16 @@ export default function OrdersPage() {
           loadOrgs(),
         ]);
         if (mounted) {
-          setOrders(Array.isArray(ordsData) ? ordsData : []);
+          if (Array.isArray(ordsData)) {
+            const excludedStatuses = [
+              "IN_PRODUCTION", "PRODUCTION_COMPLETED", "READY_FOR_DELIVERY",
+              "FINAL_PAYMENT_PENDING", "DELIVERED", "CLOSED", "CANCELLED", "REJECTED",
+              "PARTIALLY_DELIVERED"
+            ];
+            setOrders(ordsData.filter(o => !excludedStatuses.includes(o.status)));
+          } else {
+            setOrders([]);
+          }
           setProducts(Array.isArray(prodsData) ? prodsData : []);
           setOrgs(Array.isArray(orgsData) ? orgsData : []);
         }

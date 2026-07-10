@@ -22,4 +22,12 @@ public class User {
     private List<String> assignedOrganizationIds;
     private String googleId;
     private String avatarUrl;
+
+    // Billing
+    private String billingAddress;
+    private String city;
+    private String country;
+    private String vatNumber;
+    private String companyName;
+    private String phone;
 }

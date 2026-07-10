@@ -45,8 +45,9 @@ public class TechnicalSheetValidationService {
             allIssues.addAll(validateProduct(item.getProductId(), orderId, order.getOrderReference()).getIssues());
         }
 
+        boolean hasCritical = allIssues.stream().anyMatch(i -> "CRITICAL".equalsIgnoreCase(i.getSeverity()));
         return new TechnicalSheetValidationResult(
-                allIssues.isEmpty(),
+                !hasCritical,
                 orderId,
                 order.getOrderReference(),
                 allIssues
@@ -62,6 +63,13 @@ public class TechnicalSheetValidationService {
     }
 
     private TechnicalSheetValidationResult validateProduct(String productId, String orderId, String orderNumber) {
+        boolean isClientSupplied = false;
+        if (orderId != null) {
+            Optional<Orders> orderOpt = ordersRepository.findById(orderId);
+            if (orderOpt.isPresent() && orderOpt.get().getManufacturingMode() == com.dppsmart.dppsmart.Orders.Entities.ManufacturingMode.CLIENT_SUPPLIED_MATERIALS) {
+                isClientSupplied = true;
+            }
+        }
         List<TechnicalSheetIssue> issues = new ArrayList<>();
         String productName = resolveProductName(productId);
 
@@ -69,15 +77,19 @@ public class TechnicalSheetValidationService {
                 .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(productId, TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
 
         if (materialSheet.isEmpty()) {
-            issues.add(new TechnicalSheetIssue(productId, productName, "CRITICAL",
-                    "MISSING_MATERIAL_SHEET",
-                    "Product " + productName + " has no material sheet (BOM) defined."));
+            if (!isClientSupplied) {
+                issues.add(new TechnicalSheetIssue(productId, productName, "CRITICAL",
+                        "MISSING_MATERIAL_SHEET",
+                        "Product " + productName + " has no material sheet (BOM) defined."));
+            }
         } else {
             List<MaterialSheetItem> materialItems = materialItemRepository.findByTechnicalSheetId(materialSheet.get().getId());
             if (materialItems.isEmpty()) {
-                issues.add(new TechnicalSheetIssue(productId, productName, "CRITICAL",
-                        "EMPTY_MATERIAL_SHEET",
-                        "Product " + productName + " has no materials declared in its material sheet."));
+                if (!isClientSupplied) {
+                    issues.add(new TechnicalSheetIssue(productId, productName, "CRITICAL",
+                            "EMPTY_MATERIAL_SHEET",
+                            "Product " + productName + " has no materials declared in its material sheet."));
+                }
             } else {
                 for (int i = 0; i < materialItems.size(); i++) {
                     MaterialSheetItem mi = materialItems.get(i);
@@ -141,8 +153,10 @@ public class TechnicalSheetValidationService {
                     "Product " + productName + " has no technical sheet defined."));
         }
 
+        boolean hasCritical = issues.stream().anyMatch(i -> "CRITICAL".equalsIgnoreCase(i.getSeverity()));
+
         return new TechnicalSheetValidationResult(
-                issues.isEmpty(),
+                !hasCritical,
                 orderId,
                 orderNumber,
                 issues

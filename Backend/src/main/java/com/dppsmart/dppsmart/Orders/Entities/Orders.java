@@ -22,6 +22,8 @@ public class Orders {
     private String clientId;
     private String organizationId;
 
+    private MaterialSource materialSource = MaterialSource.COMPANY_SUPPLIED;
+
     private List<OrderItem> items;
 
     private LocalDate requestedDeliveryDate;
@@ -53,8 +55,43 @@ public class Orders {
     private String confirmedBy;
     private String deliveredBy;
 
+    private LocalDateTime plannedStartDateTime;
+    private LocalDateTime plannedEndDateTime;
+    private LocalDateTime forecastEndDateTime;
+    private String delayStatus;
+    private Integer priorityScore;
+    private String healthStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
+
+    // Billing
+    private Double totalProductionCost;
+    private Double totalMaterialCost;
+    private String billingStatus;
+    private String quoteId;
+    private String invoiceId;
+    private Double subtotal;
+    private Double taxAmount;
+    private Double discountAmount;
+    private Double totalPrice;
+    private String currency;
+
+    private ManufacturingMode manufacturingMode;
+
+    private OrderPaymentStatus paymentStatus;
+    private Double amountDue;
+    private Double amountPaid;
+    private Double depositPercent;
+    private Double depositAmount;
+    private Double remainingBalance;
+    private String depositPaymentId;
+    private String finalPaymentId;
+
+    private Double materialCost;
+    private Double productionCost;
+    private Double totalCost;
+    private Double profit;
+    private Double marginPercent;
 }

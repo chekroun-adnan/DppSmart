@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import AuditHistoryModal from "../components/AuditHistoryModal";
+import { useNotifications } from "../context/NotificationContext";
 import {
   createProduct,
   createTechnicalSheet,
@@ -12,6 +13,7 @@ import {
   importProductsFromCsv,
   updateProduct,
   uploadProductImage,
+  suggestAiPrice,
 } from "../services/authService";
 
 const SELECT = "mt-1 h-11 w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-3 pr-10 text-sm text-slate-900 dark:text-slate-100 outline-none transition-all focus:bg-white dark:focus:bg-slate-700 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 cursor-pointer bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzY0NzQ4YiIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.75rem_center] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNNCA2bDQgNCA0LTRIeiIgZmlsbD0iIzk0YTNiOCIvPjwvc3ZnPg==')] dark:bg-[right_0.75rem_center]";
@@ -22,6 +24,8 @@ const emptyProductDraft = {
   variantName: "",
   sku: "",
   organizationId: "",
+  defaultUnitPrice: "",
+  currency: "MAD",
 };
 
 function readSupplementEntries(product) {
@@ -247,6 +251,8 @@ function ProductsPage() {
       variantName: product.variantName || "",
       sku: product.sku || "",
       organizationId: product.organizationId || "",
+      defaultUnitPrice: product.defaultUnitPrice ?? "",
+      currency: product.currency || "MAD",
     });
     setEditMaterialEntries(readMaterialsComposition(product));
     setEditSupplementEntries(readSupplementEntries(product));
@@ -277,6 +283,8 @@ function ProductsPage() {
         organizationId: createDraft.organizationId,
         materialsComposition: materials.length > 0 ? materials : undefined,
         endOfLifeInstructions: createEndOfLifeInstructions || undefined,
+        defaultUnitPrice: createDraft.defaultUnitPrice === "" ? undefined : Number(createDraft.defaultUnitPrice),
+        currency: createDraft.currency,
       };
       if (hasSupplementEntries(createSupplementEntries)) {
         createPayload.extraFields = supplement;
@@ -402,6 +410,8 @@ function ProductsPage() {
         organizationId: editDraft.organizationId,
         materialsComposition: materials.length > 0 ? materials : undefined,
         endOfLifeInstructions: editEndOfLifeInstructions || undefined,
+        defaultUnitPrice: editDraft.defaultUnitPrice === "" ? undefined : Number(editDraft.defaultUnitPrice),
+        currency: editDraft.currency,
       };
       if (Object.keys(extraFieldsData).length > 0) {
         updatePayload.extraFields = { ...baseExtraFields, ...extraFieldsData };
@@ -910,6 +920,29 @@ function ProductsPage() {
                   ))}
                 </select>
               </label>
+              <div className="sm:col-span-2 grid grid-cols-2 gap-4">
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  Default Unit Price
+                  <input
+                    type="number" min={0} step="0.01"
+                    value={createDraft.defaultUnitPrice}
+                    onChange={(e) => setCreateDraft((p) => ({ ...p, defaultUnitPrice: e.target.value }))}
+                    className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                  />
+                </label>
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  Currency
+                  <select
+                    value={createDraft.currency}
+                    onChange={(e) => setCreateDraft((p) => ({ ...p, currency: e.target.value }))}
+                    className={SELECT}
+                  >
+                    <option value="MAD">MAD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </label>
+              </div>
               <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
                 Materials Composition
                 <div className="mt-2 space-y-2">
@@ -1177,6 +1210,30 @@ function ProductsPage() {
                   ))}
                 </select>
               </label>
+              <div className="sm:col-span-2 grid grid-cols-2 gap-4">
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  Default Unit Price
+                  <input
+                    type="number" min={0} step="0.01"
+                    value={editDraft.defaultUnitPrice}
+                    onChange={(e) => setEditDraft((p) => ({ ...p, defaultUnitPrice: e.target.value }))}
+                    className="mt-1 h-10 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-500"
+                  />
+                </label>
+                <label className="text-sm text-slate-700 dark:text-slate-300">
+                  Currency
+                  <select
+                    value={editDraft.currency}
+                    onChange={(e) => setEditDraft((p) => ({ ...p, currency: e.target.value }))}
+                    className={SELECT}
+                  >
+                    <option value="MAD">MAD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </label>
+              </div>
+              <AiPriceSection productId={editingProductId} editDraft={editDraft} setEditDraft={setEditDraft} />
               <label className="sm:col-span-2 text-sm text-slate-700 dark:text-slate-300">
                 Materials Composition
                 <div className="mt-2 space-y-2">
@@ -1811,6 +1868,100 @@ function ProductsPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+function formatCurrency(amount, currency = "MAD") {
+  if (amount == null || amount === "") return "—";
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(amount));
+}
+
+function AiPriceSection({ productId, editDraft, setEditDraft }) {
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const { addNotification } = useNotifications();
+
+  useEffect(() => {
+    if (!productId) { setAiSuggestion(null); }
+  }, [productId]);
+
+  const handleAiSuggest = async () => {
+    if (!productId) return;
+    setAiLoading(true);
+    setAiSuggestion(null);
+    try {
+      const result = await suggestAiPrice(productId);
+      setAiSuggestion(result);
+    } catch (e) {
+      addNotification?.({ type: "error", title: "AI Error", message: e.message });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplySuggestion = () => {
+    if (!aiSuggestion) return;
+    setEditDraft((p) => ({
+      ...p,
+      defaultUnitPrice: aiSuggestion.suggestedUnitPrice,
+      currency: aiSuggestion.currency,
+    }));
+    setAiSuggestion(null);
+    addNotification?.({ type: "success", title: "Applied", message: "AI-suggested price applied to form." });
+  };
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          type="button"
+          onClick={handleAiSuggest}
+          disabled={aiLoading || !productId}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+        >
+          {aiLoading ? (
+            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          ) : (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )}
+          {aiLoading ? "Thinking..." : "AI Suggest Price"}
+        </button>
+      </div>
+
+      {aiSuggestion && (
+        <div className="p-3 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-brand-700 dark:text-brand-300">
+                  {formatCurrency(aiSuggestion.suggestedUnitPrice, aiSuggestion.currency)}
+                </span>
+                <span className="text-[10px] text-slate-400">suggested retail price</span>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                <div>Manufacturing cost: {formatCurrency(aiSuggestion.manufacturingCost)}</div>
+                <div>Materials: {formatCurrency(aiSuggestion.materialCost)} | Operations: {formatCurrency(aiSuggestion.operationCost)}</div>
+              </div>
+              {aiSuggestion.reasoning && (
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 italic mt-1">{aiSuggestion.reasoning}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleApplySuggestion}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

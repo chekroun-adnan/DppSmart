@@ -96,13 +96,14 @@ public class AdminAlertService {
                 .collect(Collectors.toList());
 
         List<Task> overdueTasks = taskRepository.findAll().stream()
-                .filter(t -> t.getDueDate() != null
-                        && t.getDueDate().isBefore(now)
-                        && t.getStatus() != TaskStatus.DONE
+                .filter(t -> t.getPlannedEnd() != null
+                        && t.getPlannedEnd().isBefore(now)
+                        && t.getStatus() != TaskStatus.COMPLETED
                         && t.getStatus() != TaskStatus.CANCELLED)
                 .collect(Collectors.toList());
 
-        
+
+
         List<MaterialOrder> stalePendingOrders = materialOrderRepository.findAll().stream()
                 .filter(o -> o.getStatus() == MaterialOrderStatus.PENDING
                         && o.getCreatedAt() != null
@@ -147,7 +148,7 @@ public class AdminAlertService {
                 "#8b5cf6", "⏰ Overdue Tasks (" + s.overdueTasks().size() + ")",
                 tableRows(s.overdueTasks().stream().map(t ->
                         row(t.getTitle(), t.getStatus().name(),
-                                t.getDueDate().format(fmt),
+                                t.getPlannedEnd().format(fmt),
                                 t.getPriority() != null ? t.getPriority().name() : "—")).toList())
             ));
         }

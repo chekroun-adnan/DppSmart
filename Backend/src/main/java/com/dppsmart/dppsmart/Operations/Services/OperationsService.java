@@ -7,6 +7,7 @@ import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Operations.DTO.CreateOperationRequest;
 import com.dppsmart.dppsmart.Operations.DTO.OperationDTO;
 import com.dppsmart.dppsmart.Operations.DTO.UpdateOperationRequest;
+import com.dppsmart.dppsmart.Orders.Services.OrdersService;
 import com.dppsmart.dppsmart.Security.PermissionService;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.Operation;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationRepository;
@@ -14,6 +15,9 @@ import com.dppsmart.dppsmart.TechnicalSheet.Repositories.OperationSheetItemRepos
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,12 +27,19 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OperationsService {
 
     private final OperationRepository operationRepository;
     private final OperationSheetItemRepository operationSheetItemRepository;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private OrdersService ordersService;
+
+    @Autowired
+    public void setOrdersService(@Lazy OrdersService ordersService) {
+        this.ordersService = ordersService;
+    }
 
     public OperationDTO create(CreateOperationRequest req) {
         User user = getCurrentUser();
@@ -43,10 +54,12 @@ public class OperationsService {
         op.setName(req.getName());
         op.setDescription(req.getDescription());
         op.setEstimatedDuration(req.getEstimatedDuration());
+        op.setDefaultDuration(req.getEstimatedDuration());
         op.setDurationUnit(req.getDurationUnit());
         op.setResponsibleDepartment(req.getResponsibleDepartment());
         op.setRequiredResources(req.getRequiredResources());
         op.setExecutionCost(req.getExecutionCost());
+        op.setCostPerMinute(req.getCostPerMinute());
         op.setCostCurrency(req.getCostCurrency());
         op.setActive(true);
         op.setOrganizationId(req.getOrganizationId());
@@ -102,19 +115,36 @@ public class OperationsService {
             throw new BadRequestException("An operation with this name already exists in this organization");
         }
 
+        Double oldCostPerMinute = op.getCostPerMinute();
         if (req.getName() != null && !req.getName().isBlank()) op.setName(req.getName());
         if (req.getDescription() != null) op.setDescription(req.getDescription());
-        if (req.getEstimatedDuration() != null) op.setEstimatedDuration(req.getEstimatedDuration());
+        if (req.getEstimatedDuration() != null) {
+            op.setEstimatedDuration(req.getEstimatedDuration());
+            op.setDefaultDuration(req.getEstimatedDuration());
+        }
         if (req.getDurationUnit() != null) op.setDurationUnit(req.getDurationUnit());
         if (req.getResponsibleDepartment() != null) op.setResponsibleDepartment(req.getResponsibleDepartment());
         if (req.getRequiredResources() != null) op.setRequiredResources(req.getRequiredResources());
         if (req.getExecutionCost() != null) op.setExecutionCost(req.getExecutionCost());
+        if (req.getCostPerMinute() != null) op.setCostPerMinute(req.getCostPerMinute());
         if (req.getCostCurrency() != null) op.setCostCurrency(req.getCostCurrency());
         if (req.getActive() != null) op.setActive(req.getActive());
         op.setUpdatedBy(user.getEmail());
         op.setUpdatedAt(LocalDateTime.now());
 
-        return toDto(operationRepository.save(op));
+        OperationDTO result = toDto(operationRepository.save(op));
+
+        boolean priceChanged = req.getCostPerMinute() != null
+                && (oldCostPerMinute == null || Double.compare(req.getCostPerMinute(), oldCostPerMinute) != 0);
+        if (priceChanged) {
+            try {
+                ordersService.recalculateCostsForAllOpenOrders(op.getOrganizationId());
+            } catch (Exception e) {
+                log.warn("Failed to recalculate order costs after costPerMinute change for operation {}: {}", id, e.getMessage());
+            }
+        }
+
+        return result;
     }
 
     public OperationDTO deactivate(String id) {
@@ -175,6 +205,7 @@ public class OperationsService {
         dto.setResponsibleDepartment(op.getResponsibleDepartment());
         dto.setRequiredResources(op.getRequiredResources());
         dto.setExecutionCost(op.getExecutionCost());
+        dto.setCostPerMinute(op.getCostPerMinute());
         dto.setCostCurrency(op.getCostCurrency());
         dto.setActive(op.getActive() != null ? op.getActive() : true);
         dto.setOrganizationId(op.getOrganizationId());

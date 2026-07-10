@@ -52,7 +52,12 @@ function exportToCsv(data, filename) {
   URL.revokeObjectURL(url);
 }
 
-const emptyMaterialDraft = { name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", organizationId: "" };
+function formatCurrency(amount, currency = "MAD") {
+  if (amount == null || amount === "") return "—";
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(amount));
+}
+
+const emptyMaterialDraft = { name: "", referenceCode: "", quantity: "", minimumThreshold: "", unit: "pcs", unitPrice: "", costCurrency: "MAD", supplier: "", organizationId: "" };
 const emptyProductDraft = { productName: "", productId: "", quantity: "", unit: "pcs", organizationId: "" };
 
 function OrgSelect({ value, onChange, orgs }) {
@@ -140,7 +145,7 @@ export default function StockPage() {
   const openEdit = (item) => {
     setEditingItem(item);
     if (activeTab === "materials") {
-      setDraft({ name: item.name || "", referenceCode: item.referenceCode || "", quantity: item.quantity ?? "", minimumThreshold: item.minimumThreshold ?? "", unit: item.unit || "pcs", organizationId: item.organizationId || "" });
+      setDraft({ name: item.name || "", referenceCode: item.referenceCode || "", quantity: item.quantity ?? "", minimumThreshold: item.minimumThreshold ?? "", unit: item.unit || "pcs", unitPrice: item.unitPrice ?? "", costCurrency: item.costCurrency || "MAD", supplier: item.supplier || "", organizationId: item.organizationId || "" });
     } else {
       setDraft({ productName: item.productName || "", productId: item.productId || "", quantity: item.quantity ?? "", unit: item.unit || "pcs", organizationId: item.organizationId || "" });
     }
@@ -180,7 +185,7 @@ export default function StockPage() {
     setSaving(true); setActionError("");
     try {
       if (activeTab === "materials") {
-        await createMaterialStock({ ...draft, quantity: Number(draft.quantity), minimumThreshold: Number(draft.minimumThreshold) || 0 });
+        await createMaterialStock({ ...draft, quantity: Number(draft.quantity), minimumThreshold: Number(draft.minimumThreshold) || 0, unitPrice: draft.unitPrice === "" ? undefined : Number(draft.unitPrice) });
       } else {
         await createProductStock({ ...draft, quantity: Number(draft.quantity) });
       }
@@ -196,7 +201,7 @@ export default function StockPage() {
     setSaving(true); setActionError("");
     try {
       if (activeTab === "materials") {
-        await updateMaterialStock({ id: editingItem.id, ...draft, quantity: Number(draft.quantity), minimumThreshold: Number(draft.minimumThreshold) || 0 });
+        await updateMaterialStock({ id: editingItem.id, ...draft, quantity: Number(draft.quantity), minimumThreshold: Number(draft.minimumThreshold) || 0, unitPrice: draft.unitPrice === "" ? undefined : Number(draft.unitPrice) });
       } else {
         await updateProductStock({ id: editingItem.id, ...draft, quantity: Number(draft.quantity) });
       }
@@ -264,6 +269,21 @@ export default function StockPage() {
       </div>
       <FieldGroup label={t("stock.thresholdLabel", "Minimum Threshold (alert below)")}>
         <input type="number" min={0} className={INPUT} value={draft.minimumThreshold} onChange={(e) => setDraft((p) => ({ ...p, minimumThreshold: e.target.value }))} />
+      </FieldGroup>
+      <div className="grid grid-cols-2 gap-4">
+        <FieldGroup label="Unit Price">
+          <input type="number" min={0} step="0.01" className={INPUT} value={draft.unitPrice} onChange={(e) => setDraft((p) => ({ ...p, unitPrice: e.target.value }))} />
+        </FieldGroup>
+        <FieldGroup label="Currency">
+          <select className={SELECT} value={draft.costCurrency} onChange={(e) => setDraft((p) => ({ ...p, costCurrency: e.target.value }))}>
+            <option value="MAD">MAD</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
+        </FieldGroup>
+      </div>
+      <FieldGroup label="Supplier (optional)">
+        <input type="text" className={INPUT} value={draft.supplier} onChange={(e) => setDraft((p) => ({ ...p, supplier: e.target.value }))} placeholder="Supplier name" />
       </FieldGroup>
       <FieldGroup label={t("organizations.title")}>
         <OrgSelect value={draft.organizationId} onChange={(id) => setDraft((p) => ({ ...p, organizationId: id }))} orgs={orgs} />
@@ -498,6 +518,9 @@ export default function StockPage() {
                       <th className="px-6 py-4 font-bold">{t("stock.material", "Material")}</th>
                       <th className="px-6 py-4 font-bold">{t("organizations.title")}</th>
                       <th className="px-6 py-4 font-bold">{t("orders.quantity")}</th>
+                      <th className="px-6 py-4 font-bold text-right">Unit Price</th>
+                      <th className="px-6 py-4 font-bold">Supplier</th>
+                      <th className="px-6 py-4 font-bold">Last Updated</th>
                       <th className="px-6 py-4 font-bold">{t("stock.minThreshold", "Min. Threshold")}</th>
                       <th className="px-6 py-4 font-bold">{t("common.status")}</th>
                       <th className="px-6 py-4 font-bold text-right">{t("common.actions")}</th>
@@ -518,6 +541,15 @@ export default function StockPage() {
                             <span className={`text-lg font-extrabold ${isLow ? "text-amber-600" : "text-slate-900 dark:text-slate-100"}`}>
                               {item.quantity} <span className="text-xs font-medium text-slate-400">{item.unit}</span>
                             </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              {item.unitPrice != null ? formatCurrency(item.unitPrice, item.costCurrency || "MAD") : "—"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{item.supplier || "—"}</td>
+                          <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                            {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}
                           </td>
                           <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{item.minimumThreshold} {item.unit}</td>
                           <td className="px-6 py-4">

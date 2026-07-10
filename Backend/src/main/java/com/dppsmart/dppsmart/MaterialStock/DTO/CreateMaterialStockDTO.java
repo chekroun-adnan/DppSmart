@@ -26,4 +26,8 @@ public class CreateMaterialStockDTO {
 
     @NotBlank(message = "organizationId is required")
     private String organizationId;
+
+    private Double unitPrice;
+    private String costCurrency;
+    private String supplier;
 }

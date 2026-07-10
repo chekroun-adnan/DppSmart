@@ -4,7 +4,6 @@ import com.dppsmart.dppsmart.Orders.DTO.*;
 import com.dppsmart.dppsmart.Orders.DTO.OrderAvailabilityCheckDTO;
 import com.dppsmart.dppsmart.Orders.DTO.OrderProcessResultDTO;
 import com.dppsmart.dppsmart.Orders.Services.OrdersService;
-import com.dppsmart.dppsmart.TechnicalSheet.DTO.TechnicalSheetIssue;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.TechnicalSheetValidationResult;
 import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetValidationService;
 import jakarta.validation.Valid;
@@ -29,6 +28,13 @@ public class OrdersController {
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
     public ResponseEntity<OrderResponseDto> create(@RequestBody @Valid CreateOrderDto dto) {
         return ResponseEntity.ok(ordersService.create(dto));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<OrderResponseDto> update(@PathVariable String id, @RequestBody @Valid UpdateOrderDto dto) {
+        dto.setId(id);
+        return ResponseEntity.ok(ordersService.update(dto));
     }
 
     @PostMapping("/admin/confirm")
@@ -162,8 +168,8 @@ public class OrdersController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
-    public ResponseEntity<List<OrderResponseDto>> getAll() {
-        return ResponseEntity.ok(ordersService.getAll());
+    public ResponseEntity<List<OrderResponseDto>> getAll(@RequestParam(required = false) Boolean includeAll) {
+        return ResponseEntity.ok(ordersService.getAll(includeAll != null && includeAll));
     }
 
     @GetMapping("/my")
@@ -195,7 +201,4 @@ public class OrdersController {
         ordersService.delete(id);
         return ResponseEntity.noContent().build();
     }
-
-
-
 }

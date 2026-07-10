@@ -1,8 +1,8 @@
 package com.dppsmart.dppsmart.Task.Entities;
 
 public enum TaskPriority {
-    LOW,
-    MEDIUM,
+    CRITICAL,
     HIGH,
-    URGENT
+    MEDIUM,
+    LOW
 }

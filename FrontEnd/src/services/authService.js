@@ -336,7 +336,7 @@ export async function assignUserToOrganization(payload) {
 
 
 export async function getOrders() {
-  const data = await authorizedRequest("/api/orders", { method: "GET" }, "Failed to load orders.");
+  const data = await authorizedRequest("/api/orders?includeAll=true", { method: "GET" }, "Failed to load orders.");
   return unwrapList(data);
 }
 
@@ -540,7 +540,61 @@ export async function skipProductionOrderStep(stepId) {
   return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/skip`, "POST", undefined, "Failed to skip step.");
 }
 
+export async function getDailyOperations({ date, department, employeeId, status } = {}) {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (department) params.set("department", department);
+  if (employeeId) params.set("employeeId", employeeId);
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  const data = await authorizedRequest(
+    `/api/production/operations/daily${qs ? "?" + qs : ""}`,
+    { method: "GET" },
+    "Failed to load daily operations."
+  );
+  return unwrapList(data);
+}
 
+export async function getDepartmentQueues(department) {
+  const params = department ? `?department=${encodeURIComponent(department)}` : "";
+  const data = await authorizedRequest(
+    `/api/production/orders/department-queues${params}`,
+    { method: "GET" },
+    "Failed to load department queues."
+  );
+  return unwrapList(data);
+}
+
+export async function getKpiDashboard() {
+  const data = await authorizedRequest("/api/production/orders/kpi-dashboard", { method: "GET" }, "Failed to load KPI dashboard.");
+  return data?.data ?? data;
+}
+
+export async function createOperationIssue(stepId, payload) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/issues`, "POST", payload, "Failed to create issue.");
+}
+
+export async function resolveOperationIssue(issueId) {
+  return authJsonRequest(`/api/production/orders/issues/${encodeURIComponent(issueId)}/resolve`, "PUT", undefined, "Failed to resolve issue.");
+}
+
+export async function getStepIssues(stepId) {
+  const data = await authorizedRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/issues`, { method: "GET" }, "Failed to load step issues.");
+  return unwrapList(data);
+}
+
+export async function reportProgress(stepId, payload) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/progress`, "POST", payload, "Failed to report progress.");
+}
+
+export async function getProgressHistory(stepId) {
+  const data = await authorizedRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/progress-history`, { method: "GET" }, "Failed to load progress history.");
+  return unwrapList(data);
+}
+
+export async function backfillWipFields() {
+  return authJsonRequest("/api/production/orders/backfill-wip", "POST", undefined, "Failed to backfill WIP fields.");
+}
 
 export async function getTasks() {
   const data = await authorizedRequest("/api/tasks", { method: "GET" }, "Failed to load tasks.");
@@ -1453,4 +1507,357 @@ export async function startMyStep(productionId, stepIndex) {
 
 export async function completeMyStep(productionId, stepIndex) {
   return authorizedRequest(`/api/productions/${encodeURIComponent(productionId)}/step/complete/${stepIndex}`, { method: "PUT" }, "Failed to complete step.");
+}
+
+// ─── Employee Portal ────────────────────────────────────────────────────
+
+export async function getEmployeeDashboard() {
+  const data = await authorizedRequest("/api/employee/dashboard", { method: "GET" }, "Failed to load dashboard.");
+  return unwrapItem(data);
+}
+
+export async function getMyOperations() {
+  const data = await authorizedRequest("/api/employee/operations", { method: "GET" }, "Failed to load operations.");
+  return unwrapList(data);
+}
+
+export async function getTodaySchedule() {
+  const data = await authorizedRequest("/api/employee/schedule/today", { method: "GET" }, "Failed to load schedule.");
+  return unwrapList(data);
+}
+
+export async function getProductionQueue() {
+  const data = await authorizedRequest("/api/employee/queue", { method: "GET" }, "Failed to load queue.");
+  return unwrapItem(data);
+}
+
+export async function getMyIssues() {
+  const data = await authorizedRequest("/api/employee/issues", { method: "GET" }, "Failed to load issues.");
+  return unwrapList(data);
+}
+
+export async function createEmployeeIssue(payload) {
+  return authJsonRequest("/api/employee/issues", "POST", payload, "Failed to create issue.");
+}
+
+export async function addOperationNote(payload) {
+  return authJsonRequest("/api/employee/notes", "POST", payload, "Failed to add note.");
+}
+
+export async function getOperationNotes(stepId) {
+  const data = await authorizedRequest(`/api/employee/notes/${encodeURIComponent(stepId)}`, { method: "GET" }, "Failed to load notes.");
+  return unwrapList(data);
+}
+
+export async function getMyPerformanceStats() {
+  const data = await authorizedRequest("/api/employee/performance", { method: "GET" }, "Failed to load performance.");
+  return unwrapItem(data);
+}
+
+export async function reportOperationProgress(stepId, payload) {
+  return authJsonRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/progress`, "POST", payload, "Failed to report progress.");
+}
+
+export async function getOperationProgressHistory(stepId) {
+  const data = await authorizedRequest(`/api/production/orders/steps/${encodeURIComponent(stepId)}/progress-history`, { method: "GET" }, "Failed to load history.");
+  return unwrapList(data);
+}
+
+// ─── Billing (Pricing / Quotes / Invoices / Payments) ────────────────────
+
+export async function getPrices(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return authJsonRequest(`/api/billing/prices${query ? "?" + query : ""}`, "GET", undefined, "Failed to load prices.");
+}
+
+export async function getPrice(id) {
+  return authJsonRequest(`/api/billing/prices/${encodeURIComponent(id)}`, "GET", undefined, "Failed to load price.");
+}
+
+export async function createPrice(payload) {
+  return authJsonRequest("/api/billing/prices", "POST", payload, "Failed to create price.");
+}
+
+export async function updatePrice(id, payload) {
+  return authJsonRequest(`/api/billing/prices/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update price.");
+}
+
+export async function deletePrice(id) {
+  return authJsonRequest(`/api/billing/prices/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete price.");
+}
+
+export async function getQuotes(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const data = await authJsonRequest(`/api/billing/quotes${query ? "?" + query : ""}`, "GET", undefined, "Failed to load quotes.");
+  return unwrapList(data);
+}
+
+export async function getQuote(id) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}`, "GET", undefined, "Failed to load quote.");
+}
+
+export async function createQuote(payload) {
+  return authJsonRequest("/api/billing/quotes", "POST", payload, "Failed to create quote.");
+}
+
+export async function createQuoteFromOrder(orderId) {
+  return authJsonRequest(`/api/billing/quotes/from-order/${encodeURIComponent(orderId)}`, "POST", undefined, "Failed to create quote from order.");
+}
+
+export async function updateQuote(id, payload) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}`, "PUT", payload, "Failed to update quote.");
+}
+
+export async function sendQuote(id) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}/send`, "POST", undefined, "Failed to send quote.");
+}
+
+export async function acceptQuote(id) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}/accept`, "POST", undefined, "Failed to accept quote.");
+}
+
+export async function rejectQuote(id) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}/reject`, "POST", undefined, "Failed to reject quote.");
+}
+
+export async function deleteQuote(id) {
+  return authJsonRequest(`/api/billing/quotes/${encodeURIComponent(id)}`, "DELETE", undefined, "Failed to delete quote.");
+}
+
+export async function getInvoices(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const data = await authJsonRequest(`/api/billing/invoices${query ? "?" + query : ""}`, "GET", undefined, "Failed to load invoices.");
+  return unwrapList(data);
+}
+
+export async function getInvoice(id) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(id)}`, "GET", undefined, "Failed to load invoice.");
+}
+
+export async function createInvoiceFromQuote(quoteId) {
+  return authJsonRequest(`/api/billing/invoices/from-quote/${encodeURIComponent(quoteId)}`, "POST", undefined, "Failed to create invoice from quote.");
+}
+
+export async function createInvoiceFromOrder(orderId, manufacturingMode) {
+  const query = manufacturingMode ? `?manufacturingMode=${encodeURIComponent(manufacturingMode)}` : "";
+  return authJsonRequest(`/api/billing/invoices/from-order/${encodeURIComponent(orderId)}${query}`, "POST", undefined, "Failed to create invoice from order.");
+}
+
+export async function setInvoiceManualBoxes(id, manualTotalBoxes) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(id)}/manual-boxes`, "PUT", { manualTotalBoxes }, "Failed to override boxes.");
+}
+
+export async function sendInvoice(id) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(id)}/send`, "POST", undefined, "Failed to send invoice.");
+}
+
+export async function recordPayment(invoiceId, payload) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(invoiceId)}/pay`, "POST", payload, "Failed to record payment.");
+}
+
+export async function getPayments(invoiceId) {
+  const data = await authJsonRequest(`/api/billing/invoices/${encodeURIComponent(invoiceId)}/payments`, "GET", undefined, "Failed to load payments.");
+  return unwrapList(data);
+}
+
+export async function cancelInvoice(id) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(id)}/cancel`, "POST", undefined, "Failed to cancel invoice.");
+}
+
+export async function getPaymentMethods() {
+  return authJsonRequest("/api/billing/client/payments/methods", "GET", undefined, "Failed to load payment methods.");
+}
+
+export async function createPaymentSession(payload) {
+  return authJsonRequest("/api/billing/client/payments/create-session", "POST", payload, "Failed to create payment session.");
+}
+
+export async function getClientInvoice(id) {
+  return authJsonRequest(`/api/billing/client/payments/invoices/${encodeURIComponent(id)}`, "GET", undefined, "Failed to load invoice.");
+}
+
+export async function suggestAiPrice(productId) {
+  return authJsonRequest(`/api/billing/prices/suggest/${encodeURIComponent(productId)}`, "POST", undefined, "Failed to get AI price suggestion.");
+}
+
+export async function approveAiSuggestion(payload) {
+  return authJsonRequest("/api/billing/prices/approve-suggestion", "POST", payload, "Failed to approve price suggestion.");
+}
+
+// ---- Payment APIs ----
+
+export async function createPayPalOrder(payload) {
+  return authJsonRequest("/api/payments/paypal/create-order", "POST", payload, "Failed to create PayPal order.");
+}
+
+export async function capturePayPalOrder(token) {
+  return authJsonRequest(`/api/payments/paypal/capture?token=${encodeURIComponent(token)}`, "POST", undefined, "Failed to capture PayPal order.");
+}
+
+export async function getOrderPayments(orderId) {
+  return authJsonRequest(`/api/payments/order/${encodeURIComponent(orderId)}`, "GET", undefined, "Failed to load payments.");
+}
+
+export async function getMyPayments() {
+  return authJsonRequest("/api/payments/my", "GET", undefined, "Failed to load payments.");
+}
+
+export async function getPaymentRevenue() {
+  return authJsonRequest("/api/payments/stats/revenue", "GET", undefined, "Failed to load revenue.");
+}
+
+export async function getPaymentOrderStats() {
+  return authJsonRequest("/api/payments/stats/orders", "GET", undefined, "Failed to load order stats.");
+}
+
+// ========= Bank Transfer Payments =========
+
+export async function initiatePayment(orderId, paymentMethod = "BANK_TRANSFER", paymentType = "DEPOSIT", amount = null, currency = null) {
+  return authJsonRequest("/api/payments/initiate", "POST", { orderId, paymentMethod, paymentType, amount, currency }, "Failed to initiate payment.");
+}
+
+export async function uploadPaymentProof(paymentId, file, referenceNumber = "") {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (referenceNumber) formData.append("referenceNumber", referenceNumber);
+  return authFormRequest(`/api/payments/${encodeURIComponent(paymentId)}/upload-proof`, "POST", formData, "Failed to upload payment proof.");
+}
+
+export async function approvePayment(paymentId) {
+  return authJsonRequest(`/api/payments/${encodeURIComponent(paymentId)}/approve`, "POST", {}, "Failed to approve payment.");
+}
+
+export async function rejectPayment(paymentId, reason = "") {
+  return authJsonRequest(`/api/payments/${encodeURIComponent(paymentId)}/reject`, "POST", { reason }, "Failed to reject payment.");
+}
+
+export async function getPayment(paymentId) {
+  return authJsonRequest(`/api/payments/${encodeURIComponent(paymentId)}`, "GET", undefined, "Failed to load payment.");
+}
+
+export async function getAdminPayments() {
+  return authJsonRequest("/api/payments/admin/all", "GET", undefined, "Failed to load payments.");
+}
+
+export async function getAdminPaymentsByStatus(status) {
+  return authJsonRequest(`/api/payments/admin/status/${encodeURIComponent(status)}`, "GET", undefined, "Failed to load payments.");
+}
+
+export async function getPaymentStats() {
+  return authJsonRequest("/api/payments/stats", "GET", undefined, "Failed to load payment stats.");
+}
+
+// ========= Organization Bank Details =========
+
+export async function getBankDetails(organizationId) {
+  return authJsonRequest(`/organization/${encodeURIComponent(organizationId)}/bank-details`, "GET", undefined, "Failed to load bank details.");
+}
+
+export async function updateBankDetails(organizationId, bankDetails) {
+  return authJsonRequest(`/organization/${encodeURIComponent(organizationId)}/bank-details`, "PUT", bankDetails, "Failed to update bank details.");
+}
+
+// ========= Expedition / Packaging =========
+
+export async function createExpedition(orderId) {
+  return authJsonRequest(`/api/expeditions/create/${encodeURIComponent(orderId)}`, "POST", {}, "Failed to create expedition.");
+}
+
+export async function packBox(expeditionId, boxId, quantity) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/pack-box`, "POST", { boxId, quantity }, "Failed to pack box.");
+}
+
+export async function packIntoNextBox(expeditionId, quantity) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/pack`, "POST", { quantity }, "Failed to pack.");
+}
+
+export async function sealBox(boxId) {
+  return authJsonRequest(`/api/expeditions/boxes/${encodeURIComponent(boxId)}/seal`, "POST", {}, "Failed to seal box.");
+}
+
+export async function markExpeditionReadyToShip(expeditionId) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/ready-to-ship`, "POST", {}, "Failed to mark ready to ship.");
+}
+
+export async function markExpeditionShipped(expeditionId) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/ship`, "POST", {}, "Failed to mark shipped.");
+}
+
+export async function markExpeditionDelivered(expeditionId) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/deliver`, "POST", {}, "Failed to mark delivered.");
+}
+
+export async function getExpeditionByOrder(orderId) {
+  const data = await authorizedRequest(`/api/expeditions/order/${encodeURIComponent(orderId)}`, { method: "GET" }, "Failed to load expedition.");
+  return unwrapItem(data);
+}
+
+export async function getExpedition(id) {
+  const data = await authorizedRequest(`/api/expeditions/${encodeURIComponent(id)}`, { method: "GET" }, "Failed to load expedition.");
+  return unwrapItem(data);
+}
+
+export async function getExpeditionsByOrganization(orgId) {
+  const data = await authorizedRequest(`/api/expeditions/organization/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load expeditions.");
+  return unwrapList(data);
+}
+
+export async function getMyExpeditions() {
+  const data = await authorizedRequest("/api/expeditions", { method: "GET" }, "Failed to load expeditions.");
+  return unwrapList(data);
+}
+
+export async function getExpeditionsByOrganizationAndStatus(orgId, status) {
+  const data = await authorizedRequest(`/api/expeditions/organization/${encodeURIComponent(orgId)}/status/${encodeURIComponent(status)}`, { method: "GET" }, "Failed to load expeditions.");
+  return unwrapList(data);
+}
+
+export async function getExpeditionDashboard(orgId) {
+  const data = await authorizedRequest(`/api/expeditions/dashboard/${encodeURIComponent(orgId)}`, { method: "GET" }, "Failed to load expedition dashboard.");
+  return unwrapItem(data);
+}
+
+export async function getMyExpeditionDashboard() {
+  const data = await authorizedRequest("/api/expeditions/dashboard", { method: "GET" }, "Failed to load expedition dashboard.");
+  return unwrapItem(data);
+}
+
+export async function autoCreateExpeditionFromStep(stepId) {
+  return authJsonRequest(`/api/expeditions/auto-create/${encodeURIComponent(stepId)}`, "POST", {}, "Failed to auto-create expedition.");
+}
+
+export async function syncExpeditions() {
+  return authJsonRequest("/api/expeditions/sync", "POST", {}, "Failed to sync expeditions.");
+}
+
+export async function updateExpeditionUnitsPerBox(expeditionId, unitsPerBox) {
+  return authJsonRequest(`/api/expeditions/${encodeURIComponent(expeditionId)}/units-per-box`, "PUT", { unitsPerBox }, "Failed to update units per box.");
+}
+
+export async function getMyInvoices() {
+  const data = await authorizedRequest("/api/billing/invoices/my", { method: "GET" }, "Failed to load your invoices.");
+  return unwrapList(data);
+}
+
+export async function updateInvoice(id, data) {
+  return authJsonRequest(`/api/billing/invoices/${encodeURIComponent(id)}`, "PUT", data, "Failed to update invoice.");
+}
+
+export async function fetchInvoicePdfBlob(id) {
+  const token = localStorage.getItem("accessToken");
+  const response = await fetch(`/api/billing/invoices/${encodeURIComponent(id)}/pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new Error("Failed to fetch invoice PDF.");
+  return response.blob();
+}
+
+export async function downloadInvoicePdf(id) {
+  const blob = await fetchInvoicePdfBlob(id);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `invoice-${id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

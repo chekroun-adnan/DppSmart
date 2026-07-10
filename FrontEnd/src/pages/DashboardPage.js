@@ -12,6 +12,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
   Zap, ShieldCheck, Activity, Clock, BarChart2, Package,
   Users, Building2, Factory, Archive, ClipboardList, CheckSquare,
+  DollarSign,
 } from "lucide-react";
 import {
   getAvailableProducts,
@@ -685,6 +686,18 @@ function AdminDashboard({ dashboard, productions, orders, tasks, employees, prod
           value={`${dppScore}%`}
           sub="AI-evaluated score"
           tone="purple" icon={ShieldCheck} sparkline={dppSpark}
+        />
+        <KpiCard
+          label="Paid Orders"
+          value={dashboard?.kpis?.paidOrders ?? 0}
+          sub={`${dashboard?.kpis?.unpaidOrders ?? 0} unpaid`}
+          tone="emerald" icon={CheckCircle2} sparkline={null}
+        />
+        <KpiCard
+          label="Total Revenue"
+          value={dashboard?.kpis?.totalRevenue ? `${(dashboard.kpis.totalRevenue / 1000).toFixed(1)}k` : "0"}
+          sub={`${dashboard?.kpis?.outstandingAmount ? (dashboard.kpis.outstandingAmount / 1000).toFixed(1) + "k" : "0"} outstanding`}
+          tone="brand" icon={DollarSign} sparkline={null}
         />
       </section>
 

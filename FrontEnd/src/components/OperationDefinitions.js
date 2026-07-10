@@ -24,7 +24,11 @@ const EMPTY_DRAFT = {
   description: "",
   estimatedDuration: "",
   durationUnit: "MINUTES",
+  costPerMinute: "",
+  responsibleDepartment: "",
+  requiredResources: "",
   organizationId: "",
+  active: true,
 };
 
 const OPERATION_NAMES = [
@@ -160,9 +164,13 @@ export default function OperationDefinitions() {
     setDraft({
       name: op.name || "",
       description: op.description || "",
-      estimatedDuration: op.estimatedDuration ?? "",
+      estimatedDuration: op.estimatedDuration ?? op.defaultDuration ?? "",
       durationUnit: op.durationUnit || "MINUTES",
+      costPerMinute: op.costPerMinute ?? "",
+      responsibleDepartment: op.responsibleDepartment || "",
+      requiredResources: op.requiredResources || "",
       organizationId: op.organizationId || "",
+      active: op.active !== false,
     });
     setActionError("");
     setModal("edit");
@@ -173,6 +181,9 @@ export default function OperationDefinitions() {
   const validateDraft = () => {
     if (!draft.name?.trim()) return "Operation name is required.";
     if (!draft.organizationId) return "Organization is required.";
+    if (draft.costPerMinute === "" || draft.costPerMinute == null) return "Cost per minute is required.";
+    if (Number(draft.costPerMinute) < 0 || isNaN(Number(draft.costPerMinute)))
+      return "Cost per minute must be a non-negative number.";
     if (draft.estimatedDuration !== "" && (Number(draft.estimatedDuration) < 0 || isNaN(Number(draft.estimatedDuration))))
       return "Estimated duration must be a positive number.";
     return null;
@@ -183,7 +194,11 @@ export default function OperationDefinitions() {
     description: draft.description.trim() || undefined,
     estimatedDuration: draft.estimatedDuration !== "" ? Number(draft.estimatedDuration) : undefined,
     durationUnit: draft.durationUnit || undefined,
+    costPerMinute: draft.costPerMinute !== "" ? Number(draft.costPerMinute) : undefined,
+    responsibleDepartment: draft.responsibleDepartment.trim() || undefined,
+    requiredResources: draft.requiredResources.trim() || undefined,
     organizationId: draft.organizationId,
+    active: modal === "edit" ? draft.active : undefined,
   });
 
   const handleCreate = async () => {
@@ -267,6 +282,34 @@ export default function OperationDefinitions() {
         </FieldGroup>
       </div>
 
+      <FieldGroup label="Cost per Minute (MAD/min) *">
+        <input type="number" min="0" step="0.01" className={INPUT} placeholder="e.g. 5.00" value={draft.costPerMinute} onChange={(e) => setDraft((p) => ({ ...p, costPerMinute: e.target.value }))} />
+      </FieldGroup>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FieldGroup label="Responsible Department">
+          <input className={INPUT} placeholder="e.g. Cutting, Sewing..." value={draft.responsibleDepartment} onChange={(e) => setDraft((p) => ({ ...p, responsibleDepartment: e.target.value }))} />
+        </FieldGroup>
+        {modal === "edit" ? (
+          <FieldGroup label="Status">
+            <select className={SELECT} value={draft.active ? "active" : "inactive"} onChange={(e) => setDraft((p) => ({ ...p, active: e.target.value === "active" }))}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </FieldGroup>
+        ) : (
+          <FieldGroup label="Required Resources">
+            <input className={INPUT} placeholder="e.g. Machine A, Worker X" value={draft.requiredResources} onChange={(e) => setDraft((p) => ({ ...p, requiredResources: e.target.value }))} />
+          </FieldGroup>
+        )}
+      </div>
+
+      {modal === "create" && (
+        <FieldGroup label="Required Resources">
+          <input className={INPUT} placeholder="e.g. Machine A, Worker X" value={draft.requiredResources} onChange={(e) => setDraft((p) => ({ ...p, requiredResources: e.target.value }))} />
+        </FieldGroup>
+      )}
+
 
     </>
   );
@@ -275,8 +318,8 @@ export default function OperationDefinitions() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Operation Definitions</h2>
-          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Define reusable production operations used in technical sheets.</p>
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Operations Management</h2>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Master catalog for operation rates (cost/min), departments, and defaults. Technical sheets read prices from here.</p>
         </div>
         {canManage && (
           <button type="button" onClick={openCreate} className="btn-primary">
@@ -314,7 +357,9 @@ export default function OperationDefinitions() {
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.18em] text-slate-400 border-b border-slate-100 dark:border-white/[0.06]">
                     <th className="px-6 py-4 font-bold">Name</th>
+                    <th className="px-6 py-4 font-bold">Department</th>
                     <th className="px-6 py-4 font-bold">Duration</th>
+                    <th className="px-6 py-4 font-bold">Cost/min</th>
                     <th className="px-6 py-4 font-bold">Status</th>
                     <th className="px-6 py-4 font-bold text-right">Actions</th>
                   </tr>
@@ -329,10 +374,16 @@ export default function OperationDefinitions() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{op.responsibleDepartment || "—"}</span>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{op.estimatedDuration != null ? op.estimatedDuration : "—"}</span>
                           {op.durationUnit && <DurationBadge unit={op.durationUnit} />}
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{op.costPerMinute != null ? `${Number(op.costPerMinute).toFixed(2)} MAD` : "—"}</span>
                       </td>
                       <td className="px-6 py-4"><ActiveBadge active={op.active} /></td>
                       <td className="px-6 py-4 text-right">
@@ -369,7 +420,9 @@ export default function OperationDefinitions() {
                     <ActiveBadge active={op.active} />
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                    {op.responsibleDepartment && <span>{op.responsibleDepartment}</span>}
                     {op.estimatedDuration != null && <span>{op.estimatedDuration} {op.durationUnit || ""}</span>}
+                    {op.costPerMinute != null && <span>{Number(op.costPerMinute).toFixed(2)} MAD/min</span>}
                   </div>
                   {canManage && (
                     <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
@@ -442,7 +495,10 @@ export default function OperationDefinitions() {
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 space-y-1">
                 <DetailRow label="Name" value={OPERATION_KEYS[viewingOp.name] ? t(OPERATION_KEYS[viewingOp.name]) : viewingOp.name} />
                 <DetailRow label="Description" value={viewingOp.description} />
+                <DetailRow label="Department" value={viewingOp.responsibleDepartment || "—"} />
+                <DetailRow label="Required Resources" value={viewingOp.requiredResources || "—"} />
                 <DetailRow label="Organization" value={orgName(viewingOp.organizationId)} />
+                <DetailRow label="Cost / Minute" value={viewingOp.costPerMinute != null ? `${Number(viewingOp.costPerMinute).toFixed(2)} MAD` : "—"} />
               </div>
 
               <div>

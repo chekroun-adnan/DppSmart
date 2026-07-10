@@ -16,6 +16,10 @@ public class MaterialStockMapper {
         stock.setUnit(dto.getUnit());
         stock.setMinimumThreshold(dto.getMinimumThreshold());
         stock.setOrganizationId(dto.getOrganizationId());
+        stock.setUnitPrice(dto.getUnitPrice());
+        stock.setCostCurrency(dto.getCostCurrency() != null && !dto.getCostCurrency().isBlank()
+                ? dto.getCostCurrency() : "MAD");
+        stock.setSupplier(dto.getSupplier());
         return stock;
     }
 
@@ -30,6 +34,9 @@ public class MaterialStockMapper {
         dto.setOrganizationId(s.getOrganizationId());
         dto.setLastUpdatedBy(s.getLastUpdatedBy());
         dto.setUpdatedAt(s.getUpdatedAt());
+        dto.setUnitPrice(s.getUnitPrice());
+        dto.setCostCurrency(s.getCostCurrency() != null ? s.getCostCurrency() : "MAD");
+        dto.setSupplier(s.getSupplier());
         return dto;
     }
 }

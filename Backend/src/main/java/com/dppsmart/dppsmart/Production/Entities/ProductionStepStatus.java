@@ -1,9 +1,13 @@
 package com.dppsmart.dppsmart.Production.Entities;
 
 public enum ProductionStepStatus {
-    PENDING,
+    PLANNED,
+    READY,
     IN_PROGRESS,
     COMPLETED,
     BLOCKED,
-    SKIPPED
+    SKIPPED,
+    OVERDUE,
+    PENDING,
+    WAITING
 }

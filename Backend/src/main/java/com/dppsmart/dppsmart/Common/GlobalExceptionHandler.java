@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiError> handleForbidden(ForbiddenException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        ex.printStackTrace(); return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.of("FORBIDDEN", ex.getMessage()));
     }
 
@@ -75,7 +75,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        ex.printStackTrace(); return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.of("ACCESS_DENIED", "You do not have permission to perform this action."));
     }
 
@@ -87,13 +87,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ApiError> handleLocked(LockedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        ex.printStackTrace(); return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.of("ACCOUNT_LOCKED", "Account is temporarily locked. Please try again later."));
     }
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiError> handleDisabled(DisabledException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        ex.printStackTrace(); return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.of("ACCOUNT_DISABLED", "Account is disabled. Please contact support."));
     }
 

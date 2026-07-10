@@ -18,6 +18,7 @@ import com.dppsmart.dppsmart.Notification.Services.NotificationServiceImpl;
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Orders.Entities.OrderItem;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
+import com.dppsmart.dppsmart.Orders.Services.OrdersService;
 import com.dppsmart.dppsmart.Orders.repositories.OrdersRepository;
 import com.dppsmart.dppsmart.Production.DTO.CreateProductionDto;
 import com.dppsmart.dppsmart.Production.Services.ProductionService;
@@ -31,6 +32,8 @@ import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetModuleService
 import com.dppsmart.dppsmart.User.Entities.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +59,14 @@ public class AllocationService {
     private final PermissionService permissionService;
     private final ProductionService productionService;
     private final AiProductionPlanningService aiProductionPlanningService;
+
+    private OrdersService ordersService;
+
+    @Autowired
+    @Lazy
+    public void setOrdersService(OrdersService ordersService) {
+        this.ordersService = ordersService;
+    }
 
     @Deprecated(since = "Use BulkOrderMaterialRequirementService.compute() instead (sharing-aware sequential pool)")
     public AllocationReviewResponseDTO getReviewData(List<String> orderIds, User user) {
@@ -472,7 +483,7 @@ public class AllocationService {
                         if (bomResult != null && bomResult.getMaterials() != null) {
                             for (BomMaterialLineDto mat : bomResult.getMaterials()) {
                                 int matQty = (int) Math.ceil(mat.getRequiredQuantity());
-                                if (matQty > 0) {
+                                if (matQty > 0 && order.getMaterialSource() != com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
                                     reservationService.reserveMaterialStock(order.getId(), mat.getMaterialId(), matQty, user.getEmail(), orgId);
                                 }
                             }
@@ -811,23 +822,25 @@ public class AllocationService {
             throw new BadRequestException("Invalid quantity: must be between 1 and " + remaining);
         }
 
-        BomCalculationResultDto bom = technicalSheetModuleService.calculateBom(productId, quantityToProduce, orgId);
-        if (bom != null && bom.getMaterials() != null) {
-            for (BomMaterialLineDto mat : bom.getMaterials()) {
-                MaterialStock ms = materialStockRepository.findById(mat.getMaterialId()).orElse(null);
-                int physQty = ms != null && ms.getQuantity() != null ? ms.getQuantity() : 0;
-                int resQty = ms != null && ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
-                int available = Math.max(0, physQty - resQty);
-                if (available < mat.getRequiredQuantity()) {
-                    throw new BadRequestException("Insufficient stock for material: " + mat.getMaterialName()
-                            + " (need " + (int) mat.getRequiredQuantity() + ", have " + available + ")");
+        if (order.getMaterialSource() != com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
+            BomCalculationResultDto bom = technicalSheetModuleService.calculateBom(productId, quantityToProduce, orgId);
+            if (bom != null && bom.getMaterials() != null) {
+                for (BomMaterialLineDto mat : bom.getMaterials()) {
+                    MaterialStock ms = materialStockRepository.findById(mat.getMaterialId()).orElse(null);
+                    int physQty = ms != null && ms.getQuantity() != null ? ms.getQuantity() : 0;
+                    int resQty = ms != null && ms.getReservedQuantity() != null ? ms.getReservedQuantity() : 0;
+                    int available = Math.max(0, physQty - resQty);
+                    if (available < mat.getRequiredQuantity()) {
+                        throw new BadRequestException("Insufficient stock for material: " + mat.getMaterialName()
+                                + " (need " + (int) mat.getRequiredQuantity() + ", have " + available + ")");
+                    }
                 }
-            }
 
-            for (BomMaterialLineDto mat : bom.getMaterials()) {
-                int matQty = (int) Math.ceil(mat.getRequiredQuantity());
-                if (matQty > 0) {
-                    reservationService.reserveMaterialStock(orderId, mat.getMaterialId(), matQty, user.getEmail(), orgId);
+                for (BomMaterialLineDto mat : bom.getMaterials()) {
+                    int matQty = (int) Math.ceil(mat.getRequiredQuantity());
+                    if (matQty > 0) {
+                        reservationService.reserveMaterialStock(orderId, mat.getMaterialId(), matQty, user.getEmail(), orgId);
+                    }
                 }
             }
         }
@@ -844,6 +857,10 @@ public class AllocationService {
         item.setRelatedProductionId(production.getId());
         item.setStatus(com.dppsmart.dppsmart.Orders.Entities.OrderItemStatus.IN_PRODUCTION);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
+        if (order.getProductionStartedAt() == null) {
+            order.setProductionStartedAt(LocalDateTime.now());
+        }
+        ordersService.freezeCostSnapshots(order);
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(user.getEmail());
         ordersRepository.save(order);

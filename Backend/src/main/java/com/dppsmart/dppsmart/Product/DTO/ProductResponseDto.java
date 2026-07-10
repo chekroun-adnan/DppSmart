@@ -32,4 +32,16 @@ public class ProductResponseDto {
     private Integer aiScore;
     private List<String> aiMissingFields;
     private String aiSummary;
+
+    private Double defaultUnitPrice;
+    private String currency;
+    private Double estimatedUnitPrice;
+    private String estimatedCurrency;
+
+    // Packaging configuration
+    private Integer unitsPerBox;
+    private String boxType;
+    private Double boxWeight;
+    private String boxDimensions;
+    private Boolean allowPartialLastBox;
 }

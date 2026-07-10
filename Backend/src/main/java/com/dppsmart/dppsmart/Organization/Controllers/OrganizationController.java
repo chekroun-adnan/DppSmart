@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/organization")
@@ -105,5 +106,18 @@ public class OrganizationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<OrganizationResponseDto>> getMyOrganizations() {
         return ResponseEntity.ok(organizationService.getMyOrganizations());
+    }
+
+
+    @GetMapping("/{id}/bank-details")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN','CLIENT')")
+    public ResponseEntity<?> getBankDetails(@PathVariable String id) {
+        return ResponseEntity.ok(organizationService.getBankDetails(id));
+    }
+
+    @PutMapping("/{id}/bank-details")
+    @PreAuthorize("hasAnyRole('ADMIN','SUBADMIN')")
+    public ResponseEntity<?> updateBankDetails(@PathVariable String id, @RequestBody Map<String, String> bankDetails) {
+        return ResponseEntity.ok(organizationService.updateBankDetails(id, bankDetails));
     }
 }

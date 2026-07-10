@@ -21,6 +21,8 @@ public class MaterialSheetItem {
     private String unit;
     private Double wastePercentage;
     private String notes;
+    private Double unitPrice;
+    private String costCurrency;
 
     public String getReferenceCode() {
         return referenceCode;

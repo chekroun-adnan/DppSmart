@@ -10,6 +10,7 @@ import com.dppsmart.dppsmart.MaterialStock.DTO.UpdateMaterialStockDTO;
 import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.MaterialStock.Mapper.MaterialStockMapper;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
+import com.dppsmart.dppsmart.Orders.Services.OrdersService;
 import com.dppsmart.dppsmart.Notification.Entities.Notification.NotificationType;
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
 import com.dppsmart.dppsmart.Orders.Entities.OrderItem;
@@ -64,10 +65,16 @@ public class MaterialStockService {
     private final RuleDetectionService ruleDetectionService;
     private final MaterialSheetItemRepository materialSheetItemRepository;
     private TechnicalSheetModuleService technicalSheetModuleService;
+    private OrdersService ordersService;
 
     @Autowired
     public void setTechnicalSheetModuleService(@Lazy TechnicalSheetModuleService technicalSheetModuleService) {
         this.technicalSheetModuleService = technicalSheetModuleService;
+    }
+
+    @Autowired
+    public void setOrdersService(@Lazy OrdersService ordersService) {
+        this.ordersService = ordersService;
     }
 
     @CacheEvict(value = {"materialStocks", "allMaterialStocks"}, allEntries = true)
@@ -94,6 +101,10 @@ public class MaterialStockService {
             existing.setQuantity(dto.getQuantity());
             existing.setMinimumThreshold(dto.getMinimumThreshold());
             existing.setUnit(dto.getUnit());
+            existing.setUnitPrice(dto.getUnitPrice());
+            existing.setCostCurrency(dto.getCostCurrency() != null && !dto.getCostCurrency().isBlank()
+                    ? dto.getCostCurrency() : "MAD");
+            existing.setSupplier(dto.getSupplier());
             existing.setLastUpdatedBy(user.getEmail());
             existing.setUpdatedAt(LocalDateTime.now());
             materialStock = existing;
@@ -163,7 +174,10 @@ public class MaterialStockService {
         }
 
         int oldQty = stock.getQuantity() != null ? stock.getQuantity() : 0;
+        Double oldUnitPrice = stock.getUnitPrice();
         applyUpdates(stock, dto);
+        boolean priceChanged = dto.getUnitPrice() != null
+                && (oldUnitPrice == null || Double.compare(dto.getUnitPrice(), oldUnitPrice) != 0);
         stock.setUpdatedAt(LocalDateTime.now());
         stock.setLastUpdatedBy(user.getEmail());
 
@@ -186,6 +200,22 @@ public class MaterialStockService {
         int newQty = saved.getQuantity() != null ? saved.getQuantity() : 0;
         if (newQty > oldQty) {
             recheckBlockedOrders(saved.getOrganizationId(), user.getEmail());
+        }
+
+        if (priceChanged) {
+            try {
+                List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByMaterialId(saved.getId());
+                if (!sheetItems.isEmpty()) {
+                    for (MaterialSheetItem item : sheetItems) {
+                        item.setUnitPrice(saved.getUnitPrice());
+                        item.setCostCurrency(saved.getCostCurrency());
+                    }
+                    materialSheetItemRepository.saveAll(sheetItems);
+                }
+                ordersService.recalculateCostsForAllOpenOrders(saved.getOrganizationId());
+            } catch (Exception e) {
+                log.warn("Failed to recalculate order costs after price change for material {}: {}", saved.getId(), e.getMessage());
+            }
         }
 
         return materialStockMapper.toDto(saved);
@@ -382,6 +412,15 @@ public class MaterialStockService {
         }
         if (dto.getMinimumThreshold() != null) {
             stock.setMinimumThreshold(dto.getMinimumThreshold());
+        }
+        if (dto.getUnitPrice() != null) {
+            stock.setUnitPrice(dto.getUnitPrice());
+        }
+        if (dto.getCostCurrency() != null) {
+            stock.setCostCurrency(dto.getCostCurrency());
+        }
+        if (dto.getSupplier() != null) {
+            stock.setSupplier(dto.getSupplier());
         }
     }
 

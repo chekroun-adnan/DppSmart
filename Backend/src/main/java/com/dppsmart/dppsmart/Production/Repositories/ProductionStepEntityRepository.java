@@ -12,4 +12,6 @@ public interface ProductionStepEntityRepository extends MongoRepository<Producti
     boolean existsByOrderId(String orderId);
     long countByOrderId(String orderId);
     long countByOrderIdAndStatus(String orderId, ProductionStepStatus status);
+    List<ProductionStepEntity> findByAssignedEmployeeOrderByPlannedStartTimeAsc(String assignedEmployee);
+    List<ProductionStepEntity> findByAssignedEmployeeAndStatusInOrderByPlannedStartTimeAsc(String assignedEmployee, List<ProductionStepStatus> statuses);
 }

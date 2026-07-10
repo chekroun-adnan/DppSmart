@@ -12,7 +12,8 @@ import {
   ShieldCheck, UserCog, ScrollText, Settings, BarChart2,
   ChevronLeft, Sun, Moon, LogOut, SlidersHorizontal,
   Menu, Brain, ShoppingCart, RefreshCw, Shield,
-  CalendarDays, Plane, UserCircle,
+  CalendarDays, Plane, UserCircle, Receipt,
+  Clock, TrendingUp, AlertTriangle,
 } from "lucide-react";
 
 const NAV_GROUPS = [
@@ -29,6 +30,7 @@ const NAV_GROUPS = [
     groupLabel: "Operations",
     items: [
       { key: "production",    path: "/production",    roles: ["ADMIN","SUBADMIN"], Icon: Factory },
+      { key: "billing",       path: "/billing",       roles: ["ADMIN","SUBADMIN"], Icon: Receipt },
       { key: "orders",        path: "/orders",        roles: ["ADMIN","SUBADMIN"], Icon: ClipboardList },
       { key: "clientOrders",  path: "/client-orders", roles: ["CLIENT"],           Icon: ShoppingCart },
       { key: "reorder",       path: "/reorder",       roles: ["CLIENT"],           Icon: RefreshCw },
@@ -36,6 +38,8 @@ const NAV_GROUPS = [
       { key: "tasks",         path: "/tasks",         roles: ["ADMIN","SUBADMIN"], Icon: CheckSquare },
       { key: "myTasks",       path: "/my-tasks",      roles: ["EMPLOYEE"],         Icon: CheckSquare },
       { key: "supplyChain",   path: "/supply-chain",  roles: ["ADMIN","SUBADMIN"], Icon: Truck },
+      { key: "invoices", path: "/invoices", roles: ["ADMIN","SUBADMIN"], Icon: FileText },
+      { key: "clientInvoices", path: "/client-invoices", roles: ["CLIENT"],           Icon: FileText },
     ],
   },
   {
@@ -43,6 +47,7 @@ const NAV_GROUPS = [
     items: [
       { key: "products",        path: "/products",         roles: ["ADMIN","SUBADMIN","CLIENT"], Icon: Package },
       { key: "technicalSheets", path: "/technical-sheets", roles: ["ADMIN","SUBADMIN"],          Icon: FileText },
+      { key: "operations",      path: "/operations",      roles: ["ADMIN","SUBADMIN"],          Icon: SlidersHorizontal },
       { key: "scans",           path: "/scans",            roles: ["ADMIN","SUBADMIN"],          Icon: QrCode },
     ],
   },
@@ -57,11 +62,21 @@ const NAV_GROUPS = [
     ],
   },
   {
+    groupLabel: "Production",
+    items: [
+      { key: "myOperations",   path: "/my-operations",   roles: ["EMPLOYEE"], Icon: Factory },
+      { key: "todaySchedule",  path: "/today-schedule",  roles: ["EMPLOYEE"], Icon: Clock },
+      { key: "productionQueue",path: "/production-queue",roles: ["EMPLOYEE"], Icon: ClipboardList },
+    ],
+  },
+  {
     groupLabel: "My Workspace",
     items: [
-      { key: "myAttendance", path: "/my-attendance", roles: ["EMPLOYEE"], Icon: CalendarDays },
-      { key: "myLeaves",     path: "/my-leaves",     roles: ["EMPLOYEE"], Icon: Plane },
-      { key: "myProfile",    path: "/my-profile",    roles: ["EMPLOYEE"], Icon: UserCircle },
+      { key: "reportIssue",   path: "/report-issue",   roles: ["EMPLOYEE"], Icon: AlertTriangle },
+      { key: "performance",   path: "/performance",    roles: ["EMPLOYEE"], Icon: TrendingUp },
+      { key: "myAttendance",  path: "/my-attendance",   roles: ["EMPLOYEE"], Icon: CalendarDays },
+      { key: "myLeaves",      path: "/my-leaves",       roles: ["EMPLOYEE"], Icon: Plane },
+      { key: "myProfile",     path: "/my-profile",      roles: ["EMPLOYEE"], Icon: UserCircle },
     ],
   },
   {
@@ -75,6 +90,7 @@ const NAV_GROUPS = [
 
 function NavLabel({ navKey, t }) {
   if (navKey === "technicalSheets")     return t("technicalSheets.title", "Technical Sheets");
+  if (navKey === "operations")          return t("operations.title", "Operations Management");
   if (navKey === "adminOrders")         return "Client Orders";
   if (navKey === "clientOrders")        return "My Orders";
   if (navKey === "supplyChain")         return "Supply Chain";
@@ -89,6 +105,15 @@ function NavLabel({ navKey, t }) {
   if (navKey === "myAttendance")        return "My Attendance";
   if (navKey === "myLeaves")            return "My Leaves";
   if (navKey === "myProfile")           return "My Profile";
+  if (navKey === "myOperations")        return "My Operations";
+  if (navKey === "todaySchedule")       return "Today's Schedule";
+  if (navKey === "productionQueue")     return "Production Queue";
+  if (navKey === "expeditionDashboard") return "Expedition";
+  if (navKey === "invoices")            return "Invoices";
+  if (navKey === "billingAndLogistics") return "Billing & Expeditions";
+  if (navKey === "clientInvoices")      return "My Invoices";
+  if (navKey === "reportIssue")         return "Report Issue";
+  if (navKey === "performance")         return "Performance";
   return t(`nav.${navKey}`, navKey);
 }
 

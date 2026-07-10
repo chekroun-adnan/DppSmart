@@ -15,6 +15,7 @@ public class OrdersMapper {
         dto.setClientId(order.getClientId());
         dto.setOrganizationId(order.getOrganizationId());
         dto.setItems(order.getItems());
+        dto.setMaterialSource(order.getMaterialSource());
         dto.setRequestedDeliveryDate(order.getRequestedDeliveryDate());
         dto.setConfirmedDeliveryDate(order.getConfirmedDeliveryDate());
         dto.setProposedDeliveryDate(order.getProposedDeliveryDate());
@@ -52,6 +53,33 @@ public class OrdersMapper {
                         order.getProposedDeliveryDate(),
                         order.getOrderPriority(),
                         order.getCreatedAt()));
+
+        // Billing
+        dto.setQuoteId(order.getQuoteId());
+        dto.setInvoiceId(order.getInvoiceId());
+        dto.setBillingStatus(order.getBillingStatus());
+        dto.setSubtotal(order.getSubtotal());
+        dto.setTaxAmount(order.getTaxAmount());
+        dto.setDiscountAmount(order.getDiscountAmount());
+        dto.setTotalPrice(order.getTotalPrice());
+        dto.setCurrency(order.getCurrency());
+
+        dto.setTotalMaterialCost(order.getTotalMaterialCost());
+        dto.setTotalProductionCost(order.getTotalProductionCost());
+        dto.setMaterialCost(order.getMaterialCost());
+        dto.setProductionCost(order.getProductionCost());
+        dto.setTotalCost(order.getTotalCost());
+        dto.setProfit(order.getProfit());
+        dto.setMarginPercent(order.getMarginPercent());
+        dto.setManufacturingMode(order.getManufacturingMode() != null
+                ? order.getManufacturingMode().name() : null);
+
+        // Payment
+        dto.setPaymentStatus(order.getPaymentStatus());
+        dto.setAmountDue(order.getAmountDue());
+        dto.setAmountPaid(order.getAmountPaid());
+        dto.setDepositPercent(order.getDepositPercent());
+
         return dto;
     }
 }

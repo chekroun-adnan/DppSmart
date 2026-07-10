@@ -38,10 +38,36 @@ public class ProductionStepEntity {
     private String instructions;
 
     @Builder.Default
-    private ProductionStepStatus status = ProductionStepStatus.PENDING;
+    private ProductionStepStatus status = ProductionStepStatus.PLANNED;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private String blockedReason;
     private String completedBy;
+    private LocalDateTime plannedStartTime;
+    private LocalDateTime plannedEndTime;
     private LocalDateTime createdAt;
+
+    private LocalDateTime forecastStartTime;
+    private LocalDateTime forecastEndTime;
+    private Double actualDuration;
+    private String delayStatus;
+    private Double delayMinutes;
+    private Integer healthScore;
+    private String assignedEmployee;
+    private String assignedEmployeeName;
+
+    private Integer requiredQuantity;
+    private Integer completedQuantity;
+    private Integer remainingQuantity;
+    private Double completionPercentage;
+    private Integer plannedDurationMinutes;
+    private Integer actualDurationMinutes;
+    private Integer remainingDurationMinutes;
+
+    private Integer producedQuantity;
+    private Integer rejectedQuantity;
+    private Integer reworkedQuantity;
+
+    private Double executionCostPerUnit;
+    private Double totalExecutionCost;
 }

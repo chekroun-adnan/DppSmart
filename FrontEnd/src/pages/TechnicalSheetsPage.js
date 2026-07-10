@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardLayout from "../components/DashboardLayout";
@@ -6,12 +6,13 @@ import {
   getTechnicalSheets, createTechnicalSheet, updateTechnicalSheet, deleteTechnicalSheet,
   getMaterialItems, saveMaterialItems, getOperationItems, saveOperationItems,
   getMaterialStocks, createMaterialStock, updateMaterialStock, deleteMaterialStock,
-  getTsOperations, createTsOperation, updateTsOperation, deleteTsOperation,
   getAvailableProducts,
   getMyOrganizations,
   getMainOrganizations,
   getSubOrganizations,
 } from "../services/authService";
+import { getOperations, createOperation, updateOperation, deleteOperation } from "../services/operationsApi";
+import { Link } from "react-router-dom";
 import AuditHistoryModal from "../components/AuditHistoryModal";
 import OperationSheetPanel from "../components/OperationSheetPanel";
 
@@ -110,7 +111,41 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBase64 }) {
+function computeBillingSummary(matItems = [], opItems = [], operations = []) {
+  const materialCost = matItems.reduce((sum, item) => {
+    if (item.materialCostPerUnit != null) return sum + parseFloat(item.materialCostPerUnit);
+    const qty = parseFloat(item.quantityPerUnit) || 0;
+    const waste = parseFloat(item.wastePercentage) || 0;
+    const price = item.unitPrice != null ? parseFloat(item.unitPrice) : 0;
+    return sum + qty * (1 + waste / 100) * price;
+  }, 0);
+  const operationCost = opItems.reduce((sum, item) => {
+    const dur = parseFloat(item.durationEstimate) || 0;
+    const rate = resolveOpRate(item, operations);
+    return sum + dur * rate;
+  }, 0);
+  const totalDuration = opItems.reduce((s, r) => s + (parseFloat(r.durationEstimate) || 0), 0);
+  return {
+    materialCost,
+    operationCost,
+    total: materialCost + operationCost,
+    totalDuration,
+    operationCount: opItems.length,
+  };
+}
+
+function resolveOpRate(item, operations = []) {
+  if (item?.costPerMinute != null) return parseFloat(item.costPerMinute) || 0;
+  const op = operations.find(o => o.id === item?.operationId);
+  return op?.costPerMinute != null ? parseFloat(op.costPerMinute) || 0 : 0;
+}
+
+function resolveOpCostPerUnit(item, operations = []) {
+  const dur = parseFloat(item?.durationEstimate) || 0;
+  return dur * resolveOpRate(item, operations);
+}
+
+async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBase64, billingSummary, operations = [] }) {
   const { default: jsPDF } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
 
@@ -181,16 +216,23 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
   if (isMaterial) {
     autoTable(doc, {
       startY: propsTableTop + 4,
-      head: [["#", "MATERIAL", "REFERENCE", "QTY", "UNIT", "NOTES"]],
+      head: [["#", "MATERIAL", "USAGE / PRODUCT", "UNIT PRICE", "COST / PRODUCT", "NOTES"]],
       body: matItems.length > 0
-        ? matItems.map((item, i) => [
-            i + 1,
-            item.materialName || item.materialId || "—",
-            item.materialReference || "—",
-            item.quantityPerUnit ?? "—",
-            item.unit || "—",
-            item.notes || "—",
-          ])
+        ? matItems.map((item, i) => {
+            const unitPrice = item.unitPrice != null ? `${item.costCurrency || "MAD"} ${Number(item.unitPrice).toFixed(2)}` : "—";
+            const qty = item.quantityPerUnit ?? "—";
+            const cost = item.unitPrice != null && item.quantityPerUnit
+              ? `${item.costCurrency || "MAD"} ${(Number(item.quantityPerUnit) * Number(item.unitPrice)).toFixed(2)}`
+              : "—";
+            return [
+              i + 1,
+              item.materialName || item.materialId || "—",
+              qty,
+              unitPrice,
+              cost,
+              item.notes || "—",
+            ];
+          })
         : [["", "No materials added", "", "", "", ""]],
       theme: "grid",
       headStyles: {
@@ -205,30 +247,36 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { cellWidth: 10, halign: "center" },
-        1: { cellWidth: 45 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 15, halign: "right" },
-        4: { cellWidth: 15 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 28, halign: "center" },
+        3: { cellWidth: 22, halign: "right" },
+        4: { cellWidth: 26, halign: "right" },
       },
       margin: { left: margin, right: margin },
       styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
       foot: matItems.length > 0
-        ? [[{ content: `Total: ${matItems.length} items`, colSpan: 6, styles: { fillColor: [241, 245, 249], fontStyle: "bold", fontSize: 7 } }]]
+        ? [[{ content: `Total Material Cost per Product: MAD ${matItems.reduce((s, r) => s + ((parseFloat(r.quantityPerUnit) || 0) * (parseFloat(r.unitPrice) || 0)), 0).toFixed(2)}`, colSpan: 6, styles: { fillColor: [241, 245, 249], fontStyle: "bold", fontSize: 7, halign: "right" } }]]
         : undefined,
     });
   } else {
     autoTable(doc, {
       startY: propsTableTop + 4,
-      head: [["STEP", "OPERATION", "OPERATOR", "DURATION / UNIT", "NOTES"]],
+      head: [["STEP", "OPERATION", "DEPARTMENT", "TIME/PRODUCT", "COST/MIN", "COST/PRODUCT", "NOTES"]],
       body: opItems.length > 0
-        ? opItems.map((item, i) => [
-            item.stepOrder ?? i + 1,
-            item.operationName || item.operationId || "—",
-            item.userName || item.userId || "—",
-            item.durationEstimate != null ? item.durationEstimate : "—",
-            item.notes || "—",
-          ])
-        : [["", "No operations added", "", "", ""]],
+        ? opItems.map((item, i) => {
+            const rate = resolveOpRate(item, operations);
+            const costPerUnit = resolveOpCostPerUnit(item, operations);
+            return [
+              item.stepOrder ?? i + 1,
+              item.operationName || item.operationId || "—",
+              item.assignedDepartment || "—",
+              item.durationEstimate != null ? `${item.durationEstimate} min` : "—",
+              rate > 0 ? `${item.costCurrency || "MAD"} ${rate.toFixed(2)}` : "—",
+              costPerUnit > 0 ? `${item.costCurrency || "MAD"} ${costPerUnit.toFixed(2)}` : "—",
+              item.notes || item.instructions || "—",
+            ];
+          })
+        : [["", "No operations added", "", "", "", "", ""]],
       theme: "grid",
       headStyles: {
         fillColor: [100, 116, 139],
@@ -249,11 +297,101 @@ async function generateSheetPdf({ sheet, product, org, matItems, opItems, logoBa
       styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
       foot: opItems.length > 0
         ? [[{
-            content: `Total: ${opItems.length} steps | ${opItems.reduce((s, r) => s + (parseFloat(r.durationEstimate) || 0), 0)} min`,
-            colSpan: 5,
+            content: `Total Production Cost per Product: MAD ${(billingSummary?.operationCost ?? opItems.reduce((s, item) => s + resolveOpCostPerUnit(item, operations), 0)).toFixed(2)} | ${opItems.reduce((s, r) => s + (parseFloat(r.durationEstimate) || 0), 0)} min total`,
+            colSpan: 7,
             styles: { fillColor: [241, 245, 249], fontStyle: "bold", fontSize: 7 },
           }]]
         : undefined,
+    });
+  }
+
+  if (billingSummary && !isMaterial && opItems.length > 0) {
+    const opBreakdownTop = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("ESTIMATED PRODUCTION COST PER PRODUCT", margin, opBreakdownTop);
+
+    autoTable(doc, {
+      startY: opBreakdownTop + 4,
+      head: [],
+      body: [
+        ...opItems.map(item => {
+          const cost = resolveOpCostPerUnit(item, operations);
+          const label = item.operationName || item.operationId || "Operation";
+          return [label, `${item.costCurrency || "MAD"} ${cost.toFixed(2)}`];
+        }),
+        ["Total Production Cost", `${opItems[0]?.costCurrency || "MAD"} ${billingSummary.operationCost.toFixed(2)} / Product`],
+      ],
+      theme: "grid",
+      bodyStyles: { fontSize: 8, textColor: [30, 41, 59], cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 100, fontStyle: "bold", fillColor: [248, 250, 252] },
+        1: { cellWidth: contentW - 100, halign: "right" },
+      },
+      margin: { left: margin, right: margin },
+      styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
+    });
+  }
+
+  if (billingSummary) {
+    const summaryTop = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("ESTIMATED MATERIAL COST PER PRODUCT", margin, summaryTop);
+
+    const costBody = matItems.length > 0
+      ? [
+          ...matItems.map(m => {
+            const qpu = parseFloat(m.quantityPerUnit) || 0;
+            const price = parseFloat(m.unitPrice) || 0;
+            const waste = parseFloat(m.wastePercentage) || 0;
+            const cost = qpu * (1 + waste / 100) * price;
+            return [`${m.materialName || "—"} (${qpu} × ${price})`, `MAD ${cost.toFixed(2)}`];
+          }),
+          ["Total Material Cost", `MAD ${billingSummary.materialCost.toFixed(2)}`],
+        ]
+      : [];
+
+    autoTable(doc, {
+      startY: summaryTop + 4,
+      head: [],
+      body: costBody,
+      theme: "grid",
+      bodyStyles: { fontSize: 8, textColor: [30, 41, 59], cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 100, fontStyle: "bold", fillColor: [248, 250, 252] },
+        1: { cellWidth: contentW - 100, halign: "right" },
+      },
+      margin: { left: margin, right: margin },
+      styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
+    });
+
+    const summaryY = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("COST SUMMARY (per product unit)", margin, summaryY);
+
+    autoTable(doc, {
+      startY: summaryY + 4,
+      head: [],
+      body: [
+        ["Material Cost per Product", `MAD ${billingSummary.materialCost.toFixed(2)}`],
+        ["Production Cost per Product", `MAD ${billingSummary.operationCost.toFixed(2)}`],
+        ["Total Manufacturing Cost per Product", `MAD ${billingSummary.total.toFixed(2)}`],
+        ["Total Duration (min)", String(billingSummary.totalDuration || 0)],
+        ["Number of Operations", String(billingSummary.operationCount || 0)],
+      ],
+      theme: "grid",
+      bodyStyles: { fontSize: 8, textColor: [30, 41, 59], cellPadding: 4 },
+      columnStyles: {
+        0: { cellWidth: 80, fontStyle: "bold", fillColor: [248, 250, 252] },
+        1: { cellWidth: contentW - 80, halign: "right" },
+      },
+      margin: { left: margin, right: margin },
+      styles: { lineColor: [226, 232, 240], lineWidth: 0.3 },
     });
   }
 
@@ -340,6 +478,21 @@ export default function TechnicalSheetsPage() {
   const [newOperation, setNewOperation] = useState({ name: "", description: "", defaultDuration: "", organizationId: "" });
   const [saving, setSaving] = useState(false);
 
+  const billingSummary = useMemo(() => computeBillingSummary(matItems, opItems, operations), [matItems, opItems, operations]);
+
+  const formatMaterialLineCost = useCallback((row) => {
+    const currency = row.costCurrency || "MAD";
+    if (row.materialCostPerUnit != null) {
+      return `${currency} ${parseFloat(row.materialCostPerUnit).toFixed(2)}`;
+    }
+    const qty = parseFloat(row.quantityPerUnit) || 0;
+    const waste = parseFloat(row.wastePercentage) || 0;
+    const mat = materials.find(m => m.id === row.materialId);
+    const price = row.unitPrice != null ? parseFloat(row.unitPrice) : (mat?.unitPrice ? parseFloat(mat.unitPrice) : 0);
+    if (!price) return null;
+    return `${currency} ${(qty * (1 + waste / 100) * price).toFixed(2)}`;
+  }, [materials]);
+
   const [editMaterial, setEditMaterial] = useState(null);
   const [editOperation, setEditOperation] = useState(null);
   const dragItem = useRef(null);
@@ -406,7 +559,7 @@ export default function TechnicalSheetsPage() {
       const [s, m, o, p, orgsData] = await Promise.all([
         getTechnicalSheets(),
         getMaterialStocks(),
-        getTsOperations(),
+        getOperations(),
         getAvailableProducts().catch(() => []),
         ROLE() === "ADMIN"
           ? Promise.all([getMainOrganizations(), getSubOrganizations()])
@@ -539,8 +692,12 @@ export default function TechnicalSheetsPage() {
           materialName: resolvedMat?.name || item.materialName || "",
           materialReference: resolvedMat?.referenceCode || item.referenceCode || "",
           quantityPerUnit: item.quantityPerUnit ?? "",
-          unit: item.unit || "",
+          unit: item.unit || resolvedMat?.unit || "",
+          wastePercentage: item.wastePercentage ?? "",
           notes: item.notes || "",
+          unitPrice: item.unitPrice,
+          costCurrency: item.costCurrency,
+          materialCostPerUnit: item.materialCostPerUnit,
         };
       }) : [];
       setMatItems(resolved);
@@ -569,7 +726,22 @@ export default function TechnicalSheetsPage() {
     } catch {  }
     const product = products.find(p => p.id === sheet.productId) || null;
     const org = getOrgName(sheet.organizationId);
-    const { blob, filename } = await generateSheetPdf({ sheet, product, org, matItems: matItemsData, opItems: opItemsData, logoBase64 });
+    let summaryMat = matItemsData;
+    let summaryOp = opItemsData;
+    const pairedSheet = sheets.find(s =>
+      s.productId === sheet.productId && s.type !== sheet.type && s.status === "ACTIVE"
+    );
+    if (pairedSheet) {
+      try {
+        if (sheet.type === "MATERIAL_SHEET") {
+          summaryOp = await getOperationItems(pairedSheet.id).catch(() => []);
+        } else {
+          summaryMat = await getMaterialItems(pairedSheet.id).catch(() => []);
+        }
+      } catch { /* ignore */ }
+    }
+    const billingSummary = computeBillingSummary(summaryMat, summaryOp, operations);
+    const { blob, filename } = await generateSheetPdf({ sheet, product, org, matItems: matItemsData, opItems: opItemsData, logoBase64, billingSummary, operations });
     const url = URL.createObjectURL(blob);
     setPdfPreview({ url, filename, sheetName: sheet.name });
   }
@@ -606,21 +778,19 @@ export default function TechnicalSheetsPage() {
                 quantityPerUnit: parseFloat(r.quantityPerUnit) || 0,
                 unit: r.unit,
                 notes: r.notes,
+                unitPrice: r.unitPrice != null && r.unitPrice !== "" ? parseFloat(r.unitPrice) : null,
               };
             }));
             logAuditEntry(sheetId, "MATERIALS_ADDED", { count: matItems.length });
           } else if (sheetDraft.type === "OPERATION_SHEET" && opItems.length > 0) {
             await saveOperationItems(sheetId, opItems.map(r => ({
-              operationId: r.operationId, userId: r.userId || null,
+              operationId: r.operationId,
               operationName: r.operationName || null,
               stepOrder: parseInt(r.stepOrder) || 1,
               durationEstimate: parseFloat(r.durationEstimate) || null,
-              notes: r.notes || "",
               instructions: r.instructions || "",
               qualityCheckRequired: r.qualityCheckRequired || false,
               canRunInParallel: r.canRunInParallel || false,
-              overrideDefaultDuration: r.overrideDefaultDuration != null ? parseFloat(r.overrideDefaultDuration) : null,
-              overrideExecutionCost: r.overrideExecutionCost != null ? parseFloat(r.overrideExecutionCost) : null,
               assignedDepartment: r.assignedDepartment || "",
             })));
             logAuditEntry(sheetId, "OPERATIONS_ADDED", { count: opItems.length });
@@ -687,7 +857,20 @@ export default function TechnicalSheetsPage() {
         }
         const product = products.find(p => p.id === sheet.productId) || null;
         const org = getOrgName(sheet.organizationId);
-        const { blob, filename } = await generateSheetPdf({ sheet, product, org, matItems: matItemsData, opItems: opItemsData, logoBase64 });
+        let summaryMat = matItemsData;
+        let summaryOp = opItemsData;
+        const pairedSheet = sheets.find(s =>
+          s.productId === sheet.productId && s.type !== sheet.type && s.status === "ACTIVE"
+        );
+        if (pairedSheet) {
+          if (sheet.type === "MATERIAL_SHEET") {
+            summaryOp = await getOperationItems(pairedSheet.id).catch(() => []);
+          } else {
+            summaryMat = await getMaterialItems(pairedSheet.id).catch(() => []);
+          }
+        }
+        const billingSummary = computeBillingSummary(summaryMat, summaryOp, operations);
+        const { blob, filename } = await generateSheetPdf({ sheet, product, org, matItems: matItemsData, opItems: opItemsData, logoBase64, billingSummary, operations });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -728,7 +911,7 @@ export default function TechnicalSheetsPage() {
   }
 
   function addMatRow() {
-    setMatItems(p => [...p, { materialId: "", quantityPerUnit: "", unit: "", notes: "" }]);
+    setMatItems(p => [...p, { materialId: "", quantityPerUnit: "", unit: "", notes: "", unitPrice: "" }]);
   }
 
   function updateMatRow(i, field, val) {
@@ -747,6 +930,10 @@ export default function TechnicalSheetsPage() {
   }
 
   async function handleSaveMatItems() {
+    if (matItems.some(r => r.materialId && (r.unitPrice == null || parseFloat(r.unitPrice) === 0))) {
+      setError("Cannot save. One or more materials have a zero cost. Please update the pricing in the inventory.");
+      return;
+    }
     setError("");
     setSaving(true);
     try {
@@ -760,6 +947,7 @@ export default function TechnicalSheetsPage() {
           quantityPerUnit: parseFloat(r.quantityPerUnit) || 0,
           unit: r.unit,
           notes: r.notes,
+          unitPrice: r.unitPrice != null && r.unitPrice !== "" ? parseFloat(r.unitPrice) : null,
         };
       }));
       logAuditEntry(activeSheet.id, "MATERIALS_UPDATED", { count: matItems.length, changes: matItems.length !== oldItems.length ? "Items modified" : "Items updated" });
@@ -769,11 +957,26 @@ export default function TechnicalSheetsPage() {
   }
 
   function addOpRow() {
-    setOpItems(p => [...p, { operationId: "", userId: "", stepOrder: p.length + 1, durationEstimate: "", notes: "" }]);
+    setOpItems(p => [...p, { operationId: "", stepOrder: p.length + 1, durationEstimate: "" }]);
   }
 
   function updateOpRow(i, field, val) {
-    setOpItems(p => p.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+    setOpItems(p => p.map((r, idx) => {
+      if (idx !== i) return r;
+      const next = { ...r, [field]: val };
+      if (field === "operationId") {
+        const op = operations.find(o => o.id === val);
+        if (op) {
+          next.operationName = op.name;
+          next.costPerMinute = op.costPerMinute;
+          next.costCurrency = op.costCurrency || "MAD";
+          if (!next.durationEstimate && op.defaultDuration) {
+            next.durationEstimate = op.defaultDuration;
+          }
+        }
+      }
+      return next;
+    }));
   }
 
   function removeOpRow(i) {
@@ -788,17 +991,15 @@ export default function TechnicalSheetsPage() {
       await saveOperationItems(activeSheet.id, items.map(r => ({
         operationId: r.operationId,
         operationName: r.operationName || "",
-        userId: r.userId || null,
         stepOrder: parseInt(r.stepOrder) || 1,
         durationEstimate: parseFloat(r.durationEstimate) || null,
-        notes: r.notes || null,
         instructions: r.instructions || null,
         qualityCheckRequired: r.qualityCheckRequired || false,
         canRunInParallel: r.canRunInParallel || false,
-        overrideDefaultDuration: r.overrideDefaultDuration != null ? parseFloat(r.overrideDefaultDuration) : null,
-        overrideExecutionCost: r.overrideExecutionCost != null ? parseFloat(r.overrideExecutionCost) : null,
         assignedDepartment: r.assignedDepartment || null,
       })));
+      const refreshed = await getOperationItems(activeSheet.id).catch(() => []);
+      setOpItems(Array.isArray(refreshed) ? refreshed : items);
       logAuditEntry(activeSheet.id, "OPERATIONS_UPDATED", { count: items.length, changes: items.length !== oldItems.length ? "Steps modified" : "Steps updated" });
       setModal(null);
     } catch (e) { setError(e.message); }
@@ -828,10 +1029,13 @@ export default function TechnicalSheetsPage() {
     if (!newOperation.name.trim() || !newOperation.organizationId.trim()) return;
     setSaving(true);
     try {
-      const created = await createTsOperation({
-        ...newOperation,
-        defaultDuration: parseFloat(newOperation.defaultDuration) || null,
+      const res = await createOperation({
+        name: newOperation.name,
+        description: newOperation.description || undefined,
+        estimatedDuration: parseFloat(newOperation.defaultDuration) || undefined,
+        organizationId: newOperation.organizationId,
       });
+      const created = res?.data ?? res;
       setOperations(p => [...p, created]);
       setNewOperation({ name: "", description: "", defaultDuration: "", organizationId: orgId });
       setModal(activeSheet ? "operation-items" : "create");
@@ -870,11 +1074,12 @@ export default function TechnicalSheetsPage() {
     if (!editOperation?.name?.trim()) return;
     setSaving(true);
     try {
-      const updated = await updateTsOperation(editOperation.id, {
+      const res = await updateOperation(editOperation.id, {
         name: editOperation.name,
         description: editOperation.description,
-        defaultDuration: parseFloat(editOperation.defaultDuration) || null,
+        estimatedDuration: parseFloat(editOperation.defaultDuration) || undefined,
       });
+      const updated = res?.data ?? res;
       setOperations(p => p.map(o => o.id === updated.id ? updated : o));
       setEditOperation(null);
     } catch (e) { setError(e.message); }
@@ -884,7 +1089,7 @@ export default function TechnicalSheetsPage() {
   async function handleDeleteOperation(id) {
     setSaving(true);
     try {
-      await deleteTsOperation(id);
+      await deleteOperation(id);
       setOperations(p => p.filter(o => o.id !== id));
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -1238,15 +1443,18 @@ export default function TechnicalSheetsPage() {
                         )}
                         {matItems.length > 0 && (
                           <div className="grid grid-cols-12 gap-2 px-3">
-                            <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
+                            <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
                             <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Qty / Unit</div>
-                            <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
-                            <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+                            <div className="col-span-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
+                            <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit Price</div>
+                            <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Mat. Cost</div>
+                            <div className="col-span-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+                            <div className="col-span-1" />
                           </div>
                         )}
-                        {matItems.map((row, i) => (
+                        {matItems.map((row, i) =>
                           <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5 p-3">
-                            <div className="col-span-4">
+                            <div className="col-span-3">
                               <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
                                 <option value="">{t("technicalSheets.selectMaterial")}</option>
                                 {materials.map(m => <option key={m.id} value={m.id}>{m.name}{m.referenceCode ? ` (${m.referenceCode})` : ""}</option>)}
@@ -1255,12 +1463,22 @@ export default function TechnicalSheetsPage() {
                             <div className="col-span-2">
                               <Input type="number" min="0" step="0.01" value={row.quantityPerUnit} onChange={e => updateMatRow(i, "quantityPerUnit", e.target.value)} placeholder="Qty/unit" />
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-1">
                               <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
                                 {row.unit || <span className="italic text-slate-300">—</span>}
                               </div>
                             </div>
-                            <div className="col-span-3">
+                            <div className="col-span-2">
+                              <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
+                                {row.unitPrice != null && row.unitPrice !== "" ? `MAD ${parseFloat(row.unitPrice).toFixed(2)}` : <span className="italic text-slate-300">—</span>}
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-emerald-50 dark:bg-emerald-500/10 px-3 flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 select-none">
+                                {formatMaterialLineCost(row) || <span className="italic text-slate-300">&mdash;</span>}
+                              </div>
+                            </div>
+                            <div className="col-span-1">
                               <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
                             </div>
                             <div className="col-span-1 flex justify-end">
@@ -1271,7 +1489,7 @@ export default function TechnicalSheetsPage() {
                               </button>
                             </div>
                           </div>
-                        ))}
+                        )}
                         <button onClick={addMatRow}
                           className="w-full rounded-xl border border-dashed border-emerald-300 py-2 text-sm text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
                           + {t("technicalSheets.addMaterial")}
@@ -1309,22 +1527,21 @@ export default function TechnicalSheetsPage() {
                                 try {
                                   let op = existing;
                                   if (!op) {
-                                    op = await createTsOperation({ name, description: "", defaultDuration: null, organizationId: contextOrgId });
+                                    const res = await createOperation({ name, description: "", organizationId: contextOrgId });
+                                    op = res?.data ?? res;
                                     setOperations(p => [...p, op]);
                                   }
                                   setOpItems(prev => [...prev, {
                                     operationId: op.id,
                                     operationName: name,
-                                    userId: "",
                                     stepOrder: prev.length + 1,
                                     durationEstimate: op.defaultDuration || null,
-                                    notes: "",
+                                    costPerMinute: op.costPerMinute,
+                                    costCurrency: op.costCurrency || "MAD",
                                     instructions: "",
                                     qualityCheckRequired: false,
                                     canRunInParallel: false,
-                                    overrideDefaultDuration: null,
-                                    overrideExecutionCost: null,
-                                    assignedDepartment: "",
+                                    assignedDepartment: op.responsibleDepartment || "",
                                   }]);
                                 } catch (e) { setError(e.message); }
                                 finally { setSaving(false); }
@@ -1376,17 +1593,19 @@ export default function TechnicalSheetsPage() {
                                 try {
                                   let op = operations.find(o => o.name === from.name);
                                   if (!op) {
-                                    op = await createTsOperation({ name: from.name, description: "", defaultDuration: null, organizationId: dropContextOrgId });
+                                    const res = await createOperation({ name: from.name, description: "", organizationId: dropContextOrgId });
+                                    op = res?.data ?? res;
                                     setOperations(p => [...p, op]);
                                   }
                                   setOpItems(prev => {
                                     const next = [...prev];
                                     next.splice(i, 0, {
                                       operationId: op.id, operationName: from.name, userId: "",
-                                      stepOrder: i + 1, durationEstimate: op.defaultDuration || null,
-                                      notes: "", instructions: "", qualityCheckRequired: false,
-                                      canRunInParallel: false, overrideDefaultDuration: null,
-                                      overrideExecutionCost: null, assignedDepartment: "",
+                                       stepOrder: i + 1, durationEstimate: op.defaultDuration || null,
+                                       costPerMinute: op.costPerMinute,
+                                       costCurrency: op.costCurrency || "MAD",
+                                       notes: "", instructions: "", qualityCheckRequired: false,
+                                        canRunInParallel: false, assignedDepartment: op.responsibleDepartment || "",
                                     });
                                     return next.map((item, idx) => ({ ...item, stepOrder: idx + 1 }));
                                   });
@@ -1417,12 +1636,18 @@ export default function TechnicalSheetsPage() {
                                 </svg>
                                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-xs font-bold text-blue-700 dark:text-blue-300">{row.stepOrder}</span>
                               </div>
-                              <div className="flex-1 grid grid-cols-2 gap-2">
+                              <div className="flex-1 grid grid-cols-4 gap-2">
                                 <Select value={row.operationId} onChange={e => updateOpRow(i, "operationId", e.target.value)}>
                                   <option value="">{t("technicalSheets.selectOperation")}</option>
                                   {operations.map(op => <option key={op.id} value={op.id}>{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</option>)}
                                 </Select>
-                                <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder="Duration / unit (min)" />
+                                <Input type="number" value={row.durationEstimate} onChange={e => updateOpRow(i, "durationEstimate", e.target.value)} placeholder="Time / product (min)" />
+                                <span className="h-9 flex items-center px-2 text-xs text-slate-600 dark:text-slate-300">
+                                  {resolveOpRate(row, operations) > 0 ? `${row.costCurrency || "MAD"} ${resolveOpRate(row, operations).toFixed(2)}/min` : "—"}
+                                </span>
+                                <span className="h-9 flex items-center px-2 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                  {resolveOpCostPerUnit(row, operations) > 0 ? `${row.costCurrency || "MAD"} ${resolveOpCostPerUnit(row, operations).toFixed(2)}` : "—"}
+                                </span>
                               </div>
                               <button onClick={() => removeOpRow(i)} className="text-red-400 hover:text-red-600 shrink-0">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1430,10 +1655,7 @@ export default function TechnicalSheetsPage() {
                                 </svg>
                               </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 pl-8">
-                              <Input value={row.userId} onChange={e => updateOpRow(i, "userId", e.target.value)} placeholder={t("technicalSheets.assignedUserId")} />
-                              <Input value={row.notes} onChange={e => updateOpRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
-                            </div>
+
                           </div>
                         ))}
                         <button onClick={addOpRow}
@@ -1445,6 +1667,33 @@ export default function TechnicalSheetsPage() {
                   )
                 )}
               </div>
+
+              {(matItems.length > 0 || opItems.length > 0) && (
+                <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-slate-800 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-4 w-1 rounded-full bg-emerald-500" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Cost Summary</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {billingSummary.materialCost > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Material Cost</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-slate-100">MAD {billingSummary.materialCost.toFixed(2)}</p>
+                      </div>
+                    )}
+                    {billingSummary.operationCost > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Operation Cost</p>
+                        <p className="text-lg font-bold text-slate-900 dark:text-slate-100">MAD {billingSummary.operationCost.toFixed(2)}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Cost per Unit</p>
+                      <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">MAD {billingSummary.total.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 mt-6">
                 <button onClick={() => { setError(""); setModal(null); }} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
@@ -1506,45 +1755,78 @@ export default function TechnicalSheetsPage() {
             )}
             {matItems.length > 0 && (
               <div className="grid grid-cols-12 gap-2 px-3">
-                <div className="col-span-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
+                <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Material</div>
                 <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Qty / Unit</div>
-                <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
-                <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+                <div className="col-span-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit</div>
+                <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Unit Price</div>
+                <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Mat. Cost</div>
+                <div className="col-span-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Notes</div>
+                <div className="col-span-1" />
               </div>
             )}
-            {matItems.map((row, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 p-3">
-                <div className="col-span-4">
-                  <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
-                    <option value="">{t("technicalSheets.selectMaterial")}</option>
-                    {materials.map(m => <option key={m.id} value={m.id}>{m.name} {m.referenceCode ? `(${m.referenceCode})` : ""}</option>)}
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Input type="number" min="0" step="0.01" value={row.quantityPerUnit} onChange={e => updateMatRow(i, "quantityPerUnit", e.target.value)} placeholder="Qty/unit" />
-                </div>
-                <div className="col-span-2">
-                  <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
-                    {row.unit || <span className="italic text-slate-300">—</span>}
+            {matItems.map((row, i) => {
+              const isZeroPrice = row.materialId && (row.unitPrice == null || parseFloat(row.unitPrice) === 0);
+              return (
+              <div key={i} className="flex flex-col gap-1 mb-2">
+                <div className={`grid grid-cols-12 gap-2 items-center rounded-xl border p-3 ${isZeroPrice ? "border-red-300 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10" : "border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50"}`}>
+                  <div className="col-span-3">
+                    <Select value={row.materialId} onChange={e => updateMatRow(i, "materialId", e.target.value)}>
+                      <option value="">{t("technicalSheets.selectMaterial")}</option>
+                      {materials.map(m => <option key={m.id} value={m.id}>{m.name} {m.referenceCode ? `(${m.referenceCode})` : ""}</option>)}
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" min="0" step="0.01" value={row.quantityPerUnit} onChange={e => updateMatRow(i, "quantityPerUnit", e.target.value)} placeholder="Qty/unit" />
+                  </div>
+                  <div className="col-span-1">
+                    <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
+                      {row.unit || <span className="italic text-slate-300">—</span>}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-slate-900/40 px-3 flex items-center text-sm text-slate-500 dark:text-slate-400 select-none">
+                      {row.unitPrice != null && row.unitPrice !== "" ? `MAD ${parseFloat(row.unitPrice).toFixed(2)}` : <span className="italic text-slate-300">—</span>}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-emerald-50 dark:bg-emerald-500/10 px-3 flex items-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 select-none">
+                      {formatMaterialLineCost(row) || <span className="italic text-slate-300">&mdash;</span>}
+                    </div>
+                  </div>
+                  <div className="col-span-1">
+                    <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <button onClick={() => removeMatRow(i)} className="text-red-400 hover:text-red-600">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
-                <div className="col-span-3">
-                  <Input value={row.notes} onChange={e => updateMatRow(i, "notes", e.target.value)} placeholder={t("technicalSheets.notes")} />
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <button onClick={() => removeMatRow(i)} className="text-red-400 hover:text-red-600">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                {isZeroPrice && (
+                  <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 px-2 font-medium">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    Problem: This material costs zero. Please update its unit price.
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
             <button onClick={addMatRow}
               className="w-full rounded-xl border border-dashed border-slate-300 py-2 text-sm text-slate-500 hover:border-brand-400 hover:text-brand-600">
               + {t("technicalSheets.addMaterial")}
             </button>
           </div>
+
+          {matItems.length > 0 && (
+            <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-slate-800 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Material Cost</span>
+                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">MAD {billingSummary.materialCost.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setModal(null)} className="h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
@@ -1578,8 +1860,7 @@ export default function TechnicalSheetsPage() {
             orgId={activeSheet.organizationId}
             onRefreshOperations={load}
             onSave={async (items) => {
-              setOpItems(items);
-              await handleSaveOpItems();
+              await handleSaveOpItems(items);
             }}
           />
         </Modal>
@@ -1721,53 +2002,25 @@ export default function TechnicalSheetsPage() {
               </button>
             </div>
             <div className="p-6 space-y-5">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Operation rates and status are managed in{" "}
+                <Link to="/operations" className="font-semibold text-brand-600 hover:underline">Operations Management</Link>.
+              </p>
               {operations.length > 0 && (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Existing Operations</p>
                   <div className="space-y-1 max-h-52 overflow-y-auto">
                     {operations.map(op => (
                       <div key={op.id} className="flex items-center gap-2 rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-slate-700/50 px-3 py-2">
-                        {editOperation?.id === op.id ? (
-                          <>
-                            <div className="flex-1 grid grid-cols-3 gap-2">
-                              <Input value={editOperation.name} onChange={e => setEditOperation(p => ({ ...p, name: e.target.value }))} placeholder="Name" />
-                              <Input value={editOperation.description || ""} onChange={e => setEditOperation(p => ({ ...p, description: e.target.value }))} placeholder="Description" />
-                              <Input type="number" value={editOperation.defaultDuration || ""} onChange={e => setEditOperation(p => ({ ...p, defaultDuration: e.target.value }))} placeholder="Duration (min)" />
-                            </div>
-                            <button onClick={handleUpdateOperation} disabled={saving}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50">
-                              {saving ? "..." : "Save"}
-                            </button>
-                            <button onClick={() => setEditOperation(null)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {op.description || "—"}
-                                {op.defaultDuration ? ` · ${op.defaultDuration} min` : ""}
-                              </p>
-                            </div>
-                            <button onClick={() => setEditOperation({ ...op })}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button onClick={() => handleDeleteOperation(op.id)} disabled={saving}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40">
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{OPERATION_KEYS[op.name] ? t(OPERATION_KEYS[op.name]) : op.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {op.responsibleDepartment || "—"}
+                            {(op.defaultDuration || op.estimatedDuration) ? ` · ${op.defaultDuration || op.estimatedDuration} min default` : ""}
+                            {op.costPerMinute != null ? ` · ${Number(op.costPerMinute).toFixed(2)} MAD/min` : " · rate not set"}
+                          </p>
+                        </div>
+                        <Link to="/operations" className="text-xs font-semibold text-brand-600 hover:underline shrink-0">Edit</Link>
                       </div>
                     ))}
                   </div>
@@ -1787,15 +2040,18 @@ export default function TechnicalSheetsPage() {
                     <FieldGroup label={t("technicalSheets.defaultDuration")}>
                       <Input type="number" value={newOperation.defaultDuration} onChange={e => setNewOperation(p => ({ ...p, defaultDuration: e.target.value }))} />
                     </FieldGroup>
-                    <FieldGroup label={t("common.organization")}>
-                      <Select value={newOperation.organizationId} onChange={e => setNewOperation(p => ({ ...p, organizationId: e.target.value }))}>
-                        <option value="">— Select organization —</option>
-                        {orgs.map(org => (
-                          <option key={org.id} value={org.id}>{org.name || org.id}</option>
-                        ))}
-                      </Select>
-                    </FieldGroup>
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Set cost/min in <Link to="/operations" className="font-semibold text-brand-600 hover:underline">Operations Management</Link>.
+                  </p>
+                  <FieldGroup label={t("common.organization")}>
+                    <Select value={newOperation.organizationId} onChange={e => setNewOperation(p => ({ ...p, organizationId: e.target.value }))}>
+                      <option value="">— Select organization —</option>
+                      {orgs.map(org => (
+                        <option key={org.id} value={org.id}>{org.name || org.id}</option>
+                      ))}
+                    </Select>
+                  </FieldGroup>
                   <div className="flex justify-end">
                     <button onClick={handleCreateOperation} disabled={saving}
                       className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">

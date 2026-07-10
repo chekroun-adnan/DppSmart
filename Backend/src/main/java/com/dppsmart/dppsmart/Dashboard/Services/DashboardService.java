@@ -1,5 +1,7 @@
 package com.dppsmart.dppsmart.Dashboard.Services;
 
+import com.dppsmart.dppsmart.Billing.Enums.PaymentRecordStatus;
+import com.dppsmart.dppsmart.Billing.Services.PaymentService;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Dashboard.DTO.*;
@@ -24,6 +26,7 @@ import com.dppsmart.dppsmart.User.Entities.Roles;
 import com.dppsmart.dppsmart.User.Entities.User;
 import com.dppsmart.dppsmart.User.Repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DashboardService {
     private final UserRepository userRepository;
     private final OrganizationRepository organizationRepository;
@@ -44,6 +48,7 @@ public class DashboardService {
     private final EmployeesRepository employeesRepository;
     private final ScanEventRepository scanEventRepository;
     private final PermissionService permissionService;
+    private final PaymentService paymentService;
 
     public DashboardResponseDto getMyDashboard(String selectedOrgId) {
         User user = getCurrentUser();
@@ -104,6 +109,20 @@ public class DashboardService {
             kpis.setLowStockItems(countLowStock(materialStockRepository.findAll()));
             kpis.setProductionsByStatus(groupProductionsByStatus(productionRepository.findAll()));
             kpis.setOrdersByStatus(groupOrdersByStatus(ordersRepository.findAll().stream().map(Orders::getStatus).toList()));
+
+            try {
+                kpis.setTotalRevenue(paymentService.getTotalRevenue());
+                kpis.setPaidOrders(paymentService.countPaidOrders());
+                kpis.setUnpaidOrders(paymentService.countUnpaidOrders());
+                kpis.setOutstandingAmount(paymentService.getOutstandingAmount());
+                kpis.setPendingPayments(paymentService.countByStatus(PaymentRecordStatus.PENDING));
+                kpis.setUnderReviewPayments(paymentService.countByStatus(PaymentRecordStatus.UNDER_REVIEW));
+                kpis.setApprovedPayments(paymentService.countByStatus(PaymentRecordStatus.APPROVED));
+                kpis.setRejectedPayments(paymentService.countByStatus(PaymentRecordStatus.REJECTED));
+            } catch (Exception e) {
+                log.warn("Failed to load payment KPIs: {}", e.getMessage());
+            }
+
             return;
         }
 

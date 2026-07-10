@@ -22,5 +22,15 @@ public class DashboardKpisDto {
 
     private Map<ProductionStatus, Long> productionsByStatus;
     private Map<String, Long> ordersByStatus;
+
+    // Payment KPIs
+    private Double totalRevenue;
+    private Long paidOrders;
+    private Long unpaidOrders;
+    private Double outstandingAmount;
+    private Long pendingPayments;
+    private Long underReviewPayments;
+    private Long approvedPayments;
+    private Long rejectedPayments;
 }
 

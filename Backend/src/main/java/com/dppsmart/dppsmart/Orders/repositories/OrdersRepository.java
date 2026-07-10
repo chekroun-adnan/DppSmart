@@ -1,6 +1,7 @@
 package com.dppsmart.dppsmart.Orders.repositories;
 
 import com.dppsmart.dppsmart.Orders.Entities.ClientOrderStatus;
+import com.dppsmart.dppsmart.Orders.Entities.OrderPaymentStatus;
 import com.dppsmart.dppsmart.Orders.Entities.Orders;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -14,4 +15,6 @@ public interface OrdersRepository extends MongoRepository<Orders, String> {
     boolean existsByOrderReference(String orderReference);
     Optional<Orders> findByDeliveryTokenAndStatus(String deliveryToken, ClientOrderStatus status);
     Optional<Orders> findBySupplyChainOrderId(String supplyChainOrderId);
+    long countByPaymentStatus(OrderPaymentStatus paymentStatus);
+    List<Orders> findByPaymentStatus(OrderPaymentStatus paymentStatus);
 }

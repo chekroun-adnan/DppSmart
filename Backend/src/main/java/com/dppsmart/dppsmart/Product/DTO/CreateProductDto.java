@@ -23,4 +23,14 @@ public class CreateProductDto {
     private Map<String, Object> extraFields;
     @NotBlank(message = "organizationId is required")
     private String organizationId;
+
+    private Double defaultUnitPrice;
+    private String currency;
+
+    // Packaging configuration
+    private Integer unitsPerBox;
+    private String boxType;
+    private Double boxWeight;
+    private String boxDimensions;
+    private Boolean allowPartialLastBox;
 }

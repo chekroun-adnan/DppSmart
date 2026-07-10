@@ -20,6 +20,7 @@ import com.dppsmart.dppsmart.SupplyChain.Services.MaterialOrderService;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.MaterialSheetItem;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheet;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetType;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
 import lombok.RequiredArgsConstructor;
@@ -83,10 +84,10 @@ public class OrderMaterialRequirementService {
         }
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
         if (sheetOpt.isEmpty()) {
             return builder
-                    .errorMessage("No active technical sheet found for product: " + item.getProductName())
+                    .errorMessage("No active material sheet found for product: " + item.getProductName())
                     .materialRequirements(Collections.emptyList())
                     .build();
         }
@@ -165,7 +166,7 @@ public class OrderMaterialRequirementService {
                 }
 
                 Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                        .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                        .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
                 if (sheetOpt.isEmpty()) {
                     summaries.add(BulkRequirementsResponseDTO.OrderSummaryDTO.builder()
                             .orderId(orderId)
@@ -271,7 +272,7 @@ public class OrderMaterialRequirementService {
         for (String mid : matIds) result.put(mid, 0.0);
 
         Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                .findFirstByProductIdAndStatusOrderByVersionDesc(productId, TechnicalSheetStatus.ACTIVE);
+                .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(productId, TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
         if (sheetOpt.isEmpty()) return result;
 
         Map<String, Double> qpuMap = materialSheetItemRepository.findByTechnicalSheetId(sheetOpt.get().getId())

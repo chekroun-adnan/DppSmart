@@ -34,4 +34,15 @@ private String companyName;
     private String updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Billing
+    private Double defaultUnitPrice;
+    private String currency;
+
+    // Packaging configuration
+    private Integer unitsPerBox;
+    private String boxType;
+    private Double boxWeight;
+    private String boxDimensions;
+    private Boolean allowPartialLastBox;
 }

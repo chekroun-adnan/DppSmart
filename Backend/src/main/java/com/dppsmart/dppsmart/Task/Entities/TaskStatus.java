@@ -1,9 +1,13 @@
 package com.dppsmart.dppsmart.Task.Entities;
 
 public enum TaskStatus {
-    TODO,
+    PLANNED,
+    READY,
     IN_PROGRESS,
-    REVIEW,
+    PAUSED,
+    BLOCKED,
+    UNDER_REVIEW,
     DONE,
+    COMPLETED,
     CANCELLED
 }

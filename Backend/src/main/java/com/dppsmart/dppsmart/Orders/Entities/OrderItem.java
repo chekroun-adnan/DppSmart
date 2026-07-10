@@ -25,6 +25,16 @@ public class OrderItem {
     private List<BomMaterialLineDto> requiredMaterials;
     private boolean materialsAvailable;
 
+    // Cost snapshots at order time (frozen — not recalculated on price changes)
+    private Double materialCostPerUnit;
+    private Double operationCostPerUnit;
+    private Double unitManufacturingCost;
+    private Double materialCostTotal;
+    private Double operationCostTotal;
+    private String costCurrency;
+    private List<MaterialCostLineSnapshot> materialCostLines;
+    private List<OperationCostLineSnapshot> operationCostLines;
+
     private Integer allocatedQuantity;
     private Integer missingQuantity;
     private String relatedProductionId;

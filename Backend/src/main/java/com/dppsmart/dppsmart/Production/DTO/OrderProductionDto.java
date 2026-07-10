@@ -2,6 +2,7 @@ package com.dppsmart.dppsmart.Production.DTO;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -20,6 +21,26 @@ public class OrderProductionDto {
     private boolean stepsGenerated;
     private String currentOperation;
     private String nextOperation;
+    private LocalDateTime estimatedStartTime;
+    private LocalDateTime estimatedCompletionDateTime;
     private String estimatedCompletionTime;
     private String warning;
+    private LocalDateTime plannedStartDateTime;
+    private LocalDateTime plannedEndDateTime;
+
+    // NEW: Forecast & Health
+    private LocalDateTime forecastEndDateTime;
+    private String delayStatus;
+    private Double delayMinutes;
+    private Integer healthScore;
+    private Integer priorityScore;
+    private String priorityLevel;
+    private Integer totalIssues;
+    private Integer unresolvedIssues;
+
+    // WIP / Quantity tracking
+    private Integer totalRequiredQuantity;
+    private Integer totalCompletedQuantity;
+    private Integer totalRemainingQuantity;
+    private Double averageCompletionPercentage;
 }

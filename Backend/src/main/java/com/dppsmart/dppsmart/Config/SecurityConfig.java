@@ -94,6 +94,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/scans").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ai/public/chat").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/billing/invoices/recalculate-all").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/public/contact").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").authenticated()

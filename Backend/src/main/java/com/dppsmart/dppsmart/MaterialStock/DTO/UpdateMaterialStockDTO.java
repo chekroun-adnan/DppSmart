@@ -23,4 +23,8 @@ public class UpdateMaterialStockDTO {
     private String unit;
 
     private String organizationId;
+
+    private Double unitPrice;
+    private String costCurrency;
+    private String supplier;
 }

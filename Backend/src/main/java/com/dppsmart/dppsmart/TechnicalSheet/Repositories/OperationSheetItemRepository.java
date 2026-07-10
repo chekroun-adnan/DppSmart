@@ -9,4 +9,5 @@ public interface OperationSheetItemRepository extends MongoRepository<OperationS
     List<OperationSheetItem> findByTechnicalSheetIdOrderByStepOrderAsc(String technicalSheetId);
     void deleteByTechnicalSheetId(String technicalSheetId);
     boolean existsByOperationId(String operationId);
+    List<OperationSheetItem> findByOperationId(String operationId);
 }

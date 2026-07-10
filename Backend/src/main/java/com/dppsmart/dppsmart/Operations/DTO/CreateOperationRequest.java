@@ -22,6 +22,9 @@ public class CreateOperationRequest {
     @Min(value = 0, message = "executionCost must be non-negative")
     private Double executionCost;
 
+    @Min(value = 0, message = "costPerMinute must be non-negative")
+    private Double costPerMinute;
+
     private String costCurrency;
 
     @NotBlank(message = "organizationId is required")

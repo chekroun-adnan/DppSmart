@@ -29,4 +29,7 @@ public class MaterialStock {
     private Integer inProductionQuantity;
     private Integer reservedQuantity;
     private List<String> alternativeRefCodes;
+    private Double unitPrice;
+    private String costCurrency;
+    private String supplier;
 }

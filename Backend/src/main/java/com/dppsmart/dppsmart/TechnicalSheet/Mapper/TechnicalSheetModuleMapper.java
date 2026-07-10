@@ -30,6 +30,14 @@ public class TechnicalSheetModuleMapper {
         d.setName(e.getName());
         d.setDescription(e.getDescription());
         d.setDefaultDuration(e.getDefaultDuration());
+        d.setEstimatedDuration(e.getEstimatedDuration());
+        d.setDurationUnit(e.getDurationUnit());
+        d.setResponsibleDepartment(e.getResponsibleDepartment());
+        d.setRequiredResources(e.getRequiredResources());
+        d.setExecutionCost(e.getExecutionCost());
+        d.setCostPerMinute(e.getCostPerMinute());
+        d.setCostCurrency(e.getCostCurrency());
+        d.setActive(e.getActive());
         d.setOrganizationId(e.getOrganizationId());
         d.setCreatedBy(e.getCreatedBy());
         d.setCreatedAt(e.getCreatedAt());
@@ -37,7 +45,8 @@ public class TechnicalSheetModuleMapper {
         return d;
     }
 
-    public static MaterialSheetItemDto toDto(MaterialSheetItem e, String materialName, String materialReference, Integer availableStock) {
+    public static MaterialSheetItemDto toDto(MaterialSheetItem e, String materialName, String materialReference,
+                                              Integer availableStock, Double unitPrice, String costCurrency) {
         MaterialSheetItemDto d = new MaterialSheetItemDto();
         d.setId(e.getId());
         d.setMaterialId(e.getMaterialId());
@@ -48,10 +57,19 @@ public class TechnicalSheetModuleMapper {
         d.setMaterialName(materialName);
         d.setMaterialReference(materialReference);
         d.setAvailableStock(availableStock);
+        d.setUnitPrice(unitPrice);
+        d.setCostCurrency(costCurrency != null ? costCurrency : "MAD");
+        if (unitPrice != null && e.getQuantityPerUnit() != null) {
+            double waste = e.getWastePercentage() != null ? e.getWastePercentage() : 0.0;
+            double requiredPerUnit = e.getQuantityPerUnit() * (1.0 + waste / 100.0);
+            double cost = requiredPerUnit * unitPrice;
+            d.setMaterialCostPerUnit(Math.round(cost * 100.0) / 100.0);
+        }
         return d;
     }
 
-    public static OperationSheetItemDto toDto(OperationSheetItem e, String operationName, String userName) {
+    public static OperationSheetItemDto toDto(OperationSheetItem e, String operationName, String userName,
+                                                Double costPerMinute, String costCurrency, Double defaultDurationMinutes) {
         OperationSheetItemDto d = new OperationSheetItemDto();
         d.setId(e.getId());
         d.setOperationId(e.getOperationId());
@@ -64,9 +82,32 @@ public class TechnicalSheetModuleMapper {
         d.setInstructions(e.getInstructions());
         d.setQualityCheckRequired(e.getQualityCheckRequired());
         d.setCanRunInParallel(e.getCanRunInParallel());
-        d.setOverrideDefaultDuration(e.getOverrideDefaultDuration());
-        d.setOverrideExecutionCost(e.getOverrideExecutionCost());
         d.setAssignedDepartment(e.getAssignedDepartment());
+        d.setCostPerMinute(costPerMinute);
+        d.setCostCurrency(costCurrency != null ? costCurrency : "MAD");
+        Double durationMinutes = e.getDurationEstimate();
+        if (durationMinutes == null) {
+            durationMinutes = defaultDurationMinutes;
+        }
+        if (durationMinutes != null && costPerMinute != null) {
+            double cost = durationMinutes * costPerMinute;
+            d.setExecutionCostPerUnit(Math.round(cost * 100.0) / 100.0);
+        }
         return d;
+    }
+
+    public static OperationSheetItemDto toDto(OperationSheetItem e, String operationName, String userName,
+                                                Double costPerMinute, String costCurrency) {
+        return toDto(e, operationName, userName, costPerMinute, costCurrency, null);
+    }
+
+    @Deprecated
+    public static MaterialSheetItemDto toDto(MaterialSheetItem e, String materialName, String materialReference, Integer availableStock) {
+        return toDto(e, materialName, materialReference, availableStock, null, "MAD");
+    }
+
+    @Deprecated
+    public static OperationSheetItemDto toDto(OperationSheetItem e, String operationName, String userName) {
+        return toDto(e, operationName, userName, null, "MAD");
     }
 }

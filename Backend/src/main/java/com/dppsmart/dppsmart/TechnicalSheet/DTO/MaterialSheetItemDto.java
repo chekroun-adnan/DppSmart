@@ -18,4 +18,7 @@ public class MaterialSheetItemDto {
     private String materialName;
     private String materialReference;
     private Integer availableStock;
+    private Double unitPrice;
+    private String costCurrency;
+    private Double materialCostPerUnit;
 }

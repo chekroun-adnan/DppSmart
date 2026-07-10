@@ -23,6 +23,7 @@ public class Operation {
     private String responsibleDepartment;
     private String requiredResources;
     private Double executionCost;
+    private Double costPerMinute;
     private String costCurrency;
     private Boolean active;
     private String organizationId;

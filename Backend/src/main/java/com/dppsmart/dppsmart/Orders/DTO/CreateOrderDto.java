@@ -13,6 +13,8 @@ import java.util.List;
 public class CreateOrderDto {
 
     private String organizationId; 
+    
+    private com.dppsmart.dppsmart.Orders.Entities.MaterialSource materialSource = com.dppsmart.dppsmart.Orders.Entities.MaterialSource.COMPANY_SUPPLIED;
 
     @NotEmpty(message = "At least one item is required")
     @Valid

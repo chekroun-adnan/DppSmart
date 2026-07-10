@@ -19,7 +19,8 @@ public class OperationSheetItem {
     private String instructions;
     private Boolean qualityCheckRequired;
     private Boolean canRunInParallel;
-    private Double overrideDefaultDuration;
-    private Double overrideExecutionCost;
     private String assignedDepartment;
+    private Double costPerMinute;
+    private String costCurrency;
+    private Double executionCostPerUnit;
 }

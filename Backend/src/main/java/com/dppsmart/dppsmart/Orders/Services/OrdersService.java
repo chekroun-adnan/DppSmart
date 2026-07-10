@@ -2,13 +2,17 @@ package com.dppsmart.dppsmart.Orders.Services;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.dppsmart.dppsmart.Audit.Services.AuditService;
+import com.dppsmart.dppsmart.Billing.DTO.CreateQuoteDto;
+import com.dppsmart.dppsmart.Billing.DTO.QuoteLineItemDto;
+import com.dppsmart.dppsmart.Billing.Services.CostCalculationService;
+import com.dppsmart.dppsmart.Billing.Services.InvoiceService;
+import com.dppsmart.dppsmart.Billing.Services.QuoteService;
 import com.dppsmart.dppsmart.Common.Exceptions.BadRequestException;
 import com.dppsmart.dppsmart.Common.Exceptions.ForbiddenException;
 import com.dppsmart.dppsmart.Common.Exceptions.NotFoundException;
 import com.dppsmart.dppsmart.Email.Services.EmailService;
 import com.dppsmart.dppsmart.MaterialStock.Entities.MaterialStock;
 import com.dppsmart.dppsmart.MaterialStock.Repositories.MaterialStockRepository;
-import com.dppsmart.dppsmart.MaterialStock.Services.MaterialStockService;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrder;
 import com.dppsmart.dppsmart.SupplyChain.Entities.MaterialOrderItem;
 import com.dppsmart.dppsmart.SupplyChain.Enums.MaterialOrderStatus;
@@ -25,7 +29,6 @@ import com.dppsmart.dppsmart.Product.Entities.Product;
 import com.dppsmart.dppsmart.Product.Repositories.ProductRepository;
 import com.dppsmart.dppsmart.ProductStock.Entities.ProductStock;
 import com.dppsmart.dppsmart.ProductStock.Repositories.ProductStockRepository;
-import com.dppsmart.dppsmart.ProductStock.Services.ProductStockService;
 import com.dppsmart.dppsmart.Production.Entities.Production;
 import com.dppsmart.dppsmart.Production.Entities.ProductionStatus;
 import com.dppsmart.dppsmart.Production.Repositories.ProductionRepository;
@@ -35,11 +38,15 @@ import com.dppsmart.dppsmart.SecurityAlert.Services.RuleDetectionService;
 import com.dppsmart.dppsmart.SecurityAlert.Services.SecurityAnalysisService;
 import com.dppsmart.dppsmart.StockMovement.Entities.MovementType;
 import com.dppsmart.dppsmart.StockMovement.Services.StockMovementService;
+import com.dppsmart.dppsmart.Expedition.Entities.Expedition;
+import com.dppsmart.dppsmart.Expedition.Entities.ExpeditionStatus;
+import com.dppsmart.dppsmart.Expedition.Repositories.ExpeditionRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheet;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomCalculationResultDto;
 import com.dppsmart.dppsmart.TechnicalSheet.DTO.BomMaterialLineDto;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.MaterialSheetItem;
 import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetStatus;
+import com.dppsmart.dppsmart.TechnicalSheet.Entities.TechnicalSheetType;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.MaterialSheetItemRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Repositories.TechnicalSheetRepository;
 import com.dppsmart.dppsmart.TechnicalSheet.Services.TechnicalSheetModuleService;
@@ -54,6 +61,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -76,14 +84,16 @@ public class OrdersService {
     private final AuditService auditService;
     private final NotificationServiceImpl notificationService;
     private final EmailService emailService;
-    private final MaterialStockService materialStockService;
-    private final ProductStockService productStockService;
     private final TechnicalSheetRepository technicalSheetRepository;
     private final MaterialSheetItemRepository materialSheetItemRepository;
     private final MaterialOrderRepository materialOrderRepository;
     private final SupplierRepository supplierRepository;
     private final SecurityAnalysisService securityAnalysisService;
     private final RuleDetectionService ruleDetectionService;
+    private final QuoteService quoteService;
+    private final InvoiceService invoiceService;
+    private final CostCalculationService costCalculationService;
+    private final ExpeditionRepository expeditionRepository;
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderResponseDto create(CreateOrderDto dto) {
@@ -117,7 +127,9 @@ public class OrdersService {
         List<OrderItem> items = new ArrayList<>();
         int totalQty = 0;
         boolean overallMaterialsSufficient = true;
-        ClientOrderStatus derivedStatus = ClientOrderStatus.PENDING_REVIEW;
+        double orderMaterialCostTotal = 0;
+        double orderProductionCostTotal = 0;
+        String orderCurrency = "MAD";
 
         for (OrderItemDto itemDto : dto.getItems()) {
             Product product = productRepository.findById(itemDto.getProductId())
@@ -173,11 +185,29 @@ public class OrdersService {
             item.setRequiredMaterials(requiredMaterials);
             item.setMaterialsAvailable(itemMaterialsAvailable);
 
+            try {
+                var costBreakdown = costCalculationService.calculateOrderCostBreakdown(
+                        itemDto.getProductId(), itemDto.getQuantity(), resolvedOrgId);
+                item.setMaterialCostPerUnit(costBreakdown.materialCostPerUnit());
+                item.setOperationCostPerUnit(costBreakdown.operationCostPerUnit());
+                item.setUnitManufacturingCost(costBreakdown.unitManufacturingCost());
+                item.setMaterialCostTotal(costBreakdown.materialCostTotal());
+                item.setOperationCostTotal(costBreakdown.operationCostTotal());
+                item.setCostCurrency(costBreakdown.currency());
+                item.setMaterialCostLines(costBreakdown.materialLines());
+                item.setOperationCostLines(costBreakdown.operationLines());
+                orderMaterialCostTotal += costBreakdown.materialCostTotal();
+                orderProductionCostTotal += costBreakdown.operationCostTotal();
+                if (costBreakdown.currency() != null) {
+                    orderCurrency = costBreakdown.currency();
+                }
+            } catch (Exception e) {
+                log.warn("Cost snapshot failed for product {}: {}", itemDto.getProductId(), e.getMessage());
+            }
+
             items.add(item);
             totalQty += itemDto.getQuantity();
         }
-
-        derivedStatus = ClientOrderStatus.PENDING_REVIEW;
 
         Orders order = new Orders();
         order.setId(NanoIdUtils.randomNanoId());
@@ -186,13 +216,35 @@ public class OrdersService {
         order.setOrganizationId(resolvedOrgId);
         order.setItems(items);
         order.setRequestedDeliveryDate(dto.getRequestedDeliveryDate());
-        order.setStatus(derivedStatus);
+        order.setStatus(ClientOrderStatus.PENDING_QUOTATION);
         order.setTotalQuantity(totalQty);
         order.setOverallMaterialsSufficient(overallMaterialsSufficient);
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         order.setCreatedBy(user.getEmail());
         order.setUpdatedBy(user.getEmail());
+
+        order.setMaterialSource(dto.getMaterialSource() != null ? dto.getMaterialSource() : com.dppsmart.dppsmart.Orders.Entities.MaterialSource.COMPANY_SUPPLIED);
+        order.setPaymentStatus(OrderPaymentStatus.UNPAID);
+        order.setAmountDue(0.0);
+        order.setAmountPaid(0.0);
+        order.setDepositPercent(50.0);
+        
+        if (order.getMaterialSource() == com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
+            order.setManufacturingMode(ManufacturingMode.CLIENT_SUPPLIED_MATERIALS);
+        } else {
+            order.setManufacturingMode(ManufacturingMode.FULL_MANUFACTURING);
+        }
+
+        order.setTotalMaterialCost(Math.round(orderMaterialCostTotal * 100.0) / 100.0);
+        order.setTotalProductionCost(Math.round(orderProductionCostTotal * 100.0) / 100.0);
+        order.setMaterialCost(order.getTotalMaterialCost());
+        order.setProductionCost(order.getTotalProductionCost());
+        order.setTotalCost(Math.round((orderMaterialCostTotal + orderProductionCostTotal) * 100.0) / 100.0);
+        order.setCurrency(orderCurrency);
+        order.setBillingStatus("PENDING_QUOTATION");
+        
+        applyClientSuppliedCostOverride(order);
 
         Orders saved = ordersRepository.save(order);
 
@@ -230,6 +282,162 @@ public class OrdersService {
     }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
+    public OrderResponseDto update(UpdateOrderDto dto) {
+        User user = getCurrentUser();
+        requireAdminOrSubAdmin(user);
+
+        if (dto.getId() == null || dto.getId().isBlank()) {
+            throw new BadRequestException("id is required");
+        }
+
+        Orders order = getOrderAndCheckAccess(dto.getId(), user);
+
+        if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
+            try {
+                order.setStatus(ClientOrderStatus.valueOf(dto.getStatus().trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid order status: " + dto.getStatus());
+            }
+        }
+
+        if (dto.getMaterialSource() != null) {
+            order.setMaterialSource(dto.getMaterialSource());
+            order.setManufacturingMode(dto.getMaterialSource() == MaterialSource.CLIENT_SUPPLIED
+                    ? ManufacturingMode.CLIENT_SUPPLIED_MATERIALS
+                    : ManufacturingMode.FULL_MANUFACTURING);
+            applyClientSuppliedCostOverride(order);
+        }
+
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setUpdatedBy(user.getEmail());
+
+        Orders saved = ordersRepository.save(order);
+        auditService.log("Order", saved.getId(), "UPDATE", saved.getOrganizationId(), null,
+                "Order updated: " + saved.getOrderReference());
+
+        return OrdersMapper.toDto(saved);
+    }
+
+    public void freezeCostSnapshots(Orders order) {
+        if (order.getItems() == null) return;
+        double orderMaterialCostTotal = 0;
+        double orderProductionCostTotal = 0;
+        String currency = null;
+        for (OrderItem item : order.getItems()) {
+            if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) continue;
+            try {
+                var costBreakdown = costCalculationService.calculateOrderCostBreakdown(
+                        item.getProductId(), item.getQuantity(), order.getOrganizationId());
+                item.setMaterialCostPerUnit(costBreakdown.materialCostPerUnit());
+                item.setOperationCostPerUnit(costBreakdown.operationCostPerUnit());
+                item.setUnitManufacturingCost(costBreakdown.unitManufacturingCost());
+                item.setMaterialCostTotal(costBreakdown.materialCostTotal());
+                item.setOperationCostTotal(costBreakdown.operationCostTotal());
+                item.setCostCurrency(costBreakdown.currency());
+                item.setMaterialCostLines(costBreakdown.materialLines());
+                item.setOperationCostLines(costBreakdown.operationLines());
+                orderMaterialCostTotal += costBreakdown.materialCostTotal();
+                orderProductionCostTotal += costBreakdown.operationCostTotal();
+                if (costBreakdown.currency() != null) {
+                    currency = costBreakdown.currency();
+                }
+            } catch (Exception e) {
+                log.warn("Cost freeze failed for product {}: {}", item.getProductId(), e.getMessage());
+            }
+        }
+        order.setTotalMaterialCost(Math.round(orderMaterialCostTotal * 100.0) / 100.0);
+        order.setTotalProductionCost(Math.round(orderProductionCostTotal * 100.0) / 100.0);
+        order.setMaterialCost(order.getTotalMaterialCost());
+        order.setProductionCost(order.getTotalProductionCost());
+        order.setTotalCost(Math.round((orderMaterialCostTotal + orderProductionCostTotal) * 100.0) / 100.0);
+        if (currency != null) {
+            order.setCurrency(currency);
+        }
+        applyClientSuppliedCostOverride(order);
+    }
+
+    public void applyClientSuppliedCostOverride(Orders order) {
+        if (order.getMaterialSource() == com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
+            order.setTotalMaterialCost(0.0);
+            order.setMaterialCost(0.0);
+            order.setTotalCost(order.getTotalProductionCost() != null ? order.getTotalProductionCost() : 0.0);
+            if (order.getItems() != null) {
+                for (OrderItem item : order.getItems()) {
+                    item.setMaterialCostPerUnit(0.0);
+                    item.setMaterialCostTotal(0.0);
+                    item.setUnitManufacturingCost(item.getOperationCostPerUnit() != null ? item.getOperationCostPerUnit() : 0.0);
+                    if (item.getMaterialCostLines() != null) {
+                        for (var line : item.getMaterialCostLines()) {
+                            line.setMaterialCostPerUnit(0.0);
+                            line.setMaterialCostTotal(0.0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void recalculateCostsForAllOpenOrders(String organizationId) {
+        List<Orders> openOrders = ordersRepository.findByOrganizationId(organizationId).stream()
+                .filter(o -> o.getStatus() != ClientOrderStatus.IN_PRODUCTION
+                        && o.getStatus() != ClientOrderStatus.PRODUCTION_COMPLETED
+                        && o.getStatus() != ClientOrderStatus.READY_FOR_DELIVERY
+                        && o.getStatus() != ClientOrderStatus.FINAL_PAYMENT_PENDING
+                        && o.getStatus() != ClientOrderStatus.DELIVERED
+                        && o.getStatus() != ClientOrderStatus.CLOSED
+                        && o.getStatus() != ClientOrderStatus.CANCELLED
+                        && o.getStatus() != ClientOrderStatus.REJECTED)
+                .toList();
+        for (Orders order : openOrders) {
+            boolean changed = false;
+            if (order.getItems() == null) continue;
+            double orderMaterialCostTotal = 0;
+            double orderProductionCostTotal = 0;
+            String currency = null;
+            for (OrderItem item : order.getItems()) {
+                if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) continue;
+                try {
+                    var costBreakdown = costCalculationService.calculateOrderCostBreakdown(
+                            item.getProductId(), item.getQuantity(), order.getOrganizationId());
+                    item.setMaterialCostPerUnit(costBreakdown.materialCostPerUnit());
+                    item.setOperationCostPerUnit(costBreakdown.operationCostPerUnit());
+                    item.setUnitManufacturingCost(costBreakdown.unitManufacturingCost());
+                    item.setMaterialCostTotal(costBreakdown.materialCostTotal());
+                    item.setOperationCostTotal(costBreakdown.operationCostTotal());
+                    item.setCostCurrency(costBreakdown.currency());
+                    item.setMaterialCostLines(costBreakdown.materialLines());
+                    item.setOperationCostLines(costBreakdown.operationLines());
+                    orderMaterialCostTotal += costBreakdown.materialCostTotal();
+                    orderProductionCostTotal += costBreakdown.operationCostTotal();
+                    if (costBreakdown.currency() != null) {
+                        currency = costBreakdown.currency();
+                    }
+                    changed = true;
+                } catch (Exception e) {
+                    log.warn("Cost recalc failed for product {}: {}", item.getProductId(), e.getMessage());
+                }
+            }
+            if (changed) {
+                order.setTotalMaterialCost(Math.round(orderMaterialCostTotal * 100.0) / 100.0);
+                order.setTotalProductionCost(Math.round(orderProductionCostTotal * 100.0) / 100.0);
+                order.setMaterialCost(order.getTotalMaterialCost());
+                order.setProductionCost(order.getTotalProductionCost());
+                order.setTotalCost(Math.round((orderMaterialCostTotal + orderProductionCostTotal) * 100.0) / 100.0);
+                if (currency != null) {
+                    order.setCurrency(currency);
+                }
+                order.setUpdatedAt(LocalDateTime.now());
+                ordersRepository.save(order);
+                try {
+                    invoiceService.recalculateDraftInvoicesForOrder(order.getId());
+                } catch (Exception e) {
+                    log.warn("Failed to recalculate draft invoices for order {}: {}", order.getId(), e.getMessage());
+                }
+            }
+        }
+    }
+
+    @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
     public OrderProcessResultDTO processOrder(String orderId, AdminConfirmOrderDto dto) {
         User user = getCurrentUser();
         requireAdminOrSubAdmin(user);
@@ -239,7 +447,9 @@ public class OrdersService {
                 ClientOrderStatus.PENDING_REVIEW,
                 ClientOrderStatus.READY_FOR_CONFIRMATION,
                 ClientOrderStatus.DATE_CHANGE_REQUESTED,
-                ClientOrderStatus.CONFIRMED
+                ClientOrderStatus.CONFIRMED,
+                ClientOrderStatus.AWAITING_DEPOSIT,
+                ClientOrderStatus.PENDING_QUOTATION
         );
         if (!allowedStatuses.contains(order.getStatus())) {
             throw new BadRequestException("Order cannot be processed in status: " + order.getStatus());
@@ -311,6 +521,8 @@ public class OrdersService {
                         saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : "");
             }
 
+            autoCreateQuoteAndInvoice(saved, user);
+
             return OrderProcessResultDTO.builder()
                     .orderId(saved.getId())
                     .orderReference(saved.getOrderReference())
@@ -324,25 +536,27 @@ public class OrdersService {
         Map<String, String> materialNames = new LinkedHashMap<>();
         Map<String, String> materialUnits = new LinkedHashMap<>();
 
-        for (ItemPlan plan : plans) {
-            if (plan.toProduce() <= 0) continue;
-            final int toProduce = plan.toProduce();
-            technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(
-                    plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
-                    .ifPresent(sheet -> {
-                        List<MaterialSheetItem> sheetItems =
-                                materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
-                        for (MaterialSheetItem si : sheetItems) {
-                            double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
-                            double needed = qpu * toProduce;
-                            if (needed <= 0) continue;
-                            materialNeeds.merge(si.getMaterialId(), needed, Double::sum);
-                            materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
-                                materialNames.put(ms.getId(), ms.getName());
-                                materialUnits.put(ms.getId(), ms.getUnit() != null ? ms.getUnit() : "");
-                            });
-                        }
-                    });
+        if (order.getMaterialSource() != com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
+            for (ItemPlan plan : plans) {
+                if (plan.toProduce() <= 0) continue;
+                final int toProduce = plan.toProduce();
+                technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(
+                        plan.item().getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
+                        .ifPresent(sheet -> {
+                            List<MaterialSheetItem> sheetItems =
+                                    materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                            for (MaterialSheetItem si : sheetItems) {
+                                double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                double needed = qpu * toProduce;
+                                if (needed <= 0) continue;
+                                materialNeeds.merge(si.getMaterialId(), needed, Double::sum);
+                                materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
+                                    materialNames.put(ms.getId(), ms.getName());
+                                    materialUnits.put(ms.getId(), ms.getUnit() != null ? ms.getUnit() : "");
+                                });
+                            }
+                        });
+            }
         }
 
         List<MissingMaterialLine> missingLines = new ArrayList<>();
@@ -401,33 +615,35 @@ public class OrdersService {
                 if (plan.toProduce() > 0) {
                     final int toProduceFinal = plan.toProduce();
 
-                    technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(
-                            plan.item().getProductId(), TechnicalSheetStatus.ACTIVE)
-                            .ifPresent(sheet -> {
-                                List<MaterialSheetItem> sheetItems =
-                                        materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
-                                for (MaterialSheetItem si : sheetItems) {
-                                    double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
-                                    double needed = qpu * toProduceFinal;
-                                    if (needed <= 0) continue;
-                                    materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
-                                        int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
-                                        int toConsume = (int) Math.ceil(needed);
-                                        if (toConsume <= 0 || toConsume > before) {
-                                            log.warn("CONSUME SKIPPED — {} need={}, available={}", ms.getName(), toConsume, before);
-                                            return;
-                                        }
-                                        ms.setQuantity(before - toConsume);
-                                        ms.setLastUpdatedBy(user.getEmail());
-                                        ms.setUpdatedAt(LocalDateTime.now());
-                                        materialStockRepository.save(ms);
-                                        stockMovementService.recordMaterialMovement(
-                                                MovementType.MATERIAL_DECREASED, ms.getId(), ms.getName(),
-                                                ms.getUnit(), toConsume, before, ms.getQuantity(),
-                                                order.getId(), null, order.getOrganizationId(), user.getEmail());
-                                    });
-                                }
-                            });
+                    if (order.getMaterialSource() != com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED) {
+                        technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(
+                                plan.item().getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
+                                .ifPresent(sheet -> {
+                                    List<MaterialSheetItem> sheetItems =
+                                            materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
+                                    for (MaterialSheetItem si : sheetItems) {
+                                        double qpu = si.getQuantityPerUnit() != null ? si.getQuantityPerUnit() : 0.0;
+                                        double needed = qpu * toProduceFinal;
+                                        if (needed <= 0) continue;
+                                        materialStockRepository.findById(si.getMaterialId()).ifPresent(ms -> {
+                                            int before = ms.getQuantity() != null ? ms.getQuantity() : 0;
+                                            int toConsume = (int) Math.ceil(needed);
+                                            if (toConsume <= 0 || toConsume > before) {
+                                                log.warn("CONSUME SKIPPED — {} need={}, available={}", ms.getName(), toConsume, before);
+                                                return;
+                                            }
+                                            ms.setQuantity(before - toConsume);
+                                            ms.setLastUpdatedBy(user.getEmail());
+                                            ms.setUpdatedAt(LocalDateTime.now());
+                                            materialStockRepository.save(ms);
+                                            stockMovementService.recordMaterialMovement(
+                                                    MovementType.MATERIAL_DECREASED, ms.getId(), ms.getName(),
+                                                    ms.getUnit(), toConsume, before, ms.getQuantity(),
+                                                    order.getId(), null, order.getOrganizationId(), user.getEmail());
+                                        });
+                                    }
+                                });
+                    }
 
                     Production production = Production.builder()
                             .id(NanoIdUtils.randomNanoId())
@@ -439,7 +655,7 @@ public class OrdersService {
                             .steps(Collections.emptyList())
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
-                            .materialsConsumed(true)
+                            .materialsConsumed(order.getMaterialSource() != com.dppsmart.dppsmart.Orders.Entities.MaterialSource.CLIENT_SUPPLIED)
                             .build();
                     Production savedProduction = productionRepository.save(production);
                     productionIds.add(savedProduction.getId());
@@ -455,6 +671,7 @@ public class OrdersService {
                 }
             }
 
+        freezeCostSnapshots(order);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
         String lastProductionId = productionIds.isEmpty() ? null : productionIds.get(productionIds.size() - 1);
         order.setRelatedProductionId(lastProductionId);
@@ -476,6 +693,8 @@ public class OrdersService {
                         saved.getConfirmedDeliveryDate() != null ? saved.getConfirmedDeliveryDate().toString() : "—",
                         client.getName() != null ? client.getName() : client.getEmail());
             }
+
+            autoCreateQuoteAndInvoice(saved, user);
 
             return OrderProcessResultDTO.builder()
                     .orderId(saved.getId())
@@ -545,6 +764,8 @@ public class OrdersService {
                         + "Supply order " + savedSupplyOrder.getOrderNumber() + " was created — awaiting approval.",
                 "/supply-chain");
 
+        autoCreateQuoteAndInvoice(saved, user);
+
         return OrderProcessResultDTO.builder()
                 .orderId(saved.getId())
                 .orderReference(saved.getOrderReference())
@@ -593,7 +814,7 @@ public class OrdersService {
                 }
             } else if (item.getStatus() == OrderItemStatus.OUT_OF_STOCK
                     || item.getStatus() == OrderItemStatus.TO_PRODUCE) {
-                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {
@@ -667,6 +888,7 @@ public class OrdersService {
             }
         }
 
+        freezeCostSnapshots(order);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
         order.setConfirmedDeliveryDate(dto.getConfirmedDeliveryDate());
         order.setRelatedProductionId(productionId);
@@ -674,6 +896,10 @@ public class OrdersService {
         order.setUpdatedBy(user.getEmail());
 
         Orders saved = ordersRepository.save(order);
+
+        autoCreateQuoteAndInvoice(saved, user);
+        saved = ordersRepository.findById(saved.getId()).orElse(saved);
+
         auditService.log("Order", saved.getId(), "CONFIRM", saved.getOrganizationId(), null,
                 "Order confirmed: " + saved.getOrderReference());
 
@@ -803,7 +1029,7 @@ public class OrdersService {
             if (toProduce > 0) {
                 anyNeedsProduction = true;
                 final int finalToProduce = toProduce;
-                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {
@@ -913,13 +1139,25 @@ public class OrdersService {
         Orders order = getOrderAndCheckAccess(orderId, user);
 
         Set<ClientOrderStatus> allowed = Set.of(
+                ClientOrderStatus.CONFIRMED,
+                ClientOrderStatus.PLANNED,
+                ClientOrderStatus.READY_FOR_PRODUCTION,
                 ClientOrderStatus.PENDING_REVIEW,
                 ClientOrderStatus.READY_FOR_CONFIRMATION,
                 ClientOrderStatus.DATE_CHANGE_REQUESTED,
-                ClientOrderStatus.CONFIRMED
+                ClientOrderStatus.PAYMENT_RECEIVED,
+                ClientOrderStatus.AWAITING_DEPOSIT,
+                ClientOrderStatus.PENDING_QUOTATION
         );
         if (!allowed.contains(order.getStatus())) {
             throw new BadRequestException("Order cannot start production in status: " + order.getStatus());
+        }
+        boolean prePayment = order.getStatus() == ClientOrderStatus.AWAITING_DEPOSIT
+                || order.getStatus() == ClientOrderStatus.PENDING_QUOTATION
+                || order.getStatus() == ClientOrderStatus.CONFIRMED;
+        if (!prePayment && order.getPaymentStatus() != OrderPaymentStatus.PARTIALLY_PAID
+                && order.getPaymentStatus() != OrderPaymentStatus.PAID) {
+            throw new BadRequestException("Deposit must be approved before production can start. Payment status: " + order.getPaymentStatus());
         }
 
         for (OrderItem item : order.getItems()) {
@@ -928,9 +1166,9 @@ public class OrdersService {
                     .map(ps -> ps.getQuantity() != null ? ps.getQuantity() : 0)
                     .orElse(0);
             int toProduce = item.getQuantity() - Math.min(item.getQuantity(), stock);
-            if (toProduce > 0) {
+            if (toProduce > 0 && order.getManufacturingMode() != com.dppsmart.dppsmart.Orders.Entities.ManufacturingMode.CLIENT_SUPPLIED_MATERIALS) {
                 Optional<TechnicalSheet> sheetOpt = technicalSheetRepository
-                        .findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE);
+                        .findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE);
                 if (sheetOpt.isEmpty()) {
                     throw new BadRequestException("Order cannot start production: missing BOM (technical sheet) for " + item.getProductName());
                 }
@@ -982,7 +1220,7 @@ public class OrdersService {
 
             if (toProduce > 0) {
                 final int finalToProduce = toProduce;
-                technicalSheetRepository.findFirstByProductIdAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetStatus.ACTIVE)
+                technicalSheetRepository.findFirstByProductIdAndTypeAndStatusOrderByVersionDesc(item.getProductId(), TechnicalSheetType.MATERIAL_SHEET, TechnicalSheetStatus.ACTIVE)
                         .ifPresent(sheet -> {
                             List<MaterialSheetItem> sheetItems = materialSheetItemRepository.findByTechnicalSheetId(sheet.getId());
                             for (MaterialSheetItem si : sheetItems) {
@@ -1028,6 +1266,7 @@ public class OrdersService {
             }
         }
 
+        freezeCostSnapshots(order);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
         order.setRelatedProductionId(lastProductionId);
         order.setUpdatedAt(LocalDateTime.now());
@@ -1104,6 +1343,7 @@ public class OrdersService {
             }
         }
 
+        freezeCostSnapshots(order);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
         order.setRelatedProductionId(lastProductionId);
         order.setUpdatedAt(LocalDateTime.now());
@@ -1129,17 +1369,31 @@ public class OrdersService {
             throw new BadRequestException("Order must be IN_PRODUCTION or PRODUCTION_COMPLETED to mark as READY");
         }
 
-        order.setStatus(ClientOrderStatus.READY);
+        Optional<Expedition> expeditionOpt = expeditionRepository.findByOrderId(orderId);
+        if (expeditionOpt.isPresent()) {
+            Expedition exp = expeditionOpt.get();
+            if (exp.getStatus() != ExpeditionStatus.READY_TO_SHIP
+                    && exp.getStatus() != ExpeditionStatus.SHIPPED
+                    && exp.getStatus() != ExpeditionStatus.DELIVERED) {
+                throw new BadRequestException(
+                        "Order cannot be marked ready for delivery until expedition is READY_TO_SHIP. "
+                        + "Current expedition status: " + exp.getStatus()
+                        + ". Packed: " + exp.getPackedQuantity() + "/" + exp.getTotalQuantity()
+                );
+            }
+        }
+
+        order.setStatus(ClientOrderStatus.READY_FOR_DELIVERY);
         order.setDeliveryToken(NanoIdUtils.randomNanoId());
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(user.getEmail());
         Orders saved = ordersRepository.save(order);
 
-        notificationService.createNotification(saved.getClientId(), "Order Ready",
-                "Your order " + saved.getOrderReference() + " is ready for delivery!",
+        notificationService.createNotification(saved.getClientId(), "Ready for Delivery — Final Payment Required",
+                "Your order " + saved.getOrderReference() + " is ready. Please pay the remaining balance for delivery.",
                 NotificationType.ORDER, "/client-orders/" + saved.getId());
-        auditService.log("Order", saved.getId(), "READY", saved.getOrganizationId(), null,
-                "Order marked as ready: " + saved.getOrderReference());
+        auditService.log("Order", saved.getId(), "READY_FOR_DELIVERY", saved.getOrganizationId(), null,
+                "Order marked as ready for delivery: " + saved.getOrderReference());
 
         User clientReady = userRepository.findById(saved.getClientId()).orElse(null);
         if (clientReady != null) {
@@ -1151,7 +1405,7 @@ public class OrdersService {
             );
         }
 
-        return OrdersMapper.toDto(saved);
+        return toDtoWithExpedition(saved);
     }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
@@ -1160,8 +1414,20 @@ public class OrdersService {
         requireAdminOrSubAdmin(user);
         Orders order = getOrderAndCheckAccess(orderId, user);
 
-        if (order.getStatus() != ClientOrderStatus.CONFIRMED) {
-            throw new BadRequestException("Order must be CONFIRMED to start production");
+        if (order.getStatus() != ClientOrderStatus.CONFIRMED
+                && order.getStatus() != ClientOrderStatus.PLANNED
+                && order.getStatus() != ClientOrderStatus.READY_FOR_PRODUCTION
+                && order.getStatus() != ClientOrderStatus.PAYMENT_RECEIVED
+                && order.getStatus() != ClientOrderStatus.AWAITING_DEPOSIT
+                && order.getStatus() != ClientOrderStatus.PENDING_QUOTATION) {
+            throw new BadRequestException("Order must be CONFIRMED, PLANNED, READY_FOR_PRODUCTION, AWAITING_DEPOSIT, or PENDING_QUOTATION to start production");
+        }
+
+        boolean prePayment = order.getStatus() == ClientOrderStatus.AWAITING_DEPOSIT
+                || order.getStatus() == ClientOrderStatus.PENDING_QUOTATION;
+        if (!prePayment && order.getPaymentStatus() != OrderPaymentStatus.PARTIALLY_PAID
+                && order.getPaymentStatus() != OrderPaymentStatus.PAID) {
+            throw new BadRequestException("Deposit must be approved before production can start. Payment status: " + order.getPaymentStatus());
         }
 
         List<OrderItem> readyItems = order.getItems().stream()
@@ -1214,6 +1480,7 @@ public class OrdersService {
                     "/production/" + savedProduction.getId());
         }
 
+        freezeCostSnapshots(order);
         order.setStatus(ClientOrderStatus.IN_PRODUCTION);
         order.setRelatedProductionId(productionId);
         order.setUpdatedAt(LocalDateTime.now());
@@ -1267,7 +1534,7 @@ public class OrdersService {
             );
         }
 
-        return OrdersMapper.toDto(saved);
+        return toDtoWithExpedition(saved);
     }
 
     @CacheEvict(value = {"orders", "allOrders"}, allEntries = true)
@@ -1410,8 +1677,8 @@ public class OrdersService {
         return OrdersMapper.toDto(saved);
     }
 
-    @Cacheable(value = "allOrders")
-    public List<OrderResponseDto> getAll() {
+    @Cacheable(value = "allOrders", key = "#includeAll")
+    public List<OrderResponseDto> getAll(boolean includeAll) {
         User user = getCurrentUser();
         OrderPriorityService priorityService = new OrderPriorityService();
         Set<ClientOrderStatus> excluded = Set.of(
@@ -1422,13 +1689,13 @@ public class OrdersService {
         );
         if (user.getRole() == Roles.CLIENT) {
             return ordersRepository.findByClientId(user.getId()).stream()
-                    .filter(o -> !excluded.contains(o.getStatus()))
+                    .filter(o -> includeAll || !excluded.contains(o.getStatus()))
                     .map(OrdersMapper::toDto)
                     .sorted(Comparator.comparingLong(OrderResponseDto::getPriorityScore))
                     .toList();
         }
         return ordersRepository.findAll().stream()
-                .filter(o -> !excluded.contains(o.getStatus()))
+                .filter(o -> includeAll || !excluded.contains(o.getStatus()))
                 .filter(o -> permissionService.isAdmin(user)
                         || permissionService.canAccessOrganization(user, o.getOrganizationId()))
                 .map(OrdersMapper::toDto)
@@ -1497,6 +1764,64 @@ public class OrdersService {
             throw new ForbiddenException("Only admins can perform this action");
     }
 
+    private void autoCreateQuoteAndInvoice(Orders saved, User user) {
+        if (saved.getInvoiceId() == null) {
+            try {
+                var quoteDto = quoteService.createQuoteFromOrder(saved.getId(), user);
+
+                CreateQuoteDto costUpdate = new CreateQuoteDto();
+                costUpdate.setOrderId(saved.getId());
+                costUpdate.setClientId(saved.getClientId());
+                List<QuoteLineItemDto> costItems = new ArrayList<>();
+                String currency = saved.getCurrency() != null ? saved.getCurrency() : "MAD";
+                for (var item : saved.getItems()) {
+                    double unitPrice = 0;
+                    if (item.getUnitManufacturingCost() != null && item.getUnitManufacturingCost() > 0) {
+                        unitPrice = item.getUnitManufacturingCost();
+                    } else {
+                        var cost = costCalculationService.calculateEstimatedUnitPrice(
+                                item.getProductId(), saved.getOrganizationId());
+                        unitPrice = cost.estimatedUnitPrice() > 0 ? cost.estimatedUnitPrice() : 0.0;
+                        if (unitPrice == 0.0) {
+                            var prodOpt = productRepository.findById(item.getProductId());
+                            if (prodOpt.isPresent() && prodOpt.get().getDefaultUnitPrice() != null) {
+                                unitPrice = prodOpt.get().getDefaultUnitPrice();
+                            }
+                        }
+                        if (cost.currency() != null) currency = cost.currency();
+                    }
+                    if (item.getCostCurrency() != null) currency = item.getCostCurrency();
+                    QuoteLineItemDto li = new QuoteLineItemDto();
+                    li.setProductId(item.getProductId());
+                    li.setProductName(item.getProductName());
+                    li.setQuantity(item.getQuantity());
+                    li.setUnitPrice(unitPrice);
+                    costItems.add(li);
+                }
+                costUpdate.setItems(costItems);
+                var updatedQuote = quoteService.updateQuote(quoteDto.getId(), costUpdate);
+
+                saved.setQuoteId(updatedQuote.getId());
+                saved.setBillingStatus("QUOTED");
+                saved.setSubtotal(updatedQuote.getSubtotal());
+                saved.setTaxAmount(updatedQuote.getTaxAmount());
+                saved.setDiscountAmount(updatedQuote.getDiscountAmount());
+                saved.setTotalPrice(updatedQuote.getTotal());
+                saved.setCurrency(currency);
+                saved.setUpdatedAt(LocalDateTime.now());
+                saved.setUpdatedBy(user.getEmail());
+                saved = ordersRepository.save(saved);
+
+                var invoiceDto = invoiceService.createInvoiceFromQuote(updatedQuote.getId(), user);
+                saved.setInvoiceId(invoiceDto.getId());
+                saved.setBillingStatus("INVOICED");
+                ordersRepository.save(saved);
+            } catch (Exception e) {
+                log.warn("Auto-pricing/invoicing failed for order {}: {}", saved.getOrderReference(), e.getMessage());
+            }
+        }
+    }
+
     private void notifyAdmins(String organizationId, String title, String message, String link) {
         userRepository.findByRole(Roles.ADMIN).forEach(u ->
                 notificationService.createNotification(u.getId(), title, message, NotificationType.ORDER, link));
@@ -1518,5 +1843,16 @@ public class OrdersService {
         if (auth == null) throw new ForbiddenException("Unauthenticated");
         return userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new NotFoundException("User not found"));
+    }
+
+    private OrderResponseDto toDtoWithExpedition(Orders order) {
+        OrderResponseDto dto = OrdersMapper.toDto(order);
+        expeditionRepository.findByOrderId(order.getId()).ifPresent(exp -> {
+            dto.setExpeditionId(exp.getId());
+            dto.setExpeditionStatus(exp.getStatus().name());
+            dto.setExpeditionPackedQuantity(exp.getPackedQuantity());
+            dto.setExpeditionRequiredBoxes(exp.getRequiredBoxes());
+        });
+        return dto;
     }
 }
